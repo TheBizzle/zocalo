@@ -14,12 +14,8 @@ let getSessionName = function() {
   return _sessionName;
 };
 
-let getStudentToken = function() {
-  return window.localStorage.getItem("student-token");
-}
-
 let getToken = function() {
-  return window.localStorage.getItem("mod-token") || getStudentToken();
+  return window.localStorage.getItem("student-token");
 }
 
 window.onEnter = (f) => (e) => { if (e.keyCode === 13) { return f(e); } };
@@ -225,7 +221,7 @@ window.upload = function(e) {
         let formData = new FormData(document.getElementById("upload-form"));
         formData.set("image"     , imageEvent.result);
         formData.set("session-id", getSessionName());
-        formData.set("token",      getStudentToken() || "");
+        formData.set("token",      getToken() || "");
 
         const options = { method: "POST", body: formData };
 

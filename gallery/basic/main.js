@@ -12,12 +12,8 @@ let getSessionName = function() {
   return document.getElementById('session-name').innerText;
 };
 
-let getStudentToken = function() {
-  return window.localStorage.getItem("student-token");
-}
-
 let getToken = function() {
-  return window.localStorage.getItem("mod-token") || getStudentToken();
+  return window.localStorage.getItem("student-token");
 }
 
 window.onEnter = function(f) { return function(e) { if (e.keyCode === 13) { return f(e); } }; };
@@ -162,7 +158,7 @@ window.upload = function(e) {
         let formData = new FormData(document.getElementById("upload-form"));
         formData.set("image"     , imageEvent.result);
         formData.set("session-id", getSessionName());
-        formData.set("token",      getStudentToken() || "");
+        formData.set("token",      getToken() || "");
         return fetch(window.thisDomain + "/file-uploads/", { method: "POST", body: formData });
 
       } else {

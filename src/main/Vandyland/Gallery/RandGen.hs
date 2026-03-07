@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Vandyland.Gallery.NameGen(generateName) where
+module Vandyland.Gallery.RandGen(generate6Digit, generateLongName, generateName) where
 
-import Data.ByteString(ByteString)
 import Data.ByteString.Char8(split)
 import Data.FileEmbed(embedFile)
 import Data.List((!!), filter)
@@ -11,8 +10,14 @@ import System.Random(randomRIO)
 
 import qualified Data.ByteString as BS
 
+generate6Digit :: IO Int32
+generate6Digit = randomRIO (0, 999999)
+
 generateName :: IO Text
 generateName = (\x y -> x <> " " <> y) <$> (randomOneOf adjectives) <*> (randomOneOf animals)
+
+generateLongName :: IO Text
+generateLongName = (\x y z a -> x <> " " <> y <> " " <> z <> " " <> a) <$> (randomOneOf adjectives) <*> (randomOneOf adjectives) <*> (randomOneOf adjectives) <*> (randomOneOf animals)
 
 randomOneOf :: [a] -> IO a
 randomOneOf xs =

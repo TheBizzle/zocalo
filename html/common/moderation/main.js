@@ -10,12 +10,8 @@ let getSessionName = function() {
   return decodeURIComponent(window.location.hash.substring(1));
 };
 
-let getStudentToken = function() {
-  return window.localStorage.getItem("student-token");
-}
-
 let getToken = function() {
-  return window.localStorage.getItem("mod-token") || getStudentToken();
+  return window.localStorage.getItem("vlgallery.auth-token");
 }
 
 window.approve = function(uploadName) {
@@ -45,7 +41,7 @@ window.toggleCollapsible = function(elem) {
 let syncUnapproved = function() {
 
   let gallery = document.getElementById('unprocessed-gallery');
-  let token   = getToken() || "0cd60303-e574-4757-a0d2-34ee83bbfa1f";
+  let token   = getToken() || "";
 
   let callback = function(entries) {
 

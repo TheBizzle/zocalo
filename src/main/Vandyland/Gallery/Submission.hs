@@ -30,7 +30,7 @@ data Submission
       uploadName'  :: Text
     , base64Image' :: Text
     , token'       :: Maybe UUID
-    , modToken'    :: Maybe UUID
+    , modName'     :: Maybe Text
     , metadata'    :: Maybe Text
     } deriving Show
 

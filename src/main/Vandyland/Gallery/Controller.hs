@@ -11,20 +11,43 @@ import qualified Data.Text.Encoding as TextEncoding
 import qualified Data.UUID          as UUID
 import qualified Data.UUID.V4       as UUIDGen
 
-import Snap.Core(getParam, Method(DELETE, GET, POST), Snap, writeText)
+import Snap.Core(getHeader, getParam, getRequest, Method(DELETE, GET, POST), redirect, Snap, writeText)
+import Snap.Util.FileServe(serveFile)
 import Snap.Util.GZip(withCompression)
 
 import System.Directory(getDirectoryContents)
 
-import Vandyland.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asUUID, decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle5, notEmpty, notifyBadParams, succeed, withFileUploads)
+import Vandyland.Common.SnapHelpers(
+    allowingCORS, Arg(Arg), asBool, asUUID, decodeText, encodeText, failWith, free, getParamV, getParamVM
+  , handle1, handle2, handle3, handle5, notEmpty, notifyBadParams, succeed, withFileUploads
+  )
 
-import Vandyland.Gallery.Database(approveSubmission, forbidSubmission, PrivilegedActionResult(Fulfilled, NotAuthorized, NotFound), readCommentsFor, readGalleryListings, readSessionExists, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, registerNewSession, suppressSubmission, readTemplateName, uniqueSessionName, writeComment, writeSubmission)
+import Vandyland.Gallery.Auth(genLoginToken, setUpNewUser, sendOTP)
+
+import Vandyland.Gallery.Database(
+    approveSubmission, AuthActionResult(DoesNotExist, Duplicate, Expired, Incorrect, Successful, Unconfirmed)
+  , checkUserExists, confirmNewUser, forbidSubmission, isValid, logout
+  , PrivilegedActionResult(Fulfilled, NotAuthorized, NotFound), readCommentsFor, readGalleryListings
+  , readSessionExists, readStarterConfigFor, readSubmissionData, readSubmissionsLite
+  , readSubmissionListings, readSubmissionListingsForModeration, registerNewSession
+  , readTemplateName, registerNewUser, storeOTP, suppressSubmission, validateOTP, writeComment
+  , writeSubmission
+  )
+
 import Vandyland.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
 
 routes :: [(ByteString, Snap ())]
 routes = [ ("echo/:param"                                   ,      ac POST   handleEchoData)
          , ("api/public/version"                            ,      ac GET    handleAPIVersion)
-         , ("new-session/:template"                         ,      ac POST   handleNewSession)
+         , ("auth/register"                                 ,      ac GET    handleShowRegister)
+         , ("auth/register"                                 ,      ac POST   handleRegister)
+         , ("auth/confirm/:token"                           ,      ac GET    handleAuthConfirm)
+         , ("auth/login"                                    ,      ac GET    handleShowLogin)
+         , ("auth/request-otp"                              ,      ac POST   handleRequestOTP)
+         , ("auth/input-otp"                                ,      ac GET    handleShowInputOTP)
+         , ("auth/input-otp"                                ,      ac POST   handleInputOTP)
+         , ("auth/is-logged-in/:login-token"                ,      ac GET    handleIsLoggedIn)
+         , ("auth/logout"                                   ,      ac POST   handleLogout)
          , ("new-session/:template/:session-id"             ,      ac POST   handleNewSessionWithParams)
          , ("uploads"                                       ,      ac POST   handleUpload)
          , ("file-uploads"                                  ,      ac POST   handleUploadFile)
@@ -56,12 +79,6 @@ handleEchoData = handle1 (Arg "param" notEmpty) $ \param -> withFileUploads $ \f
   prm <- getParam $ TextEncoding.encodeUtf8 param
   maybe (notifyBadParams [param]) writeText ((map TextEncoding.decodeUtf8 prm) <|> (Map.lookup param fileMap))
 
-handleNewSession :: Snap ()
-handleNewSession = handle1 (Arg "template" notEmpty) $ \template ->
-  do
-    name <- liftIO $ uniqueSessionName
-    _handleNewSessionWithParams (template, name, False, Nothing, "", Nothing)
-
 handleNewSessionWithParams :: Snap ()
 handleNewSessionWithParams = withFileUploads $ \fileMap ->
   do
@@ -71,7 +88,7 @@ handleNewSessionWithParams = withFileUploads $ \fileMap ->
     sid      <- getParamVM fileMap $ Arg "session-id"       notEmpty
     desc     <- getParamVM fileMap $ Arg "description"      free
     let config   = map genConfigMaybe $ lookupParam "config" fileMap
-    let tupleV = (,,,,,) <$> template <*> sid <*> gps <*> config <*> desc <*> (map Just token)
+    let tupleV = (,,,,,) <$> template <*> sid <*> gps <*> config <*> desc <*> token
     bimapM_ notifyBadParams _handleNewSessionWithParams tupleV
   where
     lookupParam param fileMap = maybe (_Failure # [param]) (_Success #) $ Map.lookup param fileMap
@@ -181,7 +198,7 @@ handleSubmissionsLiteWithToken =
     validates (Just a) (Just b) = a == b
     validates _        _        = False
     checkOwnership token (Submission name b64 stoken mtoken meta) =
-      SubmissionSendable name b64 (stoken `validates` token) (mtoken `validates` token) meta
+      SubmissionSendable name b64 (stoken `validates` token) (mtoken `validates` (map (UUID.toString &> asText) token)) meta
 
 handleUpload :: Snap ()
 handleUpload =
@@ -243,10 +260,100 @@ handleGetGalleryTypes =
     let truePaths = List.filter (not . (flip elem) [".", ".."]) paths
     (encodeText &> (succeed "application/json")) truePaths
 
+handleRegister :: Snap ()
+handleRegister =
+  handle1 (Arg "email" notEmpty) $ \email ->
+    do
+      isExistent <- liftIO $ checkUserExists email
+      if not isExistent then do
+       returnAddress     <- genRegistrationURL
+       registrationToken <- liftIO $ setUpNewUser email returnAddress
+       result            <- liftIO $ registerNewUser email registrationToken
+       whenNoAuthError result $ do
+         succeed "text/plain" "Registration successful.  Check your e-mail for a confirmation link."
+      else
+        handleDuplicateEmail
+
+handleAuthConfirm :: Snap ()
+handleAuthConfirm =
+  handle1 (Arg "token" asUUID) $ \token ->
+    do
+      result <- liftIO $ confirmNewUser token
+      whenNoAuthError result $ succeed "text/plain" ""
+
+handleRequestOTP :: Snap ()
+handleRequestOTP =
+  handle1 (Arg "email" notEmpty) $ \email ->
+    do
+      otp    <- liftIO $ sendOTP  email
+      result <- liftIO $ storeOTP email otp
+      whenNoAuthError result $ redirect $ "/auth/input-otp"
+
+handleInputOTP :: Snap ()
+handleInputOTP =
+  handle2 (Arg "email" notEmpty, Arg "passcode" notEmpty) $ \(email, passcode) ->
+    do
+      token  <- liftIO $ genLoginToken
+      result <- liftIO $ validateOTP email passcode token
+      whenNoAuthError result $ succeed "text/plain" $ UUID.toText token
+
+handleIsLoggedIn :: Snap ()
+handleIsLoggedIn =
+  handle1 (Arg "login-token" asUUID) $ \token ->
+    do
+      result <- liftIO $ isValid token
+      if result == DoesNotExist || result == Expired then
+        succeed "text/plain" "0"
+      else
+        whenNoAuthError result $ succeed "text/plain" "1"
+
+handleLogout :: Snap ()
+handleLogout =
+  handle1 (Arg "login-token" asUUID) $ \token ->
+    do
+      result <- liftIO $ logout token
+      whenNoAuthError result $ succeed "text/plain" ""
+
+genRegistrationURL :: Snap Text
+genRegistrationURL =
+  do
+    hostM      <- getHeaderText "Host"
+    originM    <- getHeaderText "Origin"
+    let host    = fromMaybe "" hostM
+    let origin  = fromMaybe "" originM
+    let proto   = if origin == ("http://" <> host) then "http" else "https"
+    return $ proto <> "://" <> host <> "/auth/confirm/"
+
+getHeaderText :: CI ByteString -> Snap (Maybe Text)
+getHeaderText headerName =
+  do
+    request <- getRequest
+    return $ map TextEncoding.decodeUtf8 $ getHeader headerName request
+
+whenNoAuthError :: AuthActionResult -> Snap () -> Snap ()
+whenNoAuthError Successful   x = x
+whenNoAuthError Duplicate    _ = handleDuplicateEmail
+whenNoAuthError Incorrect    _ = failWith 403 $ writeText $ "Incorrect passcode"
+whenNoAuthError Unconfirmed  _ = failWith 403 $ writeText $ "This user account has not been confirmed.  Please click the link in the confirmation e-mail and then try again."
+whenNoAuthError Expired      _ = failWith 403 $ writeText $ "Too much time passed before we received your login attempt.  Please start over."
+whenNoAuthError DoesNotExist _ = failWith 404 $ writeText $ "That user does not exist"
+
+handleDuplicateEmail :: Snap ()
+handleDuplicateEmail = failWith 409 $ writeText $ "An account for that e-mail address already exists."
+
+handleShowRegister :: Snap ()
+handleShowRegister = serveFile "./html/common/register.html"
+
+handleShowLogin :: Snap ()
+handleShowLogin = serveFile "./html/common/login.html"
+
+handleShowInputOTP :: Snap ()
+handleShowInputOTP = serveFile "./html/common/input-otp.html"
+
 handleAPIVersion :: Snap ()
 handleAPIVersion = writeText "1.2.0"
 
-_handleNewSessionWithParams :: (Text, Text, Bool, Maybe Text, Text, Maybe UUID.UUID) -> Snap ()
+_handleNewSessionWithParams :: (Text, Text, Bool, Maybe Text, Text, UUID.UUID) -> Snap ()
 _handleNewSessionWithParams (template, name, getsPrescreened, config, desc, token) =
   do
     wasSuccessful <- liftIO $ registerNewSession template name getsPrescreened config desc token

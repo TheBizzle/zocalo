@@ -112,6 +112,7 @@ failWith x snap =
   where
     statusName 400 = "Bad Request"
     statusName 401 = "Unauthorized"
+    statusName 403 = "Forbidden"
     statusName 404 = "Not Found"
     statusName 409 = "Conflict"
     statusName 422 = "Unprocessable Entity"

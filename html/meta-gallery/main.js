@@ -1,3 +1,7 @@
+const getToken = () => {
+  return window.localStorage.getItem("vlgallery.auth-token");
+}
+
 // (Event) => Unit
 window.submitToView = function(e) {
   e.preventDefault();
@@ -39,7 +43,7 @@ const uploadAnother = ({ description, isPrescreened, sessionName, template }) =>
       ).then(
         (starterConfig) => {
 
-          const token      = window.localStorage.getItem("mod-token");
+          const token      = getToken();
           const configFile = new Blob([starterConfig], { type: "text/plain" });
 
           submitNewSession( newName, template, isPrescreened, token
@@ -83,7 +87,7 @@ window.submitToInit = function(e) {
   const sessionID       = formData.get("name");
   const template        = formData.get("galleryTemplate");
   const getsPrescreened = formData.get("galleryMode") === "prescreen";
-  const token           = window.localStorage.getItem("mod-token");
+  const token           = getToken();
   const configFile      = new Blob([formData.get("galleryConfig")], { type: "text/plain" });
   const description     = formData.get("description");
 
@@ -212,25 +216,31 @@ let genSortingFn = () => {
 
 window.sync = function() {
 
-  let token = window.localStorage.getItem("mod-token");
+  let token = getToken();
 
-  fetch(`${window.thisDomain}/gallery-listings/${token}`, { method: "GET" }).then((x) => x.json()).then(
-    function (listings) {
+  if (token !== null) {
 
-      let promises =
-        listings.map(
-          (l) => {
-            const url = `${window.thisDomain}/listings/${l.galleryName}`;
-            return fetch(url, { method: "GET" }).
-              then((x) => x.json()).
-              then((x) => { return { ...l, uploadNames: x } })
-          }
-        );
+    fetch(`${window.thisDomain}/gallery-listings/${token}`, { method: "GET" }).then((x) => x.json()).then(
+      function (listings) {
 
-      Promise.all(promises).then(render);
+        let promises =
+          listings.map(
+            (l) => {
+              const url = `${window.thisDomain}/listings/${l.galleryName}`;
+              return fetch(url, { method: "GET" }).
+                then((x) => x.json()).
+                then((x) => { return { ...l, uploadNames: x } })
+            }
+          );
 
-    }
-  );
+        Promise.all(promises).then(render);
+
+      }
+    );
+
+  } else {
+    window.location.href = "/auth/login";
+  }
 
 };
 

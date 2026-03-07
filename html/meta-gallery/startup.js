@@ -20,18 +20,14 @@ document.getElementById("sesh-name-input").addEventListener('input', (e) => {
   submitInit.disabled = e.target.value.length === 0;
 });
 
-let tokenMaybe = window.localStorage.getItem("mod-token");
+
+let tokenMaybe = window.localStorage.getItem("vlgallery.auth-token");
 if (tokenMaybe !== null) {
   sync()
   syncLoopID = setInterval(sync, syncRate);
 } else {
-  fetch(window.thisDomain + "/moderator-token", { method: "GET" }).then((x) => x.text()).then(
-    function (t) {
-      window.localStorage.setItem("mod-token", t);
-      sync()
-      syncLoopID = setInterval(sync, syncRate);
-    }
-  );
+  localStorage.setItem("vlgallery.breadcrumb", window.location.href);
+  window.location.href = "/auth/login";
 }
 
 fetch(`${window.thisDomain}/gallery-types`, { method: "GET" }).then((x) => x.json()).then(
