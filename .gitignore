@@ -14,6 +14,7 @@ tags
 /.ghci
 /.projections.json
 /.stack-work/
+/db_migrations/
 /log/
 /stack.yaml.lock
 /target/
