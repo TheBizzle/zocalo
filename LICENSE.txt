@@ -1,5 +1,5 @@
-Vandyland
-Copyright (c) 2017, Jason Bertsche
+zócalo
+Copyright (c) 2026, Jason Bertsche, Corey Brady
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
