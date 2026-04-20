@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts, QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Vandyland.Gallery.WebReq(HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody)) where
 
 import Control.Monad(mzero)
 
 import Data.Aeson((.:), (.=), FromJSON(parseJSON), object, ToJSON(toJSON), Value(Object))
 import Data.CaseInsensitive(CI, mk)
+import Data.FileEmbed(embedFile)
 
 import Network.HTTP.Simple(getResponseBody, httpJSON, parseRequest_, Request, setRequestBodyJSON, setRequestHeader)
 
@@ -90,7 +92,7 @@ httpRequest (HTTPRequest method url headers body) =
     headerPairs :: [(CI ByteString, ByteString)]
     headerPairs = map ((mapAll2 TE.encodeUtf8) >>> (mapFst mk)) allPairs
       where
-        authPair = ("Authorization", "Bearer f4289576ca156a97d6449e150ed3c0ff")
+        authPair = ("Authorization", "Bearer " <> mailtrapBearer)
         allPairs = List.insert authPair $ Map.toList headers
 
     fullHeaders :: Request -> Request
@@ -101,3 +103,6 @@ mailHeaders =
   object
     [
     ]
+
+mailtrapBearer :: Text
+mailtrapBearer = Text.strip $ TE.decodeUtf8 $ $(embedFile ".mailtrap_secret.txt")

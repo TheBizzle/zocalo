@@ -33,8 +33,10 @@ jobs:
 
       - name: Set up dummy DB files
         run: |
-          touch .db_username
+          touch .app_secret.txt
           touch .db_password
+          touch .db_username
+          touch .mailtrap_secret.txt
 
       - name: Run tests
         run: stack test

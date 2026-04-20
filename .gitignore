@@ -9,12 +9,17 @@
 
 tags
 
+/.app_secret.txt
 /.db_username
 /.db_password
 /.ghci
+/.mailtrap_secret.txt
 /.projections.json
 /.stack-work/
 /db_migrations/
 /log/
 /stack.yaml.lock
 /target/
+
+/frontend/dist/
+/frontend/node_modules/

@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Vandyland.Gallery.Database(approveSubmission, AuthActionResult(DoesNotExist, Duplicate, Expired, Incorrect, Successful, Unconfirmed), checkUserExists, confirmNewUser, forbidSubmission, isValid, logout, PrivilegedActionResult(Fulfilled, NotAuthorized, NotFound), readCommentsFor, readGalleryListings, readSessionExists, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, registerNewSession, registerNewUser, storeOTP, suppressSubmission, tokenMatchesAccountName, uniqueSessionName, validateOTP, writeComment, writeSubmission) where
+module Vandyland.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, registerNewGallery, registerNewUser, runMigrations, storeOTP, suppressSubmission, uniqueGalleryName, upsertTeacherRefreshToken, validateOTP, writeComment, writeSubmission) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -21,413 +21,490 @@ import Control.Monad.Trans.Resource(ResourceT)
 
 import Data.List(sortBy)
 import Data.Ord(comparing)
-import Data.Time(addUTCTime, getCurrentTime, NominalDiffTime, UTCTime)
+import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
+import Data.Type.Equality(type (~))
 import Data.UUID(UUID)
 
-import qualified Data.Text as Text
-import qualified Data.UUID as UUID
-
-import Database.Persist((<-.), (=.), (==.), count, delete, deleteWhere, Entity(entityKey, entityVal), insert, selectFirst, selectList, SelectOpt(Asc), update, upsert)
+import Database.Persist((<-.), (=.), (==.), (>=.), count, Entity(Entity, entityVal), get, getBy, insert, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateWhere, upsert)
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
+import Database.Persist.Sql(fromSqlKey, toSqlKey)
 import Database.Persist.TH(mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 
-import System.Random(randomIO)
-
 import Vandyland.Common.DBCredentials(password, username)
+import Vandyland.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
 
+import Vandyland.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID), AuthorizedTeacher(ATeacher, teacherAddr))
+
+import Vandyland.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
 import Vandyland.Gallery.Comment(Comment(Comment, time))
 import Vandyland.Gallery.RandGen(generateName)
 import Vandyland.Gallery.Submission(GalleryListing(GalleryListing), Submission(Submission), SubmissionListing(SubmissionListing))
 
+import qualified Data.Text          as Text
+import qualified Data.UUID          as UUID
+
+
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
+
+TeacherDB
+  emailAddr    Text
+  firstName    Text
+  lastName     Text
+  organization Text Maybe
+  isConfirmed  Bool
+  createdAt    UTCTime
+  UniqueTeacherEmail emailAddr
+  deriving Show
+
+ConfirmationTokenDB
+  teacherID TeacherDBId
+  token     Text
+  birthday  UTCTime
+  wasUsed   Bool
+  UniqueConfirmationToken token
+  deriving Show
+
+OTPRequestDB
+  teacherID TeacherDBId
+  passcode  Text
+  birthday  UTCTime
+  wasUsed   Bool
+  deriving Show
+
+TeacherRefreshTokenDB
+  teacherID  TeacherDBId
+  hash       Text
+  birthday   UTCTime
+  wasRevoked Bool
+  UniqueTeacherRefreshTokenHash hash
+  deriving Show
+
+StudentRefreshTokenDB
+  studentName Text
+  hash        Text
+  birthday    UTCTime
+  wasRevoked  Bool
+  UniqueStudentRefreshTokenHash hash
+  deriving Show
+
 GalleryDB
-    galleryName     Text
-    templateName    Text
-    ownerName       Text
-    getsPrescreened Bool
-    config          Text Maybe
-    description     Text
-    dateAdded       UTCTime
-    UniqueNames galleryName ownerName
-    deriving Show
+  galleryName     Text
+  templateName    Text
+  ownerID         TeacherDBId
+  getsPrescreened Bool
+  config          Text Maybe
+  description     Text
+  dateAdded       UTCTime
+  UniqueGallery ownerID galleryName
+  deriving Show
+
 SubmissionDB
-    sessionName          Text
-    uploadName           Text
-    base64Image          Text
-    authorToken          Text Maybe
-    isSuppressed         Bool
-    isForbidden          Bool
-    isAwaitingModeration Bool
-    metadata             Text Maybe
-    extraData            Text
-    dateAdded            UTCTime
-    Primary sessionName uploadName
-    deriving Show
+  galleryID            GalleryDBId
+  uploadName           Text
+  base64Image          Text
+  authorID             StudentRefreshTokenDBId
+  isSuppressed         Bool
+  isForbidden          Bool
+  isAwaitingModeration Bool
+  metadata             Text Maybe
+  extraData            Text
+  dateAdded            UTCTime
+  UniqueSubmission galleryID uploadName
+  deriving Show
+
 CommentDB
-    uuid         Text
-    comment      Text
-    author       Text
-    parent       Text Maybe
-    sessionName  Text
-    uploadName   Text
-    time         UTCTime
-    Primary uuid
-    deriving Show
-AuthDB
-    authEmail      Text
-    isConfirmed    Bool
-    otp            Text Maybe
-    otpExpiration  UTCTime Maybe
-    authToken      Text Maybe
-    tokenBirthday  UTCTime Maybe
-    Primary authEmail
-    deriving Show
-ConfirmationDB
-    confirmationAddr Text
-    authHash         Text
-    dateAdded        UTCTime
-    Primary confirmationAddr
-    deriving Show
+  comment  Text
+  author   Text
+  parent   Text Maybe
+  uploadID SubmissionDBId
+  time     UTCTime
+  deriving Show
+
 |]
 
-uniqueSessionName :: IO Text
-uniqueSessionName = withDB $
+uniqueGalleryName :: Int -> IO Text
+uniqueGalleryName teacherIDNum =
   do
-    name       <- liftIO generateName
-    entryMaybe <- selectFirst [SubmissionDBSessionName ==. (Text.toLower name)] []
-    case entryMaybe of
-      Nothing  -> return name
-      (Just _) -> liftIO uniqueSessionName
+    name   <- generateName
+    result <- withGallery (toSqlKey $ fromIntegral teacherIDNum) name chillax
+    case result of
+      Success _ -> uniqueGalleryName teacherIDNum
+      Failure _ -> return name
 
-uniqueSubmissionName :: Text -> IO Text
-uniqueSubmissionName sessionName = withDB $
+uniqueSubmissionName :: Int -> Text -> IO Text
+uniqueSubmissionName teacherIDNum galleryName =
   do
-    name       <- liftIO generateName
-    entryMaybe <- selectFirst [SubmissionDBSessionName ==. (Text.toLower sessionName), SubmissionDBUploadName ==. (Text.toLower name)] []
-    case entryMaybe of
-      Nothing  -> return name
-      (Just _) -> liftIO $ uniqueSubmissionName sessionName
+    name   <- generateName
+    result <- withSubmission3 teacherIDNum galleryName name chillax
+    case result of
+      Success _ -> uniqueSubmissionName teacherIDNum galleryName
+      Failure _ -> return name
 
-registerNewSession :: Text -> Text -> Bool -> Maybe Text -> Text -> UUID -> IO Bool
-registerNewSession template name getsPrescreened configMaybe description token = withDB $
-  do
-    entityMaybe <- selectFirst [GalleryDBGalleryName ==. name] []
-    rows        <- selectList  [SubmissionDBSessionName ==. (Text.toLower name)] []
-    if isJust entityMaybe || (not . null) rows then
-      return False
-    else
-      do
-        timestamp     <- liftIO getCurrentTime
-        (accNameM, _) <- liftIO $ tokenToAccountName token
-        let insertionM = pam accNameM $ \accName -> insert $ GalleryDB (Text.toLower name) (Text.toLower template) accName getsPrescreened configMaybe description timestamp
-        maybe (return False) (>> return True) insertionM
+registerNewGallery :: AuthorizedTeacher -> Text -> Text -> Bool -> Maybe Text -> Text -> IO (ActionResult Int64)
+registerNewGallery teacher template galleryName getsPrescreened configMaybe description =
+  withTeacher teacher.teacherAddr $
+    \(teacherID, _) -> do
+      timestamp      <- getCurrentTime
+      let lName       = Text.toLower galleryName
+      let lTemplate   = Text.toLower template
+      let galleryDB   = GalleryDB lName lTemplate teacherID getsPrescreened configMaybe description timestamp
+      insertionM     <- withDB $ insertUnique galleryDB
+      return $ case insertionM of
+        Nothing  -> Failure Duplicate
+        Just key -> Success $ fromSqlKey key
 
-readGalleryListings :: UUID -> IO [GalleryListing]
-readGalleryListings token = withDB $
-    do
-      accNameMaybe <- token |> tokenToAccountName >=> return . fst >>> liftIO
-      rows         <- maybe (return []) (\accName -> selectList [GalleryDBOwnerName ==. accName] [Asc GalleryDBDateAdded]) accNameMaybe
-      let particles = map (entityVal &> dbToGalListingParticle) rows
-      flip mapM particles $ \(name, template, isPre, desc, cDate) -> liftIO $ withDB $ do
-        numWaiting  <- count [SubmissionDBSessionName ==. (Text.toLower name), SubmissionDBIsAwaitingModeration ==. True]
-        rows        <- selectList [ SubmissionDBSessionName          ==. (Text.toLower name)
-                                  , SubmissionDBIsAwaitingModeration ==. False
-                                  , SubmissionDBIsForbidden          ==. False
-                                  ] [Asc SubmissionDBDateAdded]
+readGalleryListings :: AuthorizedTeacher -> IO (ActionResult [GalleryListing])
+readGalleryListings teacher =
+  withTeacher teacher.teacherAddr $
+    \(teacherID, _) -> do
+      rows     <- withDB $ selectList [GalleryDBOwnerID ==. teacherID] [Asc GalleryDBDateAdded]
+      listings <- flip mapM rows $ \(Entity subID (GalleryDB name template _ isPre _ desc cDate)) -> withDB $ do
+        numWaiting <- count [SubmissionDBGalleryID ==. subID, SubmissionDBIsAwaitingModeration ==. True]
+        rows       <- selectList [ SubmissionDBGalleryID            ==. subID
+                                 , SubmissionDBIsAwaitingModeration ==. False
+                                 , SubmissionDBIsForbidden          ==. False
+                                 ] [Asc SubmissionDBDateAdded]
         let uploads     = map entityVal rows
         let numApproved = length uploads
         let cTime       = asPOSIX cDate
         let lTime       = getMax cTime uploads
         return $ GalleryListing name template desc isPre numWaiting numApproved cTime lTime
-    where
-      getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
-      chooseLater a b = if a < b then b else a
+      return $ Success listings
+  where
+    getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
+    chooseLater a b = if a < b then b else a
 
-readSubmissionListings :: Text -> IO [SubmissionListing]
-readSubmissionListings sessionName = withDB $
-    do
-      rows <- selectList [ SubmissionDBSessionName          ==. (Text.toLower sessionName)
+readSubmissionListings :: Int -> Text -> IO (ActionResult [SubmissionListing])
+readSubmissionListings teacherIDNum galleryName =
+  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+    \(gID, _) -> withDB $ do
+      rows <- selectList [ SubmissionDBGalleryID            ==. gID
                          , SubmissionDBIsAwaitingModeration ==. False
                          , SubmissionDBIsForbidden          ==. False
                          ] [Asc SubmissionDBDateAdded]
-      return $ map (entityVal &> dbToSubListing) rows
+      return $ Success $ map (entityVal &> dbToSubListing) rows
 
-readSessionExists :: Text -> IO Bool
-readSessionExists sessionName = withDB $
-    do
-      gEntityMaybe <- selectFirst [GalleryDBGalleryName    ==. (Text.toLower sessionName)] []
-      sEntityMaybe <- selectFirst [SubmissionDBSessionName ==. (Text.toLower sessionName)] []
-      return $ (isJust gEntityMaybe || isJust sEntityMaybe)
+readSubmissionListingsForModeration :: AuthorizedTeacher -> Text -> IO (ActionResult [Text])
+readSubmissionListingsForModeration teacher galleryName =
+  withGallery2 teacher.teacherAddr galleryName $
+    \(galleryID, _) -> do
+      canModerate <- (Just teacher) `ownsOneNamed` galleryName
+      if canModerate then withDB $ do
+        rows <- selectList [ SubmissionDBGalleryID            ==. galleryID
+                           , SubmissionDBIsAwaitingModeration ==. True
+                           ] [Asc SubmissionDBDateAdded]
+        return $ Success $ map (entityVal &> extractUploadName) rows
+      else
+        return $ Failure NotAuthorized
 
-readSubmissionListingsForModeration :: Text -> UUID -> IO (PrivilegedActionResult [Text])
-readSubmissionListingsForModeration sessionName token = withDB $
-    do
-      entityMaybe <- selectFirst [GalleryDBGalleryName ==. (Text.toLower sessionName)] []
-      case entityMaybe of
-        Nothing       -> return NotFound
-        (Just entity) -> liftIO $ withDB $ do
-          let modName  = entity |> entityVal &> extractOwnerName
-          doesMatch   <- liftIO $ tokenMatchesAccountName modName token
-          if doesMatch then do
-            rows <- selectList [SubmissionDBSessionName ==. (Text.toLower sessionName), SubmissionDBIsAwaitingModeration ==. True] [Asc SubmissionDBDateAdded]
-            return $ Fulfilled $ map (entityVal &> extractUploadName) rows
-          else
-            return NotAuthorized
+readSubmissionData :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> Text -> IO (ActionResult Text)
+readSubmissionData teacherM studentM teacherIDNum galleryName uploadName =
+  withSubmission3 teacherIDNum galleryName uploadName $
+    \(_, uploadDB) ->
+      do
+        dta <- processSubmissionAuth extractData teacherM studentM uploadDB
+        return $ second fst dta
 
-readSubmissionData :: Text -> Text -> Maybe UUID -> IO (PrivilegedActionResult Text)
-readSubmissionData sessionName uploadName tokenMaybe = withDB $
-    do
-      sEntityMaybe <- selectFirst [SubmissionDBSessionName ==. (Text.toLower sessionName), SubmissionDBUploadName ==. (Text.toLower uploadName)] []
-      gEntityMaybe <- selectFirst [GalleryDBGalleryName ==. (Text.toLower sessionName)] []
-      let teacherNameMaybe  = map (entityVal &> extractOwnerName) gEntityMaybe
-      let pairMaybe         = (,) <$> teacherNameMaybe <*> tokenMaybe
-      modNameMatches       <- maybe (return False) (uncurry tokenMatchesAccountName >>> liftIO) pairMaybe
-      maybe (return NotFound) (entityVal &> retrieveSubmission extractData tokenMaybe modNameMatches &> liftIO) sEntityMaybe
-
-readSubmissionsLite :: Text -> Maybe UUID -> [Text] -> IO [Submission]
-readSubmissionsLite sessionName tokenMaybe names = withDB $
-    do
-      entities  <- selectList [SubmissionDBSessionName ==. (Text.toLower sessionName), SubmissionDBUploadName <-. (map Text.toLower names)] [Asc SubmissionDBDateAdded]
+readSubmissionsLite :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> [Text] -> IO (ActionResult [(Submission, Bool)])
+readSubmissionsLite teacherM studentM teacherIDNum galleryName names =
+  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+    \(galleryID, _) -> do
+      entities  <- withDB $ selectList [ SubmissionDBGalleryID  ==. galleryID
+                                       , SubmissionDBUploadName <-. (map Text.toLower names)
+                                       ] [Asc SubmissionDBDateAdded]
       let subs   = map entityVal entities
-      validSubs <- flip mapM subs $ \sub -> liftIO $ withDB $ do
-        gEntityMaybe         <- selectFirst [GalleryDBGalleryName ==. (extractSessionName sub)] []
-        let teacherNameMaybe  = map (entityVal &> extractOwnerName) gEntityMaybe
-        let pairMaybe         = (,) <$> teacherNameMaybe <*> tokenMaybe
-        modNameMatches       <- maybe (return False) (uncurry tokenMatchesAccountName >>> liftIO) pairMaybe
-        liftIO $ retrieveSubmission (dbToSubmission teacherNameMaybe) tokenMaybe modNameMatches sub
-      return $ validSubs >>= collectFulfilled
+      validSubs <- mapM (processSubmissionAuth dbToSubmission teacherM studentM &> liftIO) subs
+      return $ Success $ validSubs >>= collectSuccessful
   where
-    collectFulfilled (Fulfilled x) = [x]
-    collectFulfilled _             = []
+    collectSuccessful (Success x) = [x]
+    collectSuccessful _           = []
 
-readTemplateName :: Text -> IO (Maybe Text)
-readTemplateName sessionName = withDB $
-  do
-    entityMaybe <- selectFirst [GalleryDBGalleryName ==. (Text.toLower sessionName)] []
-    return $ map (entityVal >>> extractTemplateName) entityMaybe
+readTemplateName :: Int -> Text -> IO (ActionResult Text)
+readTemplateName teacherIDNum galleryName =
+  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+    \(_, galleryDB) -> return $ Success $ extractTemplateName galleryDB
 
-suppressSubmission :: Text -> Text -> UUID -> IO (PrivilegedActionResult ())
-suppressSubmission sessionName uploadName token = withDB $
-  do
-    entityMaybe  <- selectFirst [SubmissionDBSessionName ==. (Text.toLower sessionName), SubmissionDBUploadName ==. (Text.toLower uploadName)] []
-    galleryMaybe <- selectFirst [GalleryDBGalleryName ==. (Text.toLower sessionName)] []
-    case entityMaybe of
-      Nothing       -> return NotFound
-      (Just entity) -> do
-        let modNameMaybe  = map (entityVal &> extractOwnerName) galleryMaybe
-        isModerator      <- maybe (return False) (flip tokenMatchesAccountName token >>> liftIO) modNameMaybe
-        let isUploader    = (Just token) == (entity |> entityVal &> extractToken)
-        if isUploader || isModerator then do
-          void $ update (entityKey entity) [SubmissionDBIsSuppressed =. True]
-          return $ Fulfilled ()
-        else
-          return NotAuthorized
+suppressSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> Text -> IO (ActionResult ())
+suppressSubmission teacherM studentM teacherIDNum galleryName uploadName =
+  withSubmission3 teacherIDNum galleryName uploadName $
+    \(uploadID, _) -> do
+      result <- canDeleteSubmission3 teacherM studentM teacherIDNum galleryName uploadName
+      case result of
+        Success canDeleteIt ->
+          if canDeleteIt then do
+            withDB $ update uploadID [SubmissionDBIsSuppressed =. True]
+            return $ Success ()
+          else
+            return $ Failure NotAuthorized
+        x -> return $ second (const ()) x
 
-forbidSubmission :: Text -> Text -> UUID -> IO (PrivilegedActionResult ())
+forbidSubmission :: AuthorizedTeacher -> Text -> Text -> IO (ActionResult ())
 forbidSubmission = moderateSubmission True
 
-approveSubmission :: Text -> Text -> UUID -> IO (PrivilegedActionResult ())
+approveSubmission :: AuthorizedTeacher -> Text -> Text -> IO (ActionResult ())
 approveSubmission = moderateSubmission False
 
-moderateSubmission :: Bool -> Text -> Text -> UUID -> IO (PrivilegedActionResult ())
-moderateSubmission isForbidden sessionName uploadName token = withDB $
-  do
-    entityMaybe <- selectFirst [SubmissionDBSessionName ==. (Text.toLower sessionName), SubmissionDBUploadName ==. (Text.toLower uploadName)] []
-    case entityMaybe of
-      Nothing       -> return NotFound
-      (Just entity) -> do
-        gEntityMaybe     <- selectFirst [GalleryDBGalleryName ==. (Text.toLower sessionName)] []
-        let modNameMaybe  = map (entityVal &> extractOwnerName) gEntityMaybe
-        modNameMatches   <- maybe (return False) (flip tokenMatchesAccountName token >>> liftIO) modNameMaybe
-        if modNameMatches then do
-          void $ update (entityKey entity) [SubmissionDBIsForbidden          =. isForbidden]
-          void $ update (entityKey entity) [SubmissionDBIsAwaitingModeration =. False]
-          return $ Fulfilled ()
-        else
-          return NotAuthorized
+moderateSubmission :: Bool -> AuthorizedTeacher -> Text -> Text -> IO (ActionResult ())
+moderateSubmission isForbidden teacher galleryName uploadName =
+  withTeacher teacher.teacherAddr $
+    \(teacherID, _) ->
+      withSubmission3 (fromIntegral $ fromSqlKey teacherID) galleryName uploadName $
+        \(uploadID, _) -> do
+          canModerate <- (Just teacher) `ownsOneNamed` galleryName
+          if canModerate then withDB $ do
+            update uploadID [SubmissionDBIsForbidden          =. isForbidden]
+            update uploadID [SubmissionDBIsAwaitingModeration =. False]
+            return $ Success ()
+          else
+            return $ Failure NotAuthorized
 
-writeSubmission :: Text -> Text -> Maybe UUID -> Maybe Text -> Text -> IO Text
-writeSubmission sessionName imageBytes tokenMaybe metadata extraData = withDB $
-    do
-      uploadName   <- liftIO $ uniqueSubmissionName sessionName
-      timestamp    <- liftIO getCurrentTime
-      gEntityMaybe <- selectFirst [GalleryDBGalleryName ==. (Text.toLower sessionName)] []
-      let tokey     = map UUID.toText tokenMaybe
-      let getsPreed = maybe False (entityVal &> extractGetsPrescreened) gEntityMaybe
-      let subDB     = SubmissionDB (Text.toLower sessionName) (Text.toLower uploadName) imageBytes tokey False False getsPreed metadata extraData timestamp
-      void $ insert subDB
-      return uploadName
+writeSubmission :: AuthorizedStudent -> Int -> Text -> Text -> Maybe Text -> Text -> IO (ActionResult Text)
+writeSubmission student teacherIDNum galleryName imageBytes metadata extraData =
+  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+    \(galleryID, _) -> do
+      uploadName      <- uniqueSubmissionName teacherIDNum galleryName
+      let lUploadName  = Text.toLower uploadName
+      let studID       = student |> studentID &> fromIntegral &> toSqlKey
+      gEntityMaybe    <- withDB $ selectFirst [GalleryDBGalleryName ==. (Text.toLower galleryName)] []
+      let getsPreed    = maybe False (entityVal &> extractGetsPrescreened) gEntityMaybe
+      timestamp       <- getCurrentTime
+      let subDB        = SubmissionDB galleryID lUploadName imageBytes studID False False getsPreed metadata extraData timestamp
+      void $ withDB $ insert subDB
+      return $ Success uploadName
 
-readStarterConfigFor :: Text -> IO (Maybe (Maybe Text))
-readStarterConfigFor galleryName = withDB $
-  do
-    entryMaybe <- selectFirst [GalleryDBGalleryName ==. (Text.toLower galleryName)] []
-    return $ map (entityVal &> extractStarterConfig) entryMaybe
+readStarterConfigFor :: Int -> Text -> IO (ActionResult (Maybe Text))
+readStarterConfigFor teacherIDNum galleryName =
+  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+    \(_, galleryDB) ->
+      return $ Success $ extractStarterConfig galleryDB
 
-readCommentsFor :: Text -> Text -> IO [Comment]
-readCommentsFor sessionName uploadName = withDB $
-    do
-      rows <- selectList [CommentDBSessionName ==. (Text.toLower sessionName), CommentDBUploadName ==. (Text.toLower uploadName)] [Asc CommentDBTime]
-      rows |> (map $ entityVal &> dbToComment) &> (sortBy $ comparing time) &> return
+readCommentsFor :: Int -> Text -> Text -> IO (ActionResult [Comment])
+readCommentsFor teacherIDNum galleryName uploadName =
+  withSubmission3 teacherIDNum galleryName uploadName $
+    \(uploadID, _) -> do
+      rows <- withDB $ selectList [CommentDBUploadID ==. uploadID] [Asc CommentDBTime]
+      return $ Success $ rows |> (map dbToComment) &> (sortBy $ comparing time)
 
-writeComment :: Text -> Text -> Text -> Text -> Maybe UUID -> IO ()
-writeComment comment uploadName sessionName author parent = withDB $
-    do
-      timestamp <- liftIO getCurrentTime
-      uuid      <- liftIO randomIO
-      let commentDB = CommentDB (UUID.toText uuid) comment author (map UUID.toText parent) (Text.toLower sessionName) (Text.toLower uploadName) timestamp
-      void $ insert commentDB
-      return ()
+writeComment :: Int -> Text -> Text -> Maybe UUID -> Text -> Text -> IO (ActionResult ())
+writeComment teacherIDNum galleryName uploadName parentUUIDM author comment =
+  withSubmission3 teacherIDNum galleryName uploadName $
+    \(uploadID, _) -> do
+      timestamp       <- getCurrentTime
+      let parentTextM  = map UUID.toText parentUUIDM
+      void $ withDB $ insert $ CommentDB comment author parentTextM uploadID timestamp
+      return $ Success ()
+
+runMigrations :: IO ()
+runMigrations = liftIO $ withDB $ runMigration migrateAll
 
 withDB :: ReaderT SqlBackend (NoLoggingT (ResourceT IO)) a -> IO a
-withDB action = runNoLoggingT $ withPostgresqlPool connStr 50 $ \pool -> liftIO $
-  do
-    flip runSqlPersistMPool pool $
-      do
-        --runMigration migrateAll -- We do this for every DB transaction?  Major performance issue at scale, I'd expect. --JAB (10/4/20)
-        action
+withDB action = runNoLoggingT $ withPostgresqlPool connStr 50 $ runSqlPersistMPool action &> liftIO
   where
     connStr = "host=localhost dbname=vandyland user=" <> username <> " password=" <> password <> " port=5432"
 
-retrieveSubmission :: (SubmissionDB -> a) -> Maybe UUID -> Bool -> SubmissionDB -> IO (PrivilegedActionResult a)
-retrieveSubmission f givenTokenMaybe modNameMatches submission = withDB $
-    do
-      let authorTokenMaybe = extractToken           submission
-      let needsModeration  = extractNeedsModeration submission
-      let isSuppressed     = extractIsSuppressed    submission
-      return $
-        if givenTokenMaybe == authorTokenMaybe || modNameMatches || ((not needsModeration) && (not isSuppressed)) then
-          Fulfilled $ f submission
-        else
-          NotAuthorized
+processSubmissionAuth :: (SubmissionDB -> a) -> Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO (ActionResult (a, Bool))
+processSubmissionAuth f teacherM studentM submission =
+  do
+    let needsModeration  = extractNeedsModeration submission
+    let isSuppressed     = extractIsSuppressed    submission
+    canDelete           <- canDeleteSubmission teacherM studentM submission
+    return $
+      if canDelete || ((not needsModeration) && (not isSuppressed)) then
+        Success (f submission, canDelete)
+      else
+        Failure NotAuthorized
+
+ownsOneNamed :: Maybe AuthorizedTeacher -> Text -> IO Bool
+ownsOneNamed Nothing                _           = return False
+ownsOneNamed (Just (ATeacher addr)) galleryName =
+  do
+    result <- withGallery2 addr galleryName chillax
+    return $ case result of
+      Success _ -> True
+      _         -> False
+
+canDeleteSubmission3 :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> Text -> IO (ActionResult Bool)
+canDeleteSubmission3 teacherM studentM teacherIDNum galleryName uploadName =
+  withSubmission3 teacherIDNum galleryName uploadName $
+    \(_, subDB) -> Success <$> canDeleteSubmission teacherM studentM subDB
+
+canDeleteSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO Bool
+canDeleteSubmission teacherM studentM submission =
+  do
+    (Just (GalleryDB galleryName _ _ _ _ _ _)) <- withDB $ get submission.submissionDBGalleryID
+    (teacherM `ownsOneNamed` galleryName) <|> (belongsToThisStudent studentM)
+  where
+    belongsToThisStudent Nothing                    = return False
+    belongsToThisStudent (Just (AStudent studID _)) = return $ submission |> extractStudentID &> (== studID)
 
 checkUserExists :: Text -> IO Bool
-checkUserExists emailAddr = withDB $
+checkUserExists emailAddr =
   do
-    let lowerEmail = Text.toLower emailAddr
-    authMaybe <- selectFirst [AuthDBAuthEmail ==. lowerEmail, AuthDBIsConfirmed ==. True] []
-    case (map entityVal authMaybe) of
-      Nothing -> return False
-      _       -> return True
+    let lowerEmail  = Text.toLower emailAddr
+    authMaybe      <- withDB $ selectFirst [TeacherDBEmailAddr ==. lowerEmail, TeacherDBIsConfirmed ==. True] []
+    return $ isJust authMaybe
 
-registerNewUser :: Text -> UUID -> IO AuthActionResult
-registerNewUser emailAddr confirmationToken = withDB $
+registerNewUser :: Text -> Text -> Text -> Maybe Text -> SecureToken -> IO (ActionResult ())
+registerNewUser emailAddr firstName lastName orgM confirmationToken =
   do
-    let lowerEmail = Text.toLower emailAddr
-    authMaybe <- selectFirst [AuthDBAuthEmail ==. lowerEmail, AuthDBIsConfirmed ==. True] []
-    case (map entityVal authMaybe) of
-      Nothing -> do
-        let confToken = UUID.toText confirmationToken
-        now <- liftIO getCurrentTime
-        deleteWhere [AuthDBAuthEmail ==. lowerEmail]
-        _ <- insert $ AuthDB lowerEmail False Nothing Nothing Nothing Nothing
-        _ <- upsert (ConfirmationDB lowerEmail confToken now) [ConfirmationDBAuthHash =. (Text.toLower confToken), ConfirmationDBDateAdded =. now]
-        return Successful
-      (Just _) -> return Duplicate
+    let lowerEmail  = Text.toLower emailAddr
+    teacherM       <- withDB $ selectFirst [TeacherDBEmailAddr ==. lowerEmail, TeacherDBIsConfirmed ==. True] []
+    if isJust teacherM then
+      return $ Failure Duplicate
+    else do
+      now           <- getCurrentTime
+      let confToken  = confirmationToken.tokenText
+      void $ withDB $ do
+        (Entity tID _) <- upsert (TeacherDB lowerEmail firstName lastName orgM False now)
+                                 [ TeacherDBFirstName    =. firstName, TeacherDBLastName  =. lastName
+                                 , TeacherDBOrganization =.      orgM, TeacherDBCreatedAt =. now
+                                 ]
+        updateWhere [ConfirmationTokenDBTeacherID ==. tID] [ConfirmationTokenDBWasUsed =. True]
+        insert $ ConfirmationTokenDB tID confToken now False
 
-confirmNewUser :: UUID -> IO AuthActionResult
-confirmNewUser confirmationToken = withDB $
+      return $ Success ()
+
+confirmNewUser :: SecureToken -> IO (ActionResult AuthorizedTeacher)
+confirmNewUser confirmationToken =
+  withPair (UniqueConfirmationToken confirmationToken.tokenText) $
+    \(cTokenID, (ConfirmationTokenDB teacherID cToken dateAdded wasUsed)) -> do
+      result <- withDB $ get teacherID
+      case result of
+        Nothing                              -> return $ Failure NotFound
+        Just (TeacherDB emailAddr _ _ _ _ _) ->
+          if (tokenFromText cToken) == (Just confirmationToken) then do
+            now          <- getCurrentTime
+            let deadline  = addUTCTime (60 * 10) (traceShowId dateAdded)
+            if now <= deadline && (not wasUsed) then withDB $ do
+              update teacherID [TeacherDBIsConfirmed       =. True]
+              update  cTokenID [ConfirmationTokenDBWasUsed =. True]
+              return $ Success $ ATeacher emailAddr
+            else
+              return $ Failure Expired
+          else
+            return $ Failure Incorrect
+
+storeOTP :: Text -> Text -> IO (ActionResult ())
+storeOTP emailAddr otp =
+  withTeacher emailAddr $
+    \(teacherID, teacherDB) ->
+      if extractTeacherIsConfirmed teacherDB then do
+        now <- getCurrentTime
+        void $ withDB $ do
+          updateWhere [OTPRequestDBTeacherID ==. teacherID] [OTPRequestDBWasUsed =. True]
+          insert $ OTPRequestDB teacherID otp now False
+        return $ Success ()
+      else
+        return $ Failure Unconfirmed
+
+validateOTP :: Text -> Text -> IO (ActionResult ())
+validateOTP emailAddr passcode =
+  withTeacher emailAddr $
+    \(teacherID, teacherDB) -> do
+      otpM <- withDB $ selectFirst [OTPRequestDBTeacherID ==. teacherID, OTPRequestDBWasUsed ==. False] []
+      case otpM of
+        Nothing             -> return $ Failure NotFound
+        Just (Entity _ otp) -> do
+          now             <- getCurrentTime
+          let isConfirmed  = extractTeacherIsConfirmed teacherDB
+          let isCorrect    = (extractOTPPasscode otp) == passcode
+          let isOnTime     = (extractOTPBirthday otp) <= (addUTCTime (60 * 10) now)
+          if not isConfirmed then
+            return $ Failure Unconfirmed
+          else if not isOnTime then
+            return $ Failure Expired
+          else if not isCorrect then
+            return $ Failure Incorrect
+          else do
+            withDB $ updateWhere [OTPRequestDBTeacherID ==. teacherID, OTPRequestDBPasscode ==. passcode]
+                                 [OTPRequestDBWasUsed =. True]
+            return $ Success ()
+
+-- TODO: How/when do refresh tokens get revoked?
+-- TODO: Are `data` files blobs?
+
+lookupTeacherRefreshToken :: SecureToken -> IO (ActionResult AuthorizedTeacher)
+lookupTeacherRefreshToken refreshToken =
   do
-    let confToken = Text.toLower $ UUID.toText confirmationToken
-    confMaybe <- selectFirst [ConfirmationDBAuthHash ==. confToken] []
-    case confMaybe of
-      Nothing           -> return DoesNotExist
-      (Just confEntity) -> do
-        now <- liftIO getCurrentTime
-        let conf      = entityVal confEntity
-        let timeAdded = extractConfirmDateAdded conf
-        let deadline  = addUTCTime ((60 * 10) :: NominalDiffTime) timeAdded
-        if now <= deadline then do
-          authMaybe <- selectFirst [AuthDBAuthEmail ==. (Text.toLower $ extractConfirmAddr conf)] []
-          case authMaybe of
-            Nothing           -> return DoesNotExist
-            (Just authEntity) -> do
-              void $ update (entityKey authEntity) [AuthDBIsConfirmed =. True]
-              void $ delete (entityKey confEntity)
-              return Successful
+    withPair (UniqueTeacherRefreshTokenHash $ hashToken refreshToken) $
+      \(_, TeacherRefreshTokenDB teacherID _ birthday wasRevoked) -> do
+        now           <- getCurrentTime
+        let in28Days   = 60 * 60 * 24 * 7 * 4
+        let expirDate  = in28Days `addUTCTime` birthday
+        if (not wasRevoked) && (now <= expirDate) then do
+          result <- withDB $ get teacherID
+          case result of
+            Nothing                         -> return $ Failure NotFound
+            Just (TeacherDB addr _ _ _ _ _) -> return $ Success $ ATeacher addr
         else
-          return Expired
+          return $ Failure Expired
 
-storeOTP :: Text -> Text -> IO AuthActionResult
-storeOTP emailAddr otp = withDB $
+upsertTeacherRefreshToken :: Text -> SecureToken ->  IO (ActionResult ())
+upsertTeacherRefreshToken emailAddr refreshToken =
+  withTeacher emailAddr $
+    \(teacherID, _) -> do
+      now             <- getCurrentTime
+      let refreshHash  = hashToken refreshToken
+      void $ withDB $ upsert (TeacherRefreshTokenDB teacherID refreshHash now False)
+                             [ TeacherRefreshTokenDBHash =. refreshHash, TeacherRefreshTokenDBBirthday =. now
+                             , TeacherRefreshTokenDBWasRevoked =. False]
+      return $ Success ()
+
+logoutTeacher :: AuthorizedTeacher -> IO (ActionResult ())
+logoutTeacher teacher =
+  withTeacher teacher.teacherAddr $
+    \(teacherID, _) -> do
+      withDB $ updateWhere [TeacherRefreshTokenDBTeacherID ==. teacherID] [TeacherRefreshTokenDBWasRevoked =. True]
+      return $ Success ()
+
+checkIsOkayOTPRate :: Text -> IO (ActionResult Bool)
+checkIsOkayOTPRate emailAddr =
+  withTeacher emailAddr $
+    \(teacherID, _) -> do
+      now           <- getCurrentTime
+      let _30MinAgo  = addUTCTime (-60 * 30) now
+      results       <- withDB $ selectList [OTPRequestDBTeacherID ==. teacherID, OTPRequestDBBirthday >=. _30MinAgo] []
+      return $ Success $ (length results) < 5
+
+chillax :: a -> IO (ActionResult ())
+chillax = const $ return $ Success ()
+
+withTeacher :: Text -> ((TeacherDBId, TeacherDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withTeacher addr f =
+  withPair (UniqueTeacherEmail $ Text.toLower addr) f
+
+withGallery :: TeacherDBId -> Text -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withGallery teacherID galleryName f =
+  withPair (UniqueGallery teacherID $ Text.toLower galleryName) f
+
+withGallery2 :: Text -> Text -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withGallery2 teacherAddr galleryName f =
+  withTeacher teacherAddr $
+    \(teacherID, _) ->
+      withGallery teacherID galleryName f
+
+withSubmission :: GalleryDBId -> Text -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withSubmission galleryID uploadName f =
+  withPair (UniqueSubmission galleryID $ Text.toLower uploadName) f
+
+withSubmission3 :: Int -> Text -> Text -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withSubmission3 teacherIDNum galleryName uploadName f =
+  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+    \(galleryID, _) ->
+      withSubmission galleryID uploadName f
+
+withPair :: (PersistEntity e, PersistEntityBackend e ~ SqlBackend) =>
+            Unique e -> ((Key e, e) -> IO (ActionResult a)) -> IO (ActionResult a)
+withPair key f =
   do
-    entityMaybe <- selectFirst [AuthDBAuthEmail ==. (Text.toLower emailAddr)] []
-    case entityMaybe of
-      Nothing       -> return DoesNotExist
-      (Just entity) ->
-        if ((entityVal >>> extractAuthIsConfirmed) entity) then do
-          now          <- liftIO getCurrentTime
-          let deadline  = addUTCTime ((60 * 10) :: NominalDiffTime) now
-          void $ update (entityKey entity) [AuthDBOtp =. Just otp, AuthDBOtpExpiration =. Just deadline]
-          return Successful
-        else
-          return Unconfirmed
-
-validateOTP :: Text -> Text -> UUID -> IO AuthActionResult
-validateOTP emailAddr passcode token = withDB $
-  do
-    entityMaybe <- selectFirst [AuthDBAuthEmail ==. (Text.toLower emailAddr)] []
-    case entityMaybe of
-      Nothing       -> return DoesNotExist
-      (Just entity) -> do
-        now <- liftIO getCurrentTime
-        let auth        = entityVal entity
-        let isConfirmed = extractAuthIsConfirmed auth
-        let isCorrect   = maybe False (== (Text.toLower passcode)) (extractAuthOTP      auth)
-        let isOnTime    = maybe False (now <=)                     (extractAuthOTPExpir auth)
-        if not isConfirmed then
-          return Unconfirmed
-        else if not isOnTime then
-          return Expired
-        else if not isCorrect then
-          return Incorrect
-        else do
-          let authToken = Text.toLower $ UUID.toText token
-          let pairs = [AuthDBOtp =. Nothing, AuthDBOtpExpiration =. Nothing, AuthDBAuthToken =. Just authToken, AuthDBTokenBirthday =. Just now]
-          void $ update (entityKey entity) pairs
-          return Successful
-
-tokenToAccountName :: UUID -> IO (Maybe Text, AuthActionResult)
-tokenToAccountName token = withDB $
-  do
-    let authToken = Text.toLower $ UUID.toText token
-    entityMaybe <- selectFirst [AuthDBAuthToken ==. (Just authToken)] []
-    case entityMaybe of
-      Nothing       -> return (Nothing, DoesNotExist)
-      (Just entity) -> do
-        now <- liftIO getCurrentTime
-        let auth        = entityVal entity
-        let expirationM = map (addUTCTime ((60 * 60 * 24 * 90) :: NominalDiffTime)) $ extractAuthTokenBirthday auth
-        let isOnTime    = maybe False (now <=) expirationM
-        if isOnTime then do
-          let email = extractAuthEmail auth
-          return (Just email, Successful)
-        else
-          return (Nothing, Expired)
-
-tokenMatchesAccountName :: Text -> UUID -> IO Bool
-tokenMatchesAccountName name = tokenToAccountName >=> (\(nm, res) -> return $ nm == (Just name) && res == Successful)
-
-isValid :: UUID -> IO AuthActionResult
-isValid = tokenToAccountName >=> return . snd
-
-logout :: UUID -> IO AuthActionResult
-logout token = withDB $
-  do
-    let authToken = Text.toLower $ UUID.toText token
-    entityMaybe <- selectFirst [AuthDBAuthToken ==. (Just authToken)] []
-    case entityMaybe of
-      Nothing       -> return DoesNotExist
-      (Just entity) -> do
-        void $ update (entityKey entity) [AuthDBAuthToken =. Nothing, AuthDBTokenBirthday =. Nothing]
-        return Successful
+    entityM <- withDB $ getBy key
+    case entityM of
+      Nothing               -> return $ Failure NotFound
+      Just (Entity xID xDB) -> f (xID, xDB)
 
 extractTemplateName :: GalleryDB -> Text
 extractTemplateName (GalleryDB _ tn _ _ _ _ _) = tn
-
-extractOwnerName :: GalleryDB -> Text
-extractOwnerName (GalleryDB _ _ onm _ _ _ _) = onm
 
 extractGetsPrescreened :: GalleryDB -> Bool
 extractGetsPrescreened (GalleryDB _ _ _ gp _ _ _) = gp
@@ -435,27 +512,21 @@ extractGetsPrescreened (GalleryDB _ _ _ gp _ _ _) = gp
 extractStarterConfig :: GalleryDB -> Maybe Text
 extractStarterConfig (GalleryDB _ _ _ _ sc _ _) = sc
 
-dbToGalListingParticle :: GalleryDB -> (Text, Text, Bool, Text, UTCTime)
-dbToGalListingParticle (GalleryDB gn tp _ gp _ de da) = (gn, tp, gp, de, da)
-
 dbToSubListing :: SubmissionDB -> SubmissionListing
 dbToSubListing (SubmissionDB _ uploadName _ _ isSuppressed _ _ _ _ _) = SubmissionListing uploadName isSuppressed
 
-dbToSubmission :: Maybe Text -> SubmissionDB -> Submission
-dbToSubmission ownerName (SubmissionDB _ uploadName image token _ _ _ metadata _ _) =
-  Submission uploadName image (token >>= UUID.fromText) ownerName metadata
+dbToSubmission :: SubmissionDB -> Submission
+dbToSubmission (SubmissionDB _ uploadName image studentID _ _ _ metadata _ _) =
+  Submission uploadName image (fromIntegral $ fromSqlKey studentID) metadata
 
-dbToComment :: CommentDB -> Comment
-dbToComment (CommentDB uuid comment author parent _ _ time) = Comment uuid comment author parent (asPOSIX time)
-
-extractSessionName :: SubmissionDB -> Text
-extractSessionName (SubmissionDB sn _ _ _ _ _ _ _ _ _) = sn
+dbToComment :: (Entity CommentDB) -> Comment
+dbToComment (Entity cid (CommentDB comment author parent _ time)) = Comment (fromSqlKey cid) comment author parent $ asPOSIX time
 
 extractUploadName :: SubmissionDB -> Text
 extractUploadName (SubmissionDB _ un _ _ _ _ _ _ _ _) = un
 
-extractToken :: SubmissionDB -> Maybe UUID
-extractToken (SubmissionDB _ _ _ token _ _ _ _ _ _) = token >>= UUID.fromText
+extractStudentID :: SubmissionDB -> Word64
+extractStudentID (SubmissionDB _ _ _ authorID _ _ _ _ _ _) = fromIntegral $ fromSqlKey authorID
 
 extractIsSuppressed :: SubmissionDB -> Bool
 extractIsSuppressed (SubmissionDB _ _ _ _ isSuppressed _ _ _ _ _) = isSuppressed
@@ -469,40 +540,14 @@ extractData (SubmissionDB _ _ _ _ _ _ _ _ extraData _) = extraData
 extractSubDateAdded :: SubmissionDB -> Integer
 extractSubDateAdded (SubmissionDB _ _ _ _ _ _ _ _ _ dateAdded) = asPOSIX dateAdded
 
-extractAuthEmail :: AuthDB -> Text
-extractAuthEmail (AuthDB email _ _ _ _ _) = email
+extractTeacherIsConfirmed :: TeacherDB -> Bool
+extractTeacherIsConfirmed (TeacherDB _ _ _ _ isConfirmed _) = isConfirmed
 
-extractAuthIsConfirmed :: AuthDB -> Bool
-extractAuthIsConfirmed (AuthDB _ isConfirmed _ _ _ _) = isConfirmed
+extractOTPPasscode :: OTPRequestDB -> Text
+extractOTPPasscode (OTPRequestDB _ passcode _ _) = passcode
 
-extractAuthOTP :: AuthDB -> Maybe Text
-extractAuthOTP (AuthDB _ _ otp _ _ _) = otp
-
-extractAuthOTPExpir :: AuthDB -> Maybe UTCTime
-extractAuthOTPExpir (AuthDB _ _ _ expir _ _) = expir
-
-extractAuthTokenBirthday :: AuthDB -> Maybe UTCTime
-extractAuthTokenBirthday (AuthDB _ _ _ _ _ birthday) = birthday
-
-extractConfirmAddr :: ConfirmationDB -> Text
-extractConfirmAddr (ConfirmationDB addr _ _) = addr
-
-extractConfirmDateAdded :: ConfirmationDB -> UTCTime
-extractConfirmDateAdded (ConfirmationDB _ _ dateAdded) = dateAdded
+extractOTPBirthday :: OTPRequestDB -> UTCTime
+extractOTPBirthday (OTPRequestDB _ _ birthday _) = birthday
 
 asPOSIX :: UTCTime -> Integer
 asPOSIX = utcTimeToPOSIXSeconds >>> (* 1000) >>> round
-
-data AuthActionResult
-  = Successful
-  | Incorrect
-  | Unconfirmed
-  | Duplicate
-  | Expired
-  | DoesNotExist
-  deriving (Show, Eq)
-
-data PrivilegedActionResult a
-  = Fulfilled a
-  | NotAuthorized
-  | NotFound

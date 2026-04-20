@@ -37,7 +37,7 @@ Vandyland
     * Run whatever your startup script is (e.g. `/etc/rc.local`, if this Postgres-related stuff is all that's in it) to finally launch Postgres
 
 #### Vandyland-Specific Postgres Setup
-  
+
   * Next, you'll need to initialize the Postgres database tables
     * Run `psql --username=postgres`
       * `CREATE DATABASE vandyland WITH ENCODING='UTF8' CONNECTION LIMIT=-1;`
@@ -49,6 +49,11 @@ Vandyland
     * `touch .db_username .db_password`
     * Use your preferred editor to set the sole contents of `.db_username` to your Postgres username (default: `postgres`)
     * Use your preferred editor to set the sole contents of `.db_password` to your Postgres password (default: ``)
+
+#### Keeping Secrets
+
+  * Run `head -c 32 /dev/urandom | base64 > .app_secret.txt` to set up an application secret
+  * From [Mailtrap](https://mailtrap.io/settings/api-tokens), get your API token and place it into `.mailtrap_secret.txt`
 
 ### Running
 

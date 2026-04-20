@@ -1,9 +1,6 @@
-module Vandyland.Gallery.Controller(routes) where
-
-import Control.Lens((#))
+module Vandyland.Gallery.Controller(routes, runMigrations) where
 
 import Data.CaseInsensitive(CI)
-import Data.Validation(_Failure, _Success)
 
 import qualified Data.List          as List
 import qualified Data.Map           as Map
@@ -11,64 +8,72 @@ import qualified Data.Text.Encoding as TextEncoding
 import qualified Data.UUID          as UUID
 import qualified Data.UUID.V4       as UUIDGen
 
-import Snap.Core(getHeader, getParam, getRequest, Method(DELETE, GET, POST), redirect, Snap, writeText)
-import Snap.Util.FileServe(serveFile)
+import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Snap, writeText)
+import Snap.Util.FileServe(serveDirectory)
 import Snap.Util.GZip(withCompression)
 
 import System.Directory(getDirectoryContents)
 
 import Vandyland.Common.SnapHelpers(
-    allowingCORS, Arg(Arg), asBool, asUUID, decodeText, encodeText, failWith, free, getParamV, getParamVM
-  , handle1, handle2, handle3, handle5, notEmpty, notifyBadParams, succeed, withFileUploads
+    allowingCORS, Arg(Arg), asBool, asNonNegInt, asToken, decodeText, encodeText, failWith, free
+  , getParamV, getParamVM, handle1, handle2, handle3, handle6, notEmpty, notifyBadParams, ok
+  , succeed, withFileUploads
   )
 
-import Vandyland.Gallery.Auth(genLoginToken, setUpNewUser, sendOTP)
+import Vandyland.Gallery.Auth.FancyAuth(
+    issueNewTeacherTokens, validateStudentAccessToken, validateTeacherAccessToken, validateTeacherRefreshToken
+  )
+
+import Vandyland.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher(ATeacher))
+
+import Vandyland.Gallery.ActionResult(
+    ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
+  , ActionResult
+  )
+
+import Vandyland.Gallery.OldAuth(setUpNewUser, sendOTP)
 
 import Vandyland.Gallery.Database(
-    approveSubmission, AuthActionResult(DoesNotExist, Duplicate, Expired, Incorrect, Successful, Unconfirmed)
-  , checkUserExists, confirmNewUser, forbidSubmission, isValid, logout
-  , PrivilegedActionResult(Fulfilled, NotAuthorized, NotFound), readCommentsFor, readGalleryListings
-  , readSessionExists, readStarterConfigFor, readSubmissionData, readSubmissionsLite
-  , readSubmissionListings, readSubmissionListingsForModeration, registerNewSession
-  , readTemplateName, registerNewUser, storeOTP, suppressSubmission, validateOTP, writeComment
-  , writeSubmission
+    approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, readCommentsFor
+  , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
+  , readSubmissionListings, readSubmissionListingsForModeration, registerNewGallery, readTemplateName
+  , registerNewUser, runMigrations, storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission
   )
 
 import Vandyland.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
 
+
 routes :: [(ByteString, Snap ())]
-routes = [ ("echo/:param"                                   ,      ac POST   handleEchoData)
-         , ("api/public/version"                            ,      ac GET    handleAPIVersion)
-         , ("auth/register"                                 ,      ac GET    handleShowRegister)
-         , ("auth/register"                                 ,      ac POST   handleRegister)
-         , ("auth/confirm/:token"                           ,      ac GET    handleAuthConfirm)
-         , ("auth/login"                                    ,      ac GET    handleShowLogin)
-         , ("auth/request-otp"                              ,      ac POST   handleRequestOTP)
-         , ("auth/input-otp"                                ,      ac GET    handleShowInputOTP)
-         , ("auth/input-otp"                                ,      ac POST   handleInputOTP)
-         , ("auth/is-logged-in/:login-token"                ,      ac GET    handleIsLoggedIn)
-         , ("auth/logout"                                   ,      ac POST   handleLogout)
-         , ("new-session/:template/:session-id"             ,      ac POST   handleNewSessionWithParams)
-         , ("uploads"                                       ,      ac POST   handleUpload)
-         , ("file-uploads"                                  ,      ac POST   handleUploadFile)
-         , ("api/public/galleries/:session-id/template-name",      ac GET    handleGetTemplateName)
-         , ("uploads/:session-id/:item-id"                  , wc $ ac GET    handleDownloadItem)
-         , ("uploads/:session-id/:item-id/:token"           , wc $ ac GET    handleDownloadItemWithToken)
-         , ("uploads/:session-id/:item-id/:token"           ,      ac DELETE handleSuppressItem)
-         , ("uploads/:session-id/:item-id/:token/approve"   ,      ac POST   handleApproveItem)
-         , ("uploads/:session-id/:item-id/:token/reject"    ,      ac POST   handleForbidItem)
-         , ("comments"                                      ,      ac POST   handleSubmitComment)
-         , ("comments/:session-id/:item-id"                 , wc $ ac GET    handleGetComments)
-         , ("starter-config/:session-id"                    , wc $ ac GET    handleGetStarterConfig)
-         , ("gallery-listings/:token"                       , wc $ ac GET    handleListGalleries)
-         , ("listings/:session-id"                          , wc $ ac GET    handleListSession)
-         , ("listings/:session-id/exists"                   ,      ac GET    handleSessionExists)
-         , ("mod-listings/:session-id/:token"               , wc $ ac GET    handleListSessionForModeration)
-         , ("data-lite"                                     , wc $ ac POST   handleSubmissionsLite)
-         , ("data-lite/:token"                              , wc $ ac POST   handleSubmissionsLiteWithToken)
-         , ("moderator-token"                               ,      ac GET    handleGetModeratorToken)
-         , ("uploader-token"                                ,      ac GET    handleGetUploaderToken)
-         , ("gallery-types"                                 ,      ac GET    handleGetGalleryTypes)
+routes = [ ("echo/:param"                                                   ,      ac POST   handleEchoData)
+         , ("api/version"                                                   ,      ac GET    handleAPIVersion)
+         , ("api/auth/teacher/refresh"                                      ,      ac POST   handleTeacherTokenRefresh)
+         , ("api/auth/teacher/register"                                     ,      ac POST   handleRegister)
+         , ("api/auth/teacher/confirm/:token"                               ,      ac GET    handleAuthConfirm)
+         , ("api/auth/teacher/request-otp"                                  ,      ac POST   handleRequestOTP)
+         , ("api/auth/teacher/verify-otp"                                   ,      ac POST   handleVerifyOTP)
+         , ("api/auth/teacher/is-logged-in/"                                ,      ac GET    handleTeacherIsLoggedIn)
+         , ("api/auth/teacher/logout"                                       ,      ac POST   handleLogout)
+         , ("api/auth/teacher/verify-cookie"                                ,      ac POST   handleRegister)
+         , ("api/galleries/public/comments/:teacher-id/:session-id/:item-id", wc $ ac GET    handleGetComments)
+         , ("api/galleries/public/:session-id/template-name"                ,      ac GET    handleGetTemplateName)
+         , ("api/galleries/student/comments"                                ,      ac POST   handleSubmitComment)
+         , ("api/galleries/teacher/new-session"                             ,      ac POST   handleNewSessionWithParams)
+         , ("api/galleries/teacher/overview"                                , wc $ ac GET    handleListGalleries)
+
+         , ("uploads"                                                     ,      ac POST   handleUpload)
+         , ("file-uploads"                                                ,      ac POST   handleUploadFile)
+         , ("uploads/:session-id/:item-id"                                , wc $ ac GET    handleDownloadItem)
+         , ("uploads/:session-id/:item-id"                                ,      ac DELETE handleSuppressItem)
+         , ("uploads/:session-id/:item-id/:token/approve"                 ,      ac POST   handleApproveItem)
+         , ("uploads/:session-id/:item-id/:token/reject"                  ,      ac POST   handleForbidItem)
+         , ("starter-config/:session-id"                                  , wc $ ac GET    handleGetStarterConfig)
+         , ("listings/:session-id"                                        , wc $ ac GET    handleListSession)
+         , ("mod-listings/:session-id/:token"                             , wc $ ac GET    handleListSessionForModeration)
+         , ("data-lite"                                                   , wc $ ac POST   handleSubmissionsLite)
+         , ("uploader-token"                                              ,      ac GET    handleGetUploaderToken)
+         , ("gallery-types"                                               ,      ac GET    handleGetGalleryTypes)
+
+         , ("/assets"                                                     ,                serveDirectory "frontend/dist/assets")
          ]
   where
     wc = withCompression
@@ -80,95 +85,83 @@ handleEchoData = handle1 (Arg "param" notEmpty) $ \param -> withFileUploads $ \f
   maybe (notifyBadParams [param]) writeText ((map TextEncoding.decodeUtf8 prm) <|> (Map.lookup param fileMap))
 
 handleNewSessionWithParams :: Snap ()
-handleNewSessionWithParams = withFileUploads $ \fileMap ->
-  do
+handleNewSessionWithParams =
+  ifAuthorizedTeacher $ \teacher -> withFileUploads $ \fileMap -> do
     gps      <- getParamVM fileMap $ Arg "gets-prescreened" asBool
     template <- getParamVM fileMap $ Arg "template"         notEmpty
-    token    <- getParamVM fileMap $ Arg "token"            asUUID
-    sid      <- getParamVM fileMap $ Arg "session-id"       notEmpty
+    sid      <- getParamVM fileMap $ Arg "gallery-name"     notEmpty
     desc     <- getParamVM fileMap $ Arg "description"      free
-    let config   = map genConfigMaybe $ lookupParam "config" fileMap
-    let tupleV = (,,,,,) <$> template <*> sid <*> gps <*> config <*> desc <*> token
-    bimapM_ notifyBadParams _handleNewSessionWithParams tupleV
+    let config = map genConfigMaybe $ lookupParam "config" fileMap
+    let tupleV = (,,,,) <$> template <*> sid <*> gps <*> config <*> desc
+    bimapM_ notifyBadParams (_handleNewSessionWithParams teacher) tupleV
   where
-    lookupParam param fileMap = maybe (_Failure # [param]) (_Success #) $ Map.lookup param fileMap
+    lookupParam param fileMap = maybe (Failure [param]) Success $ Map.lookup param fileMap
     genConfigMaybe config     = if config == "" then Nothing else Just config
 
+    _handleNewSessionWithParams :: AuthorizedTeacher -> (Text, Text, Bool, Maybe Text, Text) -> Snap ()
+    _handleNewSessionWithParams teacher (template, name, getsPrescreened, config, desc) =
+      do
+        result <- liftIO $ registerNewGallery teacher template name getsPrescreened config desc
+        whenSuccess result $ encodeText &> succeed "text/plain"
+
 handleListGalleries :: Snap ()
-handleListGalleries = handle1 (Arg "token" asUUID) $
-  readGalleryListings &> liftIO &>= (encodeText &> (succeed "application/json"))
+handleListGalleries =
+  ifAuthorizedTeacher $ \teacher ->
+    do
+      listingsResult <- liftIO $ readGalleryListings teacher
+      whenSuccess listingsResult $ encodeText &> succeed "application/json"
 
 handleListSession :: Snap ()
-handleListSession = handle1 (Arg "session-id" notEmpty) $
-  readSubmissionListings &> liftIO &>= (encodeText &> (succeed "application/json"))
-
-handleSessionExists :: Snap ()
-handleSessionExists = handle1 (Arg "session-id" notEmpty) $
-  readSessionExists &> liftIO &>= (encodeText &> (succeed "application/json"))
+handleListSession =
+  handle2 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty) $
+    \(teacherID, sessionID) ->
+      do
+        listingsResult <- liftIO $ readSubmissionListings teacherID sessionID
+        whenSuccess listingsResult $ encodeText &> succeed "application/json"
 
 handleListSessionForModeration :: Snap ()
-handleListSessionForModeration = handle2 (Arg "session-id" notEmpty, Arg "token" asUUID) $ \(sid, token) ->
-  do
-    result <- liftIO $ readSubmissionListingsForModeration sid token
-    case result of
-      Fulfilled xs  -> xs |> encodeText &> succeed "application/json"
-      NotAuthorized -> failWith 401 $ writeText "You are not authorized to read those submissions"
-      NotFound      -> failWith 401 $ writeText "You are not authorized to read those submissions"
-      -- I think it would be a security mistake to let any authorized party know when there are things here for reading.
-      -- ~~JAB (11/1/20)
+handleListSessionForModeration =
+  ifAuthorizedTeacher $ \teacher ->
+    handle1 (Arg "session-id" notEmpty) $
+      \sessionID ->
+        do
+          listingsResult <- liftIO $ readSubmissionListingsForModeration teacher sessionID
+          whenSuccess listingsResult $ encodeText &> succeed "application/json"
 
 handleDownloadItem :: Snap ()
 handleDownloadItem =
-  handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $ \ps@(sid, iid) ->
-    do
-      dataResult <- liftIO $ readSubmissionData sid iid Nothing
-      case dataResult of
-        Fulfilled dta -> succeed "text/plain" dta
-        NotAuthorized -> failWith 401 $ writeText $ "You are not authorized to download that."
-        NotFound      -> failWith 404 $ writeText $ "Could not find entry for " <> (asText $ show ps)
-
-handleDownloadItemWithToken :: Snap ()
-handleDownloadItemWithToken =
-  handle3 (Arg "session-id" notEmpty, Arg "item-id" notEmpty, Arg "token" asUUID) $ \ps@(sid, iid, token) ->
-    do
-      dataResult <- liftIO $ readSubmissionData sid iid $ Just token
-      case dataResult of
-        Fulfilled dta -> succeed "text/plain" dta
-        NotAuthorized -> failWith 401 $ writeText $ "You are not authorized to download that."
-        NotFound      -> failWith 404 $ writeText $ "Could not find entry for " <> (asText $ show ps)
+  handle3 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
+    \(teacherID, sessionID, uploadID) ->
+      withAuthorizations $ \teacherM studM -> do
+        dlResult <- liftIO $ readSubmissionData teacherM studM teacherID sessionID uploadID
+        whenSuccess dlResult $ succeed "text/plain"
 
 handleSuppressItem :: Snap ()
 handleSuppressItem =
-  handle3 (Arg "session-id" notEmpty, Arg "item-id" notEmpty, Arg "token" asUUID) $ \(sid, iid, token) ->
-    do
-      result <- liftIO $ suppressSubmission sid iid token
-      case result of
-        Fulfilled _   ->                writeText "Submission successfully suppressed"
-        NotAuthorized -> failWith 401 $ writeText "You are not authorized to modify that submission"
-        NotFound      -> failWith 404 $ writeText "Could not find a matching submission to suppress"
+  handle3 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
+    \(teacherID, sessionID, uploadID) ->
+      withAuthorizations $ \teacherM studM -> do
+        do
+          result <- liftIO $ suppressSubmission teacherM studM teacherID sessionID uploadID
+          whenSuccess result $ const $ succeed "text/plain" "Submission successfully suppressed"
 
 handleApproveItem :: Snap ()
 handleApproveItem =
-  handle3 (Arg "session-id" notEmpty, Arg "item-id" notEmpty, Arg "token" asUUID) $ \(sid, iid, token) ->
-    do
-      result <- liftIO $ approveSubmission sid iid $ token
-      case result of
-        Fulfilled _   ->                writeText "Submission approved"
-        NotAuthorized -> failWith 401 $ writeText "You are not authorized to modify that submission"
-        NotFound      -> failWith 404 $ writeText "Could not find a matching submission to approve"
+  ifAuthorizedTeacher $ \teacher ->
+    handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
+      \(sessionID, uploadID) ->
+        do
+          result <- liftIO $ approveSubmission teacher sessionID uploadID
+          whenSuccess result $ const $ succeed "text/plain" "Submission approved"
 
 handleForbidItem :: Snap ()
 handleForbidItem =
-  handle3 (Arg "session-id" notEmpty, Arg "item-id" notEmpty, Arg "token" asUUID) $ \(sid, iid, token) ->
-    do
-      result <- liftIO $ forbidSubmission sid iid $ token
-      case result of
-        Fulfilled _   ->                writeText "Submission successfully forbidden"
-        NotAuthorized -> failWith 401 $ writeText "You are not authorized to modify that submission"
-        NotFound      -> failWith 404 $ writeText "Could not find a matching submission to forbid"
-
-handleGetModeratorToken :: Snap ()
-handleGetModeratorToken = genToken |> liftIO &>= (succeed "text/plain")
+  ifAuthorizedTeacher $ \teacher ->
+    handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
+      \(sessionID, uploadID) ->
+        do
+          result <- liftIO $ forbidSubmission teacher sessionID uploadID
+          whenSuccess result $ const $ succeed "text/plain" "Submission successfully forbidden"
 
 handleGetUploaderToken :: Snap ()
 handleGetUploaderToken = genToken |> liftIO &>= (succeed "text/plain")
@@ -178,27 +171,18 @@ genToken = UUIDGen.nextRandom <&> UUID.toText
 
 handleSubmissionsLite :: Snap ()
 handleSubmissionsLite =
-  handle2 (Arg "session-id" notEmpty, Arg "names" free) $ \(sessionID, namesText) ->
-    do
-      let names = decodeText namesText :: Maybe [Text]
-      maybe (failWith 422 (writeText $ "Parameter 'names' is invalid JSON: " <> namesText))
-            ((readSubmissionsLite sessionID Nothing) &> (map $ map $ convert) &> liftIO &>= (encodeText &> (succeed "application/json"))) names
+  handle3 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "names" free) $
+    \(teacherID, sessionID, namesText) ->
+      withAuthorizations $ \teacherM studM -> do
+        let namesM = decodeText namesText :: Maybe [Text]
+        case namesM of
+          Nothing      -> failWith 422 $ writeText $ "Parameter 'names' is invalid JSON: " <> namesText
+          (Just names) -> do
+            pairsResult <- liftIO $ readSubmissionsLite teacherM studM teacherID sessionID names
+            whenSuccess pairsResult $ (map $ convert studM) &> encodeText &> succeed "application/json"
   where
-    convert (Submission name b64 _ _ meta) =
-      SubmissionSendable name b64 False False meta
-
-handleSubmissionsLiteWithToken :: Snap ()
-handleSubmissionsLiteWithToken =
-  handle3 (Arg "session-id" notEmpty, Arg "names" free, Arg "token" asUUID) $ \(sessionID, namesText, token) ->
-    do
-      let names = decodeText namesText :: Maybe [Text]
-      maybe (failWith 422 (writeText $ "Parameter 'names' is invalid JSON: " <> namesText))
-            ((readSubmissionsLite sessionID $ Just token) &> (map $ map $ checkOwnership $ Just token) &> liftIO &>= (encodeText &> (succeed "application/json"))) names
-  where
-    validates (Just a) (Just b) = a == b
-    validates _        _        = False
-    checkOwnership token (Submission name b64 stoken mtoken meta) =
-      SubmissionSendable name b64 (stoken `validates` token) (mtoken `validates` (map (UUID.toString &> asText) token)) meta
+    convert studM (Submission name b64 sid meta, canDelete) =
+      SubmissionSendable name b64 (maybe False (studentID &> (== sid)) studM) canDelete meta
 
 handleUpload :: Snap ()
 handleUpload =
@@ -210,48 +194,53 @@ handleUpload =
 handleUploadFile :: Snap ()
 handleUploadFile = withFileUploads $ \fileMap -> handleUploadHelper (lookupParam "data" fileMap) (lookupParam "image" fileMap) fileMap
   where
-    lookupParam param fileMap = maybe (_Failure # [param]) (_Success #) $ Map.lookup param fileMap
+    lookupParam param fileMap = maybe (Failure [param]) Success $ Map.lookup param fileMap
 
 handleUploadHelper :: Validation [Text] Text -> Validation [Text] Text -> Map Text Text -> Snap ()
 handleUploadHelper datum image fileMap =
-  do
-    sessionID <- getParamVM fileMap $ Arg "session-id" notEmpty
-    metadata  <- getParamVM fileMap $ Arg "metadata"   notEmpty
-    token     <- getParamVM fileMap $ Arg "token"      asUUID
-    let tupleV = (,,,,) <$> sessionID <*> image <*> (defaultOnV token) <*> (defaultOnV metadata) <*> datum
-    bimapM_ notifyBadParams ((uncurry5 writeSubmission) &> liftIO &>= writeText) tupleV
-  where
-    defaultOnV v = (map Just v) <> (_Success # Nothing)
+  ifAuthorizedStudent $ \student ->
+    do
+      teacherID <- getParamVM fileMap $ Arg "teacher-id" asNonNegInt
+      sessionID <- getParamVM fileMap $ Arg "session-id" notEmpty
+      metadata  <- getParamVM fileMap $ Arg "metadata"   notEmpty
+      let meta   = (map Just metadata) <> (Success Nothing)
+      let tupleV = (,,,,) <$> teacherID <*> sessionID <*> image <*> meta <*> datum
+      case tupleV of
+        Failure es    -> notifyBadParams es
+        Success tuple -> do
+          uploadNameResult <- liftIO $ (uncurry5 $ writeSubmission student) tuple
+          whenSuccess uploadNameResult $ succeed "text/plain"
 
 handleGetComments :: Snap ()
-handleGetComments = handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $ (uncurry readCommentsFor) &> liftIO &>= (encodeText &> (succeed "application/json"))
+handleGetComments = handle3 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
+  \(teacherID, sessionName, uploadName) -> do
+    commentsResult <- liftIO $ readCommentsFor teacherID sessionName uploadName
+    whenSuccess commentsResult $ encodeText &> succeed "application/json"
 
 handleSubmitComment :: Snap ()
 handleSubmitComment =
-  handle5 (Arg "session-id" notEmpty, Arg "item-id" notEmpty, Arg "comment" notEmpty, Arg "author" notEmpty, Arg "parent" free) $
-    \(sessionName, uploadName, comment, author, parent) ->
-      do
-        liftIO $ writeComment comment uploadName sessionName author (UUID.fromText parent)
-        writeText "" -- Necessary?
+  handle6 ( Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "item-id" notEmpty
+          , Arg "parent" free, Arg "author" notEmpty, Arg "comment" notEmpty) $
+    \(teacherID, sessionName, uploadName, parent, author, comment) -> do
+      result <- liftIO $ writeComment teacherID sessionName uploadName (UUID.fromText parent) author comment
+      whenSuccess result $ const $ writeText ""
 
 handleGetTemplateName :: Snap ()
 handleGetTemplateName =
-  handle1 (Arg "session-id" notEmpty) $ \(sid) ->
+  handle2 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty) $ \(teacherID, sessionID) ->
     do
-      tNameMaybe <- liftIO $ readTemplateName sid
-      case tNameMaybe of
-        Nothing  -> failWith 404 $ writeText $ "No gallery with name '" <> sid <> "' was found."
-        (Just x) -> writeText x
+      templateNameResult <- liftIO $ readTemplateName teacherID sessionID
+      whenSuccess templateNameResult writeText
 
 handleGetStarterConfig :: Snap ()
 handleGetStarterConfig =
-  handle1 (Arg "session-id" notEmpty) $ \galleryName ->
+  handle2 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty) $ \(teacherID, sessionID) ->
     do
-      starterMaybe <- liftIO $ readStarterConfigFor galleryName
-      case starterMaybe of
-        Nothing               -> failWith 404 $ writeText $ "No gallery with name '" <> galleryName <> "' was found."
-        (Just Nothing)        -> failWith 404 $ writeText $ "No starter config has been uploaded for this gallery."
-        (Just (Just starter)) -> succeed "text/plain" starter
+      let ident           = "(" <> (showText teacherID) <> " | " <> sessionID <> ")"
+      starterMaybeResult <- liftIO $ readStarterConfigFor teacherID sessionID
+      whenSuccess starterMaybeResult $
+        \case Nothing        -> failWith 404 $ writeText $ "No starter config has been uploaded for gallery '" <> ident <> "'."
+              (Just starter) -> succeed "text/plain" starter
 
 handleGetGalleryTypes :: Snap ()
 handleGetGalleryTypes =
@@ -262,57 +251,69 @@ handleGetGalleryTypes =
 
 handleRegister :: Snap ()
 handleRegister =
-  handle1 (Arg "email" notEmpty) $ \email ->
-    do
-      isExistent <- liftIO $ checkUserExists email
-      if not isExistent then do
-       returnAddress     <- genRegistrationURL
-       registrationToken <- liftIO $ setUpNewUser email returnAddress
-       result            <- liftIO $ registerNewUser email registrationToken
-       whenNoAuthError result $ do
-         succeed "text/plain" "Registration successful.  Check your e-mail for a confirmation link."
-      else
-        handleDuplicateEmail
+  handle3 (Arg "email" notEmpty, Arg "firstName" notEmpty, Arg "lastName" notEmpty) $
+    \(email, firstName, lastName) ->
+      do
+        orgV       <- getParamV $ Arg "organization" notEmpty
+        let orgM    = validation (const Nothing) Just orgV
+        isExistent <- liftIO $ checkUserExists email
+        if not isExistent then do
+         returnAddress     <- genRegistrationURL
+         registrationToken <- liftIO $    setUpNewUser email returnAddress
+         result            <- liftIO $ registerNewUser email firstName lastName orgM registrationToken
+         whenSuccess result $ const ok
+        else
+          handleDuplicateEmail
 
 handleAuthConfirm :: Snap ()
 handleAuthConfirm =
-  handle1 (Arg "token" asUUID) $ \token ->
+  handle1 (Arg "token" asToken) $ \token ->
     do
-      result <- liftIO $ confirmNewUser token
-      whenNoAuthError result $ succeed "text/plain" ""
+      emailResult <- liftIO $ confirmNewUser token
+      whenSuccess emailResult $ \(ATeacher emailAddr) -> do
+        accessTokenResult <- issueNewTeacherTokens emailAddr
+        whenSuccess accessTokenResult $ succeed "text/plain"
 
 handleRequestOTP :: Snap ()
 handleRequestOTP =
   handle1 (Arg "email" notEmpty) $ \email ->
     do
-      otp    <- liftIO $ sendOTP  email
-      result <- liftIO $ storeOTP email otp
-      whenNoAuthError result $ redirect $ "/auth/input-otp"
+      otpResult <- liftIO $ sendOTP email
+      whenSuccess otpResult $ \otp -> do
+        result <- liftIO $ storeOTP email otp
+        whenSuccess result $ const ok
 
-handleInputOTP :: Snap ()
-handleInputOTP =
-  handle2 (Arg "email" notEmpty, Arg "passcode" notEmpty) $ \(email, passcode) ->
-    do
-      token  <- liftIO $ genLoginToken
-      result <- liftIO $ validateOTP email passcode token
-      whenNoAuthError result $ succeed "text/plain" $ UUID.toText token
+handleVerifyOTP :: Snap ()
+handleVerifyOTP =
+  handle2 (Arg "email" notEmpty, Arg "passcode" notEmpty) $
+    \(emailAddr, passcode) ->
+      do
+        result <- liftIO $ validateOTP emailAddr passcode
+        whenSuccess result $ const $ do
+          accessTokenResult <- issueNewTeacherTokens emailAddr
+          whenSuccess accessTokenResult $ succeed "text/plain"
 
-handleIsLoggedIn :: Snap ()
-handleIsLoggedIn =
-  handle1 (Arg "login-token" asUUID) $ \token ->
-    do
-      result <- liftIO $ isValid token
-      if result == DoesNotExist || result == Expired then
-        succeed "text/plain" "0"
-      else
-        whenNoAuthError result $ succeed "text/plain" "1"
+handleTeacherIsLoggedIn :: Snap ()
+handleTeacherIsLoggedIn =
+  do
+    vldtn <- validateTeacherAccessToken
+    validation (const $ succeed "text/plain" "0") (const $ succeed "text/plain" "1") vldtn
 
 handleLogout :: Snap ()
 handleLogout =
-  handle1 (Arg "login-token" asUUID) $ \token ->
-    do
-      result <- liftIO $ logout token
-      whenNoAuthError result $ succeed "text/plain" ""
+  do
+    teacherV <- validateTeacherRefreshToken
+    whenSuccess teacherV $ \teacher -> do
+      result <- liftIO $ logoutTeacher teacher
+      whenSuccess result $ const ok
+
+handleTeacherTokenRefresh :: Snap ()
+handleTeacherTokenRefresh =
+  do
+    teacherResult <- validateTeacherRefreshToken
+    whenSuccess teacherResult $ \(ATeacher emailAddr) -> do
+      accessTokenResult <- issueNewTeacherTokens emailAddr
+      whenSuccess accessTokenResult $ succeed "text/plain"
 
 genRegistrationURL :: Snap Text
 genRegistrationURL =
@@ -322,42 +323,46 @@ genRegistrationURL =
     let host    = fromMaybe "" hostM
     let origin  = fromMaybe "" originM
     let proto   = if origin == ("http://" <> host) then "http" else "https"
-    return $ proto <> "://" <> host <> "/auth/confirm/"
+    return $ proto <> "://" <> host <> "/galleries/teacher/confirm/"
 
 getHeaderText :: CI ByteString -> Snap (Maybe Text)
 getHeaderText headerName =
   do
-    request <- getRequest
-    return $ map TextEncoding.decodeUtf8 $ getHeader headerName request
+    headerValue <- getsRequest $ getHeader headerName
+    return $ map TextEncoding.decodeUtf8 headerValue
 
-whenNoAuthError :: AuthActionResult -> Snap () -> Snap ()
-whenNoAuthError Successful   x = x
-whenNoAuthError Duplicate    _ = handleDuplicateEmail
-whenNoAuthError Incorrect    _ = failWith 403 $ writeText $ "Incorrect passcode"
-whenNoAuthError Unconfirmed  _ = failWith 403 $ writeText $ "This user account has not been confirmed.  Please click the link in the confirmation e-mail and then try again."
-whenNoAuthError Expired      _ = failWith 403 $ writeText $ "Too much time passed before we received your login attempt.  Please start over."
-whenNoAuthError DoesNotExist _ = failWith 404 $ writeText $ "That user does not exist"
+whenSuccess :: ActionResult a -> (a -> Snap ()) -> Snap ()
+whenSuccess (Success             x) f = f x
+whenSuccess (Failure     Duplicate) _ = handleDuplicateEmail
+whenSuccess (Failure     Malformed) _ = failWith 400 $ writeText $ "The supplied data was malformed."
+whenSuccess (Failure NotAuthorized) _ = failWith 401 $ writeText $ "Your request does not have the proper authentication cookies for that."
+whenSuccess (Failure     Incorrect) _ = failWith 401 $ writeText $ "Incorrect passcode"
+whenSuccess (Failure   Unconfirmed) _ = failWith 403 $ writeText $ "This user account has not been confirmed.  Please click the link in the confirmation e-mail and then try again."
+whenSuccess (Failure       Expired) _ = failWith 403 $ writeText $ "Your access to this resource has expired.  Please start over."
+whenSuccess (Failure      NotFound) _ = failWith 404 $ writeText $ "That user does not exist"
+whenSuccess (Failure InternalError) _ = failWith 500 $ writeText $ "Internal error"
 
 handleDuplicateEmail :: Snap ()
 handleDuplicateEmail = failWith 409 $ writeText $ "An account for that e-mail address already exists."
 
-handleShowRegister :: Snap ()
-handleShowRegister = serveFile "./html/common/register.html"
-
-handleShowLogin :: Snap ()
-handleShowLogin = serveFile "./html/common/login.html"
-
-handleShowInputOTP :: Snap ()
-handleShowInputOTP = serveFile "./html/common/input-otp.html"
-
 handleAPIVersion :: Snap ()
-handleAPIVersion = writeText "1.2.0"
+handleAPIVersion = writeText "2.0.0"
 
-_handleNewSessionWithParams :: (Text, Text, Bool, Maybe Text, Text, UUID.UUID) -> Snap ()
-_handleNewSessionWithParams (template, name, getsPrescreened, config, desc, token) =
+withAuthorizations :: (Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Snap a) -> Snap a
+withAuthorizations f =
   do
-    wasSuccessful <- liftIO $ registerNewSession template name getsPrescreened config desc token
-    if wasSuccessful then
-      writeText name
-    else
-      failWith 409 $ writeText $ "A session with the name '" <> name <> "' already exists."
+    teacherV <- validateTeacherAccessToken
+    studentV <- validateStudentAccessToken
+    f (validation (const Nothing) Just teacherV) (validation (const Nothing) Just studentV)
+
+ifAuthorizedStudent :: (AuthorizedStudent -> Snap ()) -> Snap ()
+ifAuthorizedStudent ifGood =
+  do
+    studentV <- validateStudentAccessToken
+    validation (const $ failWith 401 $ writeText "No valid student access token.") ifGood studentV
+
+ifAuthorizedTeacher :: (AuthorizedTeacher -> Snap ()) -> Snap ()
+ifAuthorizedTeacher ifGood =
+  do
+    teacherV <- validateTeacherAccessToken
+    validation (const $ failWith 401 $ writeText "No valid teacher access token.") ifGood teacherV
