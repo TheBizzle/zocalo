@@ -1,5 +1,5 @@
 Cabal-Version:       3.8
-Name:                vandyland
+Name:                zocalo
 Version:             1.1
 Category:            Web
 Stability:           Experimental
@@ -22,36 +22,36 @@ Common common
     -threaded
     -O2
 
-Executable vandyland
+Executable zocalo
   Import:         common
   Hs-Source-Dirs: app
   Main-Is:        Main.hs
   Build-Depends:
     snap-core,
     snap-server >= 1.1.2 && < 1.2.0,
-    vandyland
+    zocalo
 
 Library
   Import:         common
   Hs-Source-Dirs: src/main
   Exposed-Modules:
-    Vandyland.BadgerState.Controller,
-    Vandyland.Gallery.Controller
+    Zocalo.BadgerState.Controller,
+    Zocalo.Gallery.Controller
   Other-Modules:
-    Vandyland.BadgerState.Database,
-    Vandyland.BadgerState.Datum,
-    Vandyland.Common.DBCredentials,
-    Vandyland.Common.SecureToken,
-    Vandyland.Common.SnapHelpers,
-    Vandyland.Gallery.ActionResult,
-    Vandyland.Gallery.Auth.AuthorizedUser,
-    Vandyland.Gallery.Auth.FancyAuth,
-    Vandyland.Gallery.Comment,
-    Vandyland.Gallery.Database,
-    Vandyland.Gallery.OldAuth,
-    Vandyland.Gallery.RandGen,
-    Vandyland.Gallery.Submission,
-    Vandyland.Gallery.WebReq
+    Zocalo.BadgerState.Database,
+    Zocalo.BadgerState.Datum,
+    Zocalo.Common.DBCredentials,
+    Zocalo.Common.SecureToken,
+    Zocalo.Common.SnapHelpers,
+    Zocalo.Gallery.ActionResult,
+    Zocalo.Gallery.Auth.AuthorizedUser,
+    Zocalo.Gallery.Auth.FancyAuth,
+    Zocalo.Gallery.Comment,
+    Zocalo.Gallery.Database,
+    Zocalo.Gallery.OldAuth,
+    Zocalo.Gallery.RandGen,
+    Zocalo.Gallery.Submission,
+    Zocalo.Gallery.WebReq
   Build-Depends:
     aeson                     >= 2.2.3   && < 2.3.0,
     base64-bytestring         >= 1.2.1   && < 1.3.0,

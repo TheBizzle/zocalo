@@ -1,4 +1,4 @@
-Vandyland
+zócalo
 ===============
 
 ### Installation Instructions
@@ -36,11 +36,11 @@ Vandyland
         * Use `sudo systemctl status rc-local` to diagnose; values other than `Active: active` indicate error
     * Run whatever your startup script is (e.g. `/etc/rc.local`, if this Postgres-related stuff is all that's in it) to finally launch Postgres
 
-#### Vandyland-Specific Postgres Setup
+#### zócalo-Specific Postgres Setup
 
   * Next, you'll need to initialize the Postgres database tables
     * Run `psql --username=postgres`
-      * `CREATE DATABASE vandyland WITH ENCODING='UTF8' CONNECTION LIMIT=-1;`
+      * `CREATE DATABASE zocalo WITH ENCODING='UTF8' CONNECTION LIMIT=-1;`
       * `CREATE DATABASE badgerstate WITH ENCODING='UTF8' CONNECTION LIMIT=-1;`
       * `exit`
 
@@ -57,10 +57,10 @@ Vandyland
 
 ### Running
 
-  * To run the server without HTTP, run `stack build && stack exec vandyland`
+  * To run the server without HTTP, run `stack build && stack exec zocalo`
 
-  * For HTTPS support, ensure that your SSL cert is accessible and run this command: `stack build && sudo /PATH/TO/STACK/stack exec --allow-different-user vandyland -- --port=80 --ssl-port=443 --ssl-cert=/PATH/TO/CERT/cert.pem --ssl-key=/PATH/TO/KEY/privkey.pem --ssl-address=0.0.0.0 --no-ssl-chain-cert` (your filenames for the key and cert may differ)
+  * For HTTPS support, ensure that your SSL cert is accessible and run this command: `stack build && sudo /PATH/TO/STACK/stack exec --allow-different-user zocalo -- --port=80 --ssl-port=443 --ssl-cert=/PATH/TO/CERT/cert.pem --ssl-key=/PATH/TO/KEY/privkey.pem --ssl-address=0.0.0.0 --no-ssl-chain-cert` (your filenames for the key and cert may differ)
 
 ### API Docs
 
-Web API docs can be found [here](https://github.com/TheBizzle/Vandyland/wiki/Web-API).
+Web API docs can be found [here](https://github.com/TheBizzle/zocalo/wiki/Web-API).

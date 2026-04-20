@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Vandyland.BadgerState.Database(joinGroup, readDataFor, readGroup, readNDataFor, readSignalFor, writeData, writeSignal) where
+module Zocalo.BadgerState.Database(joinGroup, readDataFor, readGroup, readNDataFor, readSignalFor, writeData, writeSignal) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -30,7 +30,7 @@ import Database.Persist.TH(mkMigrate, mkPersist, persistLowerCase, share, sqlSet
 
 import System.Random(randomIO)
 
-import Vandyland.Common.DBCredentials(password, username)
+import Zocalo.Common.DBCredentials(password, username)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 GroupDB
@@ -113,4 +113,4 @@ withDB action = runNoLoggingT $ withPostgresqlPool connStr 50 $ \pool -> liftIO 
         --runMigration migrateAll
         action
   where
-    connStr = "host=localhost dbname=vandyland user=" <> username <> " password=" <> password <> " port=5432"
+    connStr = "host=localhost dbname=zocalo user=" <> username <> " password=" <> password <> " port=5432"

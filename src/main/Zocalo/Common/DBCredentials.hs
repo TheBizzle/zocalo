@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Vandyland.Common.DBCredentials(password, username) where
+module Zocalo.Common.DBCredentials(password, username) where
 
 import Data.FileEmbed(embedFile)
 

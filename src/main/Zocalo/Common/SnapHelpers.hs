@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Vandyland.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asInt, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, uncurry6, withFileUploads) where
+module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asInt, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, uncurry6, withFileUploads) where
 
 import Codec.Compression.Zlib.Internal(decompressST, defaultDecompressParams, foldDecompressStreamWithInput, gzipFormat)
 
@@ -16,7 +16,7 @@ import Snap.Util.FileUploads(defaultFileUploadPolicy, defaultUploadPolicy, FormF
 
 import System.IO.Streams(InputStream)
 
-import Vandyland.Common.SecureToken(SecureToken, tokenFromText)
+import Zocalo.Common.SecureToken(SecureToken, tokenFromText)
 
 import qualified Data.ByteString.Lazy    as LazyByteString
 import qualified Data.Map                as Map

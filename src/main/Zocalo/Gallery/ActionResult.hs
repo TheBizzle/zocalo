@@ -1,4 +1,4 @@
-module Vandyland.Gallery.ActionResult(
+module Zocalo.Gallery.ActionResult(
     ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
   , ActionResult
   ) where

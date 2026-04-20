@@ -1,4 +1,4 @@
-module Vandyland.Gallery.Controller(routes, runMigrations) where
+module Zocalo.Gallery.Controller(routes, runMigrations) where
 
 import Data.CaseInsensitive(CI)
 
@@ -14,33 +14,33 @@ import Snap.Util.GZip(withCompression)
 
 import System.Directory(getDirectoryContents)
 
-import Vandyland.Common.SnapHelpers(
+import Zocalo.Common.SnapHelpers(
     allowingCORS, Arg(Arg), asBool, asNonNegInt, asToken, decodeText, encodeText, failWith, free
   , getParamV, getParamVM, handle1, handle2, handle3, handle6, notEmpty, notifyBadParams, ok
   , succeed, withFileUploads
   )
 
-import Vandyland.Gallery.Auth.FancyAuth(
+import Zocalo.Gallery.Auth.FancyAuth(
     issueNewTeacherTokens, validateStudentAccessToken, validateTeacherAccessToken, validateTeacherRefreshToken
   )
 
-import Vandyland.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher(ATeacher))
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher(ATeacher))
 
-import Vandyland.Gallery.ActionResult(
+import Zocalo.Gallery.ActionResult(
     ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
   , ActionResult
   )
 
-import Vandyland.Gallery.OldAuth(setUpNewUser, sendOTP)
+import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
 
-import Vandyland.Gallery.Database(
+import Zocalo.Gallery.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, readCommentsFor
   , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
   , readSubmissionListings, readSubmissionListingsForModeration, registerNewGallery, readTemplateName
   , registerNewUser, runMigrations, storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission
   )
 
-import Vandyland.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
+import Zocalo.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
 
 
 routes :: [(ByteString, Snap ())]

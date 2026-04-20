@@ -1,4 +1,4 @@
-module Vandyland.Gallery.Auth.AuthorizedUser(
+module Zocalo.Gallery.Auth.AuthorizedUser(
     AuthorizedStudent(AStudent, studentID, studentName)
   , AuthorizedTeacher(ATeacher, teacherAddr)
   , AuthorizedUser(readUser)

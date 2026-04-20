@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Vandyland.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, registerNewGallery, registerNewUser, runMigrations, storeOTP, suppressSubmission, uniqueGalleryName, upsertTeacherRefreshToken, validateOTP, writeComment, writeSubmission) where
+module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, registerNewGallery, registerNewUser, runMigrations, storeOTP, suppressSubmission, uniqueGalleryName, upsertTeacherRefreshToken, validateOTP, writeComment, writeSubmission) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -31,15 +31,15 @@ import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend,
 import Database.Persist.Sql(fromSqlKey, toSqlKey)
 import Database.Persist.TH(mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 
-import Vandyland.Common.DBCredentials(password, username)
-import Vandyland.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
+import Zocalo.Common.DBCredentials(password, username)
+import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
 
-import Vandyland.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID), AuthorizedTeacher(ATeacher, teacherAddr))
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID), AuthorizedTeacher(ATeacher, teacherAddr))
 
-import Vandyland.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
-import Vandyland.Gallery.Comment(Comment(Comment, time))
-import Vandyland.Gallery.RandGen(generateName)
-import Vandyland.Gallery.Submission(GalleryListing(GalleryListing), Submission(Submission), SubmissionListing(SubmissionListing))
+import Zocalo.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
+import Zocalo.Gallery.Comment(Comment(Comment, time))
+import Zocalo.Gallery.RandGen(generateName)
+import Zocalo.Gallery.Submission(GalleryListing(GalleryListing), Submission(Submission), SubmissionListing(SubmissionListing))
 
 import qualified Data.Text          as Text
 import qualified Data.UUID          as UUID
