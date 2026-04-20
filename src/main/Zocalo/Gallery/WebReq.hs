@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts, QuasiQuotes #-}
-module Vandyland.Gallery.WebReq(HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody)) where
+module Zocalo.Gallery.WebReq(HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody)) where
 
 import Control.Monad(mzero)
 

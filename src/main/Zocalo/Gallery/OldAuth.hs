@@ -1,18 +1,18 @@
-module Vandyland.Gallery.OldAuth(sendOTP, setUpNewUser) where
+module Zocalo.Gallery.OldAuth(sendOTP, setUpNewUser) where
 
 import Data.Text(intercalate)
 
 import qualified Data.Map  as Map
 import qualified Data.Text as Text
 
-import Vandyland.Common.SecureToken(SecureToken(tokenText))
+import Zocalo.Common.SecureToken(SecureToken(tokenText))
 
-import Vandyland.Gallery.Auth.FancyAuth(genSecureToken)
+import Zocalo.Gallery.Auth.FancyAuth(genSecureToken)
 
-import Vandyland.Gallery.ActionResult(ActionResult)
-import Vandyland.Gallery.Database(checkIsOkayOTPRate)
-import Vandyland.Gallery.RandGen(generate6Digit)
-import Vandyland.Gallery.WebReq(HTTPMethod(POST), httpRequest, HTTPRequest(HTTPRequest), MailtrapBody(MailtrapBody))
+import Zocalo.Gallery.ActionResult(ActionResult)
+import Zocalo.Gallery.Database(checkIsOkayOTPRate)
+import Zocalo.Gallery.RandGen(generate6Digit)
+import Zocalo.Gallery.WebReq(HTTPMethod(POST), httpRequest, HTTPRequest(HTTPRequest), MailtrapBody(MailtrapBody))
 
 sendOTP :: Text -> IO (ActionResult Text)
 sendOTP emailAddr =

@@ -8,4 +8,4 @@ cd ..
 
 stack build
 
-killall vandyland
+killall zocalo

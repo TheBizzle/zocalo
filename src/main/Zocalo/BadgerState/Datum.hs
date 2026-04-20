@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Vandyland.BadgerState.Datum(Datum(..)) where
+module Zocalo.BadgerState.Datum(Datum(..)) where
 
 import Data.Aeson(ToJSON)
 

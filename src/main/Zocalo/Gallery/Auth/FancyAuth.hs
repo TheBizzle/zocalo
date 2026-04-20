@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Vandyland.Gallery.Auth.FancyAuth(genSecureToken, issueNewTeacherTokens, SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateTeacherAccessToken, validateTeacherRefreshToken) where
+module Zocalo.Gallery.Auth.FancyAuth(genSecureToken, issueNewTeacherTokens, SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateTeacherAccessToken, validateTeacherRefreshToken) where
 
 import Control.Lens((^.), (.~), (&))
 
@@ -18,12 +18,12 @@ import Snap.Core(
   , getCookie, getHeader, getsRequest, modifyResponse, Snap
   )
 
-import Vandyland.Common.SecureToken(genSecureToken, SecureToken(SecureToken, tokenText))
+import Zocalo.Common.SecureToken(genSecureToken, SecureToken(SecureToken, tokenText))
 
-import Vandyland.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher, AuthorizedUser(readUser))
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher, AuthorizedUser(readUser))
 
-import Vandyland.Gallery.ActionResult(ActionError(Incorrect, InternalError, Malformed, NotAuthorized), ActionResult)
-import Vandyland.Gallery.Database(lookupTeacherRefreshToken, upsertTeacherRefreshToken)
+import Zocalo.Gallery.ActionResult(ActionError(Incorrect, InternalError, Malformed, NotAuthorized), ActionResult)
+import Zocalo.Gallery.Database(lookupTeacherRefreshToken, upsertTeacherRefreshToken)
 
 import qualified Data.ByteString.Char8      as BS
 import qualified Data.ByteString.Lazy       as LazyBS

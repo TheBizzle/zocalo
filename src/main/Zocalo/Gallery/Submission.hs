@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
-module Vandyland.Gallery.Submission(GalleryListing(..), Submission(..), SubmissionListing(..), SubmissionSendable(..)) where
+module Zocalo.Gallery.Submission(GalleryListing(..), Submission(..), SubmissionListing(..), SubmissionSendable(..)) where
 
 import Data.Aeson(ToJSON)
 

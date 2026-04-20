@@ -4,8 +4,8 @@ import Snap.Core(dir, route)
 import Snap.Http.Server(quickHttpServe)
 import Snap.Util.FileServe(serveDirectory, serveFile)
 
-import qualified Vandyland.BadgerState.Controller as BadgerState
-import qualified Vandyland.Gallery.Controller     as Gallery
+import qualified Zocalo.BadgerState.Controller as BadgerState
+import qualified Zocalo.Gallery.Controller     as Gallery
 
 main :: IO ()
 main =

@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Vandyland.Gallery.RandGen(generate6Digit, generateLongName, generateName) where
+module Zocalo.Gallery.RandGen(generate6Digit, generateLongName, generateName) where
 
 import Data.ByteString.Char8(split)
 import Data.FileEmbed(embedFile)

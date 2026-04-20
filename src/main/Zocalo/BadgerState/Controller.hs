@@ -1,4 +1,4 @@
-module Vandyland.BadgerState.Controller(routes) where
+module Zocalo.BadgerState.Controller(routes) where
 
 import Data.Time(UTCTime)
 import Data.Time.Clock.POSIX(posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
@@ -8,10 +8,10 @@ import qualified Data.UUID as UUID
 import Snap.Core(Method(GET, POST), Snap, writeText)
 import Snap.Util.GZip(withCompression)
 
-import Vandyland.Common.SnapHelpers(allowingCORS, Arg(Arg), asNonNegInt, asUUID, encodeText, failWith, handle1, handle2, handle3, notEmpty, succeed)
+import Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asNonNegInt, asUUID, encodeText, failWith, handle1, handle2, handle3, notEmpty, succeed)
 
-import Vandyland.BadgerState.Database(joinGroup, readDataFor, readGroup, readNDataFor, readSignalFor, writeData, writeSignal)
-import Vandyland.BadgerState.Datum(Datum(Datum))
+import Zocalo.BadgerState.Database(joinGroup, readDataFor, readGroup, readNDataFor, readSignalFor, writeData, writeSignal)
+import Zocalo.BadgerState.Datum(Datum(Datum))
 
 routes :: [(ByteString, Snap ())]
 routes = [ ("badgerstate/join/:group-id"                     , withCompression $ allowingCORS POST handleJoinGroup  )

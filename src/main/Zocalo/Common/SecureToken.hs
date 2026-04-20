@@ -1,4 +1,4 @@
-module Vandyland.Common.SecureToken(genSecureToken, hashToken, SecureToken(SecureToken, tokenText), tokenFromText) where
+module Zocalo.Common.SecureToken(genSecureToken, hashToken, SecureToken(SecureToken, tokenText), tokenFromText) where
 
 import Crypto.Hash(Digest, hash, SHA256)
 import Crypto.Random(getRandomBytes)
