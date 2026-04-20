@@ -9,6 +9,7 @@
 
 tags
 
+/.app_secret.txt
 /.db_username
 /.db_password
 /.ghci
@@ -18,3 +19,6 @@ tags
 /log/
 /stack.yaml.lock
 /target/
+
+/frontend/dist/
+/frontend/node_modules/

@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Vandyland.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asInt, asNonNegInt, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, notEmpty, notifyBadParams, succeed, withFileUploads) where
+module Vandyland.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asInt, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, uncurry6, withFileUploads) where
 
 import Codec.Compression.Zlib.Internal(decompressST, defaultDecompressParams, foldDecompressStreamWithInput, gzipFormat)
 
@@ -16,12 +16,15 @@ import Snap.Util.FileUploads(defaultFileUploadPolicy, defaultUploadPolicy, FormF
 
 import System.IO.Streams(InputStream)
 
+import Vandyland.Common.SecureToken(SecureToken, tokenFromText)
+
 import qualified Data.ByteString.Lazy    as LazyByteString
 import qualified Data.Map                as Map
 import qualified Data.Text               as Text
 import qualified Data.Text.Lazy          as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyTextEncoding
 import qualified Data.UUID               as UUID
+
 
 data Constraint t =
   Constraint (ByteString -> Text -> Validation [Text] t)
@@ -71,6 +74,18 @@ handle5 (arg1, arg2, arg3, arg4, arg5) onSuccess =
     arg4 <- getParamV arg4
     arg5 <- getParamV arg5
     let tupleV = (,,,,) <$> arg1 <*> arg2 <*> arg3 <*> arg4 <*> arg5
+    bimapM_ notifyBadParams onSuccess tupleV
+
+handle6 :: (Arg t1, Arg t2, Arg t3, Arg t4, Arg t5, Arg t6) -> ((t1, t2, t3, t4, t5, t6) -> Snap ()) -> Snap ()
+handle6 (arg1, arg2, arg3, arg4, arg5, arg6) onSuccess =
+  do
+    arg1 <- getParamV arg1
+    arg2 <- getParamV arg2
+    arg3 <- getParamV arg3
+    arg4 <- getParamV arg4
+    arg5 <- getParamV arg5
+    arg6 <- getParamV arg6
+    let tupleV = (,,,,,) <$> arg1 <*> arg2 <*> arg3 <*> arg4 <*> arg5 <*> arg6
     bimapM_ notifyBadParams onSuccess tupleV
 
 decodeText :: FromJSON a => Text -> Maybe a
@@ -124,6 +139,9 @@ succeed contentType output =
     modifyResponse $ setContentType contentType
     writeText output
 
+ok :: Snap ()
+ok = succeed "text/plain" ""
+
 asNonNegInt :: Constraint Int
 asNonNegInt = Constraint $ buildConstraint $ \x -> (readMaybe (asString x) :: Maybe Int) |>
   (>>= (\n -> if n < 0 then Nothing else Just n))
@@ -137,6 +155,9 @@ asBool = Constraint $ buildConstraint $ Text.toLower &> decoder
     decoder "true"  = Just True
     decoder "false" = Just False
     decoder _       = Nothing
+
+asToken :: Constraint SecureToken
+asToken = Constraint $ buildConstraint tokenFromText
 
 asUUID :: Constraint UUID
 asUUID = Constraint $ buildConstraint UUID.fromText
@@ -152,6 +173,9 @@ notEmpty = Constraint $ (\paramName x -> case x of
 buildConstraint :: (Text -> Maybe a) -> ByteString -> Text -> Validation [Text] a
 buildConstraint f paramName x =
   maybe (_Failure # [(decodeUtf8 paramName)]) (_Success #) (f x)
+
+uncurry6 :: (a -> b -> c -> d -> e -> f -> g) -> ((a, b, c, d, e, f) -> g)
+uncurry6 g (a, b, c, d, e, f) = g a b c d e f
 
 withFileUploads :: (Map Text Text -> Snap ()) -> Snap ()
 withFileUploads f =

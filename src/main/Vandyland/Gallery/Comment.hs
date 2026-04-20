@@ -7,7 +7,7 @@ import GHC.Generics(Generic)
 
 data Comment
   = Comment {
-      uuid    :: Text
+      uuid    :: Int64
     , comment :: Text
     , author  :: Text
     , parent  :: Maybe Text

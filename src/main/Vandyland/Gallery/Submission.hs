@@ -3,9 +3,9 @@
 module Vandyland.Gallery.Submission(GalleryListing(..), Submission(..), SubmissionListing(..), SubmissionSendable(..)) where
 
 import Data.Aeson(ToJSON)
-import Data.UUID(UUID)
 
 import GHC.Generics(Generic)
+
 
 data SubmissionListing
   = SubmissionListing {
@@ -29,8 +29,7 @@ data Submission
   = Submission {
       uploadName'  :: Text
     , base64Image' :: Text
-    , token'       :: Maybe UUID
-    , modName'     :: Maybe Text
+    , studentID'   :: Word64
     , metadata'    :: Maybe Text
     } deriving Show
 
