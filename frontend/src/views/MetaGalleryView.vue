@@ -99,11 +99,11 @@
         <div class="form-stack">
           <div class="form-group">
             <label class="form-label">New gallery name <span class="required">*</span></label>
-            <input v-model="cloneForm.name" class="form-input" type="text" placeholder="My Gallery #2" />
+            <input v-model="cloneName" class="form-input" type="text" placeholder="My Gallery #2" />
           </div>
           <div class="form-group">
             <label class="form-label">Description</label>
-            <textarea v-model="cloneForm.description" class="form-textarea"
+            <textarea v-model="cloneDesc" class="form-textarea"
                       placeholder="Notes for your future self…" rows="3"></textarea>
           </div>
         </div>
@@ -119,8 +119,8 @@
 
 <script lang="ts">
 
-  import { computed, defineComponent, onMounted, reactive, ref } from "vue";
-  import { useRouter                                           } from "vue-router";
+  import { computed, defineComponent, onMounted, ref } from "vue";
+  import { useRouter                                 } from "vue-router";
 
   import CreateGalleryForm from "@/components/CreateGalleryForm.vue";
 
@@ -149,7 +149,8 @@
       const sortKey         = ref("created_desc");
       const cloneModal      = ref(false);
       const cloneSource     = ref<Gallery | null>(null);
-      const cloneForm       = reactive({ name: "", description: "" });
+      const cloneName       = ref("");
+      const cloneDesc       = ref("");
       const hasMounted      = ref(false);
 
       const sortedGalleries = computed(
@@ -229,10 +230,10 @@
       }
 
       function openCloneModal(g: Gallery): void {
-        cloneSource.value     = g;
-        cloneForm.name        = "";
-        cloneForm.description = "";
-        cloneModal.value      = true;
+        cloneSource.value = g;
+        cloneName.value   = "";
+        cloneDesc.value   = "";
+        cloneModal.value  = true;
       }
 
       function confirmClone(): void {
@@ -241,8 +242,8 @@
         const newGallery: Gallery = {
           ...(cloneSource.value as Gallery)
         , id:           Date.now()
-        , name:         cloneForm.name.trim()
-        , description:  cloneForm.description
+        , name:         cloneName.value.trim()
+        , description:  cloneDesc.value
         , numApproved:  0
         , numWaiting:   0
         , creationTime: new Date()
@@ -266,7 +267,7 @@
       }
 
       return {
-        activeTab, cloneForm, cloneModal, cloneSource, confirmClone, formatDate, hasMounted
+        activeTab, cloneDesc, cloneModal, cloneName, cloneSource, confirmClone, formatDate, hasMounted
       , onGalleryCanceled, onGalleryCreated, openCloneModal, openCreateModal, sortedGalleries, sortKey
       , viewAsStudent, viewAsTeacher
       };
