@@ -45,8 +45,6 @@
           v-for="gallery in sortedGalleries"
           :key="gallery.id"
           class="gallery-row card animate-fade"
-          :class="{ selected: selectedGallery?.id === gallery.id }"
-          @click="selectedGallery = gallery"
         >
           <div class="gallery-row-main">
             <div class="gallery-row-title">
@@ -69,7 +67,7 @@
             <p v-if="gallery.description" class="gallery-row-desc">{{ gallery.description }}</p>
           </div>
 
-          <div class="gallery-row-actions" @click.stop>
+          <div class="gallery-row-actions">
             <button class="btn btn-ghost btn-sm" @click="viewAsStudent(gallery)">
               👁 Student view
             </button>
@@ -149,7 +147,6 @@
 
       const activeTab       = ref<"list" | "create">("list");
       const sortKey         = ref("created_desc");
-      const selectedGallery = ref<Gallery | null>(null);
       const cloneModal      = ref(false);
       const cloneSource     = ref<Gallery | null>(null);
       const cloneForm       = reactive({ name: "", description: "" });
@@ -323,10 +320,6 @@
     flex-wrap:       wrap;
   }
 
-  .gallery-row.selected {
-    border-color: var(--clr-primary);
-    box-shadow:   0 0 0 3px var(--clr-primary-lt);
-  }
 
   .gallery-row-main {
     flex:      1;
