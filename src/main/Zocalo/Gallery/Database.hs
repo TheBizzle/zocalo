@@ -165,11 +165,12 @@ readGalleryListings teacher =
                                  , SubmissionDBIsAwaitingModeration ==. False
                                  , SubmissionDBIsForbidden          ==. False
                                  ] [Asc SubmissionDBDateAdded]
+        let sid         = fromIntegral $ fromSqlKey subID
         let uploads     = map entityVal rows
         let numApproved = length uploads
         let cTime       = asPOSIX cDate
         let lTime       = getMax cTime uploads
-        return $ GalleryListing name template desc isPre numWaiting numApproved cTime lTime
+        return $ GalleryListing sid name template desc isPre numWaiting numApproved cTime lTime
       return $ Success listings
   where
     getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)

@@ -15,7 +15,8 @@ data SubmissionListing
 
 data GalleryListing
   = GalleryListing {
-    galleryName   :: Text
+    id            :: Int
+  , name          :: Text
   , template      :: Text
   , description   :: Text
   , isPrescreened :: Bool
