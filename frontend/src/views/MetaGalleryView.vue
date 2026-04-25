@@ -163,25 +163,47 @@
               return list.sort((a, b) => b.creationTime.getTime() - a.creationTime.getTime());
             case "submission_desc":
               return list.sort(
-                (a, b) => (b.lastSubTime?.getTime() ?? 0) - (a.lastSubTime?.getTime() ?? 0)
+                defaultingToCreationTime(
+                  (a, b) => (b.lastSubTime?.getTime() ?? 0) - (a.lastSubTime?.getTime() ?? 0)
+                )
               );
             case "name_asc":
-              return list.sort((a, b) => a.name.localeCompare(b.name));
+              return list.sort(
+                defaultingToCreationTime(
+                  (a, b) => a.name.localeCompare(b.name)
+                )
+              );
             case "uploads_desc":
               return list.sort(
-                (a, b) => b.numApproved - a.numApproved
+                defaultingToCreationTime(
+                  (a, b) => b.numApproved - a.numApproved
+                )
               );
             case "pending_desc":
               return list.sort(
-                (a, b) => b.numWaiting - a.numWaiting
+                defaultingToCreationTime(
+                  (a, b) => b.numWaiting - a.numWaiting
+                )
               );
             case "template_asc":
-              return list.sort((a, b) => a.template.localeCompare(b.template));
+              return list.sort(
+                defaultingToCreationTime(
+                  (a, b) => a.template.localeCompare(b.template)
+                )
+              );
             default:
               return list;
           }
         }
       );
+
+      function defaultingToCreationTime(f: (a: Gallery, b: Gallery) => number):
+          (a: Gallery, b: Gallery) => number {
+        return (a: Gallery, b: Gallery) => {
+          const result = f(a, b);
+          return (result !== 0) ? result : b.creationTime.getTime() - a.creationTime.getTime();
+        };
+      }
 
       async function updateGalleries(): Promise<void> {
         const result  = await authorizedFetch("/api/galleries/teacher/overview");
