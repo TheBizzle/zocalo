@@ -310,12 +310,12 @@
               id
             , name:           form.name.trim()
             , template:       templates.find(t => t.id === form.template)?.name ?? form.template
-            , isModerated:    form.isModerated
-            , uploadCount:    0
-            , pendingCount:   0
-            , createdAt:      new Date()
-            , lastSubmission: null
+            , isPrescreened:  form.isModerated
             , description:    form.description
+            , numApproved:    0
+            , numWaiting:     0
+            , creationTime:   new Date()
+            , lastSubTime:    null
             };
 
             successMsg.value = `Gallery "${newGallery.name}" created!`;

@@ -31,7 +31,7 @@
 
       </div>
 
-      <div v-if="sortedGalleries.length === 0" class="empty-state">
+      <div v-if="hasMounted && sortedGalleries.length === 0" class="empty-state">
         <div class="empty-state-icon">🖼️</div>
         <h3>No galleries yet</h3>
         <p>Create your first gallery to get started.</p>
@@ -121,10 +121,13 @@
 
 <script lang="ts">
 
-  import { defineComponent, ref, computed, reactive } from "vue";
-  import { useRouter                                } from "vue-router";
+  import { computed, defineComponent, onMounted, reactive, ref } from "vue";
+  import { useRouter                                           } from "vue-router";
 
   import CreateGalleryForm from "@/components/CreateGalleryForm.vue";
+
+  import { GalleryArraySchema } from "@/core/Gallery.ts";
+  import { authorizedFetch    } from "@/core/TeacherAuth.ts";
 
   import type { Gallery } from "@/core/Gallery.ts";
 
@@ -136,65 +139,42 @@
 
       const router = useRouter();
 
+      const galleries = ref<Array<Gallery>>([]);
+      onMounted(
+        async () => {
+          await updateGalleries();
+          hasMounted.value = true;
+        }
+      );
+
       const activeTab       = ref<"list" | "create">("list");
       const sortKey         = ref("created_desc");
       const selectedGallery = ref<Gallery | null>(null);
       const cloneModal      = ref(false);
       const cloneSource     = ref<Gallery | null>(null);
       const cloneForm       = reactive({ name: "", description: "" });
-
-      // TODO: Demo data — replace with API fetch
-      const galleries =
-        ref<Array<Gallery>>(
-          [ { id:             1
-            , name:           "Spring Art Showcase"
-            , template:       "Image Gallery"
-            , isModerated:      true
-            , uploadCount:    24
-            , pendingCount:   3
-            , createdAt:      new Date("2025-03-01")
-            , lastSubmission: new Date("2025-04-10")
-            , description:    "End-of-term artwork from Year 10 Art."
-            }
-          , { id:             2
-            , name:           "Science Fair Posters"
-            , template:       "Document Viewer"
-            , isModerated:      false
-            , uploadCount:    12
-            , pendingCount:   0
-            , createdAt:      new Date("2025-02-15")
-            , lastSubmission: new Date("2025-03-20")
-            , description:    ""
-            }
-          , { id:             3
-            , name:           "Creative Writing"
-            , template:       "Text Reader"
-            , isModerated:      true
-            , uploadCount:    7
-            , pendingCount:   1
-            , createdAt:      new Date("2025-04-01")
-            , lastSubmission: new Date("2025-04-08")
-            , description:    "Short stories from Year 9 English."
-            }
-          ]
-        );
+      const hasMounted      = ref(false);
 
       const sortedGalleries = computed(
         () => {
           const list = [...galleries.value];
           switch (sortKey.value) {
             case "created_desc":
-              return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+              return list.sort((a, b) => b.creationTime.getTime() - a.creationTime.getTime());
             case "submission_desc":
               return list.sort(
-                (a, b) => (b.lastSubmission?.getTime() ?? 0) - (a.lastSubmission?.getTime() ?? 0)
+                (a, b) => (b.lastSubTime?.getTime() ?? 0) - (a.lastSubTime?.getTime() ?? 0)
               );
             case "name_asc":
               return list.sort((a, b) => a.name.localeCompare(b.name));
             case "uploads_desc":
-              return list.sort((a, b) => b.uploadCount - a.uploadCount);
+              return list.sort(
+                (a, b) => b.numApproved - a.numApproved
+              );
             case "pending_desc":
-              return list.sort((a, b) => b.pendingCount - a.pendingCount);
+              return list.sort(
+                (a, b) => b.numWaiting - a.numWaiting
+              );
             case "template_asc":
               return list.sort((a, b) => a.template.localeCompare(b.template));
             default:
@@ -202,6 +182,16 @@
           }
         }
       );
+
+      async function updateGalleries(): Promise<void> {
+        const result  = await authorizedFetch("/api/galleries/teacher/overview");
+        if (result.ok) {
+          galleries.value = GalleryArraySchema.parse(await result.json());
+        } else {
+          const message = await result.text();
+          throw new Error(message);
+        }
+      }
 
       function formatDate(d: Date): string {
         return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
@@ -231,13 +221,13 @@
         // TODO: API call to clone gallery
         const newGallery: Gallery = {
           ...(cloneSource.value as Gallery)
-        , id: Date.now()
-        , name: cloneForm.name.trim()
-        , description: cloneForm.description
-        , uploadCount: 0
-        , pendingCount: 0
-        , createdAt: new Date()
-        , lastSubmission: null,
+        , id:           Date.now()
+        , name:         cloneForm.name.trim()
+        , description:  cloneForm.description
+        , numApproved:  0
+        , numWaiting:   0
+        , creationTime: new Date()
+        , lastSubTime:  null,
         };
 
         galleries.value.push(newGallery);
@@ -257,8 +247,8 @@
       }
 
       return {
-        activeTab, cloneForm, cloneModal, cloneSource, confirmClone, formatDate, onGalleryCanceled
-      , onGalleryCreated, openCloneModal, openCreateModal, selectedGallery, sortedGalleries, sortKey
+        activeTab, cloneForm, cloneModal, cloneSource, confirmClone, formatDate, hasMounted
+      , onGalleryCanceled, onGalleryCreated, openCloneModal, openCreateModal, sortedGalleries, sortKey
       , viewAsStudent, viewAsTeacher
       };
 
