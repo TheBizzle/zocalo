@@ -24,6 +24,8 @@ instance AuthorizedUser AuthorizedTeacher where
 
 data AuthorizedStudent =
   AStudent { studentID :: Word64, studentName :: Text }
+  deriving Show
 
 newtype AuthorizedTeacher =
   ATeacher { teacherAddr :: Text }
+  deriving Show
