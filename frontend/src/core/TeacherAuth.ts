@@ -8,34 +8,34 @@ type Auth =
 
 let authM: Auth | null = null;
 
-const amLoggedInSimple = (): boolean => {
+function amLoggedInSimple(): boolean {
   return Date.now() < (authM?.expiry ?? -1); // TODO?
-};
+}
 
-const amLoggedIn = async (): Promise<boolean> => {
+async function amLoggedIn(): Promise<boolean> {
   if (!amLoggedInSimple()) {
     await refreshAuth();
   }
   return amLoggedInSimple();
-};
+}
 
-const clearAuth = (): void => {
+function clearAuth(): void {
   authM = null;
-};
+}
 
-const getAuthToken = async (): Promise<string | null> => {
+async function getAuthToken(): Promise<string | null> {
   if (!amLoggedInSimple()) {
     await refreshAuth();
   }
   return (authM !== null) ? authM.rawToken : null;
-};
+}
 
-const logout = async (): Promise<void> => {
+async function logout():  Promise<void> {
   await fetch("/api/auth/teacher/logout", { method: "POST" , credentials: "include" });
   clearAuth();
-};
+}
 
-const refreshAuth = async (): Promise<boolean> => {
+async function refreshAuth(): Promise<boolean> {
   const res = await fetch("/api/auth/teacher/refresh", { method: "POST" , credentials: "include" });
   if (res.ok) {
     storeToken(await res.text());
@@ -44,23 +44,22 @@ const refreshAuth = async (): Promise<boolean> => {
     console.error("Auth refresh failed", await res.text());
   }
   return res.ok;
-};
+}
 
-const storeToken = (compactToken: string): void => {
+function storeToken(compactToken: string): void {
   const [emailAddr, expiry] = decodeJWT(compactToken);
   authM = { emailAddr, expiry, rawToken: compactToken };
-};
+}
 
-const decodeJWT = (compactToken: string): [string, number] => {
+function decodeJWT(compactToken: string): [string, number] {
 
-  const decodeBase64URL =
-    (str: string): string => {
-      const base64 =
-        str.replace(/-/g, "+").
-          replace(/_/g, "/").
-          padEnd(str.length + (4 - str.length % 4) % 4, "=");
-      return atob(base64);
-    };
+  function decodeBase64URL(str: string): string {
+    const base64 =
+      str.replace(/-/g, "+").
+        replace(/_/g, "/").
+        padEnd(str.length + (4 - str.length % 4) % 4, "=");
+    return atob(base64);
+  };
 
   const chunks = compactToken.split(".");
   if (chunks.length === 3) {
@@ -75,6 +74,6 @@ const decodeJWT = (compactToken: string): [string, number] => {
     throw new Error("Invalid JWT format");
   }
 
-};
+}
 
 export { amLoggedIn, getAuthToken, logout, refreshAuth, storeToken };
