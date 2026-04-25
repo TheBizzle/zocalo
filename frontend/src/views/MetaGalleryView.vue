@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <div v-if="activeTab === 'list'" class="animate-fade">
+    <div v-if="activeTab === 'list'" class="animate-fade list-tab">
 
       <!-- Sort bar -->
       <div class="high-level-controls">
@@ -46,38 +46,40 @@
           :key="gallery.id"
           class="gallery-row card animate-fade"
         >
-          <div class="gallery-row-main">
-            <div class="gallery-row-title">
-              <span class="display">{{ gallery.name }}</span>
-              <span class="badge" :class="gallery.isModerated ? 'badge-moderated' : 'badge-open'">
-                {{ gallery.isModerated ? 'Moderated' : 'Open' }}
-              </span>
-            </div>
-            <div class="gallery-row-meta">
+          <div class="card-body">
+            <p class="card-title">{{ gallery.name }}</p>
+            <p class="card-meta">
               <span>{{ gallery.template }}</span>
               <span class="meta-sep">·</span>
-              <span>Created {{ formatDate(gallery.createdAt) }}</span>
+              <span>Created {{ formatDate(gallery.creationTime) }}</span>
               <span class="meta-sep">·</span>
-              <span>{{ gallery.uploadCount }} uploads</span>
-              <template v-if="gallery.pendingCount > 0">
+              <span>{{ gallery.numApproved }} uploads</span>
+              <template v-if="gallery.numWaiting > 0">
                 <span class="meta-sep">·</span>
-                <span class="text-warning">{{ gallery.pendingCount }} pending</span>
+                <span class="text-warning">{{ gallery.numWaiting }} pending</span>
               </template>
-            </div>
-            <p v-if="gallery.description" class="gallery-row-desc">{{ gallery.description }}</p>
+            </p>
+            <p v-if="gallery.description" class="card-description">{{ gallery.description }}</p>
           </div>
 
-          <div class="gallery-row-actions">
-            <button class="btn btn-ghost btn-sm" @click="viewAsStudent(gallery)">
-              👁 Student view
-            </button>
-            <button class="btn btn-accent btn-sm" @click="viewAsTeacher(gallery)">
-              🎓 Moderator
-            </button>
-            <button class="btn btn-secondary btn-sm" @click="openCloneModal(gallery)">
-              ⊕ Make another
+          <div class="card-footer">
+            <div class="footer-actions-left">
+              <button class="btn btn-primary" @click="$emit('student-view', gallery)">
+                Student view
+              </button>
+              <button
+                v-if="gallery.isPrescreened"
+                class="btn btn-accent"
+                @click="$emit('moderator-view', gallery)"
+              >
+                Moderation view
+              </button>
+            </div>
+            <button class="btn-text" @click="$emit('make-another', gallery)">
+              Make another
             </button>
           </div>
+
         </div>
       </div>
     </div>
@@ -283,23 +285,23 @@
     margin-bottom: var(--space-6);
   }
 
-  .high-level-controls {
-    align-items:     center;
-    display:         flex;
-    flex-direction:  row;
-    justify-content: space-between;
+  .list-tab {
+    width: 550px;
   }
 
-  .new-gallery-button {
-    max-height: 3.5rem;
+  .high-level-controls {
+    display:         flex;
+    flex-direction:  row;
+    align-items:     end;
+    justify-content: space-between;
+    margin-bottom:   var(--space-2);
   }
 
   .sort-bar {
-    display:       flex;
-    align-items:   center;
-    gap:           var(--space-1);
-    margin-bottom: var(--space-3);
-    flex-wrap:     wrap;
+    display:     flex;
+    align-items: center;
+    gap:         var(--space-1);
+    flex-wrap:   wrap;
   }
 
   .sort-select {
@@ -309,64 +311,98 @@
   .galleries-list {
     display:        flex;
     flex-direction: column;
-    gap:            var(--space-4);
+    gap:            6px;
   }
 
   .gallery-row {
-    display:         flex;
-    align-items:     flex-start;
-    justify-content: space-between;
-    gap:             var(--space-5);
-    cursor:          pointer;
-    flex-wrap:       wrap;
+    background:    var(--clr-surface);
+    border:        0.5px solid var(--clr-border-2);
+    border-radius: var(--radius-md);
+    overflow:      hidden;
+    padding:       unset;
   }
 
-
-  .gallery-row-main {
-    flex:      1;
-    min-width: 0;
+  .card-body {
+    padding: 1rem 1.25rem;
   }
 
-  .gallery-row-title {
-    display:       flex;
-    align-items:   center;
-    gap:           var(--space-3);
-    font-size:     1.15rem;
-    font-weight:   600;
-    margin-bottom: var(--space-2);
-    flex-wrap:     wrap;
+  .card-title {
+    font-weight: 500;
+    font-size:   15px;
+    color:       var(--clr-ink);
+    margin:      0 0 var(--space-1);
   }
 
-  .gallery-row-meta {
-    font-size: 0.82rem;
-    color:     var(--clr-ink-3);
+  .card-meta {
     display:   flex;
     flex-wrap: wrap;
-    gap:       4px;
+    gap:       6px;
+    color:     var(--clr-ink-3);
+    font-size: 0.82rem;
+    margin:    0 0 var(--space-1);
+  }
+
+  .card-description {
+    font-size:  13px;
+    color:      var(--clr-ink-3);
+    font-style: italic;
+    margin:     0;
+  }
+
+  .card-footer {
+    border-top:  0.5px solid var(--clr-border-2);
+    padding:     10px 1.25rem;
+    display:     flex;
+    align-items: center;
+    gap:         var(--space-2);
+    background:  #f7f7f7;
+  }
+
+  .footer-actions-left {
+    display: flex;
+    gap:     var(--space-2);
+    flex:    1;
+  }
+
+  .btn {
+    border:        none;
+    border-radius: var(--radius-lg);
+    padding:       6px var(--space-4);
+    font-size:     13px;
+    font-family:   var(--font-body);
+    cursor:        pointer;
+    white-space:   nowrap;
+    transition:    opacity var(--transition);
+  }
+
+  .btn-text {
+    background:  transparent;
+    border:      none;
+    color:       var(--clr-primary);
+    font-size:   13px;
+    font-family: var(--font-body);
+    cursor:      pointer;
+    padding:     0;
+    white-space: nowrap;
+    transition:  opacity var(--transition);
+  }
+
+  .btn-text:hover {
+    color: var(--clr-primary-dk);
+  }
+
+  .new-gallery-button {
+    font-size:  0.9rem;
+    min-height: 2.75rem;
   }
 
   .meta-sep {
-    color: var(--clr-border-2);
+    color: var(--clr-ink);
   }
 
   .text-warning {
     color:       var(--clr-pending);
     font-weight: 600;
-  }
-
-  .gallery-row-desc {
-    font-size:  0.875rem;
-    color:      var(--clr-ink-3);
-    margin-top: var(--space-2);
-    font-style: italic;
-  }
-
-  .gallery-row-actions {
-    display:     flex;
-    gap:         var(--space-2);
-    flex-wrap:   wrap;
-    flex-shrink: 0;
-    align-items: flex-start;
   }
 
   .modal-footer {
