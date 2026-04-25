@@ -4,7 +4,7 @@ module Zocalo.Gallery.Auth.FancyAuth(genSecureToken, issueNewTeacherTokens, Secu
 import Control.Lens((^.), (.~), (&))
 
 import Crypto.JOSE.JWK(fromOctets, JWK)
-import Crypto.JWT(Alg(HS256), Audience(Audience), claimAud, claimExp, ClaimsSet, claimSub, decodeCompact, defaultJWTValidationSettings, emptyClaimsSet, encodeCompact, JOSE, JWTError, newJWSHeader, NumericDate(NumericDate), runJOSE, signClaims, SignedJWT, StringOrURI, verifyClaims)
+import Crypto.JWT(Alg(HS256), Audience(Audience), claimAud, claimExp, ClaimsSet, claimSub, decodeCompact, defaultJWTValidationSettings, emptyClaimsSet, encodeCompact, JOSE, JWTError, newJWSHeader, NumericDate(NumericDate), runJOSE, signClaims, SignedJWT, string, StringOrURI, verifyClaims)
 
 import Data.FileEmbed(embedFile)
 import Data.String(fromString)
@@ -105,7 +105,7 @@ verifyJWT tokenBS =
   claimsEIO <&> \case Left       _ -> Failure Incorrect
                       Right claims ->
                         case claims ^. claimSub of
-                          Just sub -> Success $ readUser $ Text.pack $ show sub
+                          Just sub -> Success $ readUser $ sub ^. string
                           Nothing  -> Failure Malformed
   where
     claimsEIO :: IO (Either JWTError ClaimsSet)
