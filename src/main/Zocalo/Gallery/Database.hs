@@ -301,7 +301,7 @@ runMigrations = liftIO $ withDB $ runMigration migrateAll
 withDB :: ReaderT SqlBackend (NoLoggingT (ResourceT IO)) a -> IO a
 withDB action = runNoLoggingT $ withPostgresqlPool connStr 50 $ runSqlPersistMPool action &> liftIO
   where
-    connStr = "host=localhost dbname=vandyland user=" <> username <> " password=" <> password <> " port=5432"
+    connStr = "host=localhost dbname=zocalo user=" <> username <> " password=" <> password <> " port=5432"
 
 processSubmissionAuth :: (SubmissionDB -> a) -> Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO (ActionResult (a, Bool))
 processSubmissionAuth f teacherM studentM submission =
