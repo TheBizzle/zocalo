@@ -19,6 +19,14 @@ async function amLoggedIn(): Promise<boolean> {
   return amLoggedInSimple();
 }
 
+async function authorizedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  options.headers = {
+    ...options.headers
+  , Authorization: `Bearer ${await getAuthToken()}`
+  };
+  return fetch(url, options);
+}
+
 function clearAuth(): void {
   authM = null;
 }
@@ -76,4 +84,4 @@ function decodeJWT(compactToken: string): [string, number] {
 
 }
 
-export { amLoggedIn, getAuthToken, logout, refreshAuth, storeToken };
+export { amLoggedIn, authorizedFetch, getAuthToken, logout, refreshAuth, storeToken };

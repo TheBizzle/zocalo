@@ -130,7 +130,7 @@
 
   import { defineComponent, reactive, ref, computed } from "vue";
 
-  import { getAuthToken } from "@/core/TeacherAuth.ts";
+  import { authorizedFetch } from "@/core/TeacherAuth.ts";
 
   import InfoIndicator from "./InfoIndicator.vue";
   import Switcher      from "./Switcher.vue";
@@ -288,9 +288,6 @@
 
         try {
 
-          const teacherToken = await getAuthToken();
-          const headers      = { Authorization: `Bearer ${teacherToken}` };
-
           const starterConfig = new Blob([form.starterData], { type: "text/plain" });
 
           const postData = new FormData();
@@ -299,10 +296,10 @@
           postData.append("gets-prescreened", form.isModerated.toString());
           postData.append("description"     , form.description);
           postData.append("config"          , starterConfig, "config");
-          const options = { method: "POST", body: postData, headers };
+          const options = { method: "POST", body: postData };
 
           const url    = "/api/galleries/teacher/new-session";
-          const result = await fetch(url, options);
+          const result = await authorizedFetch(url, options);
 
           if (result.ok) {
 
