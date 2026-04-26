@@ -73,11 +73,15 @@
   import { defineComponent, reactive, ref } from "vue";
   import { useRouter } from "vue-router";
 
+  import { setTitle } from "@/composables/setTitle.ts";
+
   export default defineComponent({
     name: "RegisterView"
   , setup() {
 
       useRouter();
+
+      setTitle("Create Your Zócalo Account");
 
       const loading    = ref(false);
       const successMsg = ref("");

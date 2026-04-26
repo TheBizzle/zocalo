@@ -136,6 +136,8 @@
   import { defineComponent, ref, computed } from "vue";
   import { useRoute } from "vue-router";
 
+  import { setTitle } from "@/composables/setTitle.ts";
+
   type SubmissionItem = {
     id:           string
     title:        string
@@ -157,6 +159,9 @@
       const pendingOpen  = ref(true);
       const approvedOpen = ref(true);
       const previewItem  = ref<SubmissionItem | null>(null);
+
+      const title = computed(() => `${galleryName.value} - Moderation`);
+      setTitle(title);
 
       // TODO: Demo data
       const items =

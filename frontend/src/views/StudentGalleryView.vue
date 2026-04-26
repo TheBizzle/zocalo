@@ -135,9 +135,11 @@
 
 <script lang="ts">
 
-  import { defineComponent, ref } from "vue";
-  import { useRoute } from "vue-router";
-  import CommentThread from "../components/CommentThread.vue";
+  import { computed, defineComponent, ref } from "vue";
+  import { useRoute                       } from "vue-router";
+
+  import CommentThread from "@/components/CommentThread.vue";
+  import { setTitle }  from "@/composables/setTitle.ts";
 
   type Comment = { id: string; author: string; text: string; createdAt: Date }
   type Submission = {
@@ -163,6 +165,9 @@
       const activeItem      = ref<      Submission | null>(null);
 
       const uploadForm = ref({ title: "", description: "", fileName: "", fileData: null as File | null });
+
+      const title = computed(() => `${galleryName.value} Gallery`);
+      setTitle(title);
 
       // TODO: Demo submissions
       const submissions =

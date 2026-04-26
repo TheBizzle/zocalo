@@ -126,10 +126,9 @@
 
   import CreateGalleryForm from "@/components/CreateGalleryForm.vue";
 
-  import { GalleryArraySchema } from "@/core/Gallery.ts";
-  import { authorizedFetch    } from "@/core/TeacherAuth.ts";
-
-  import type { Gallery } from "@/core/Gallery.ts";
+  import { setTitle                         } from "@/composables/setTitle.ts";
+  import { type Gallery, GalleryArraySchema } from "@/core/Gallery.ts";
+  import { authorizedFetch                  } from "@/core/TeacherAuth.ts";
 
   export default defineComponent({
     name:       "MetaGalleryView"
@@ -154,6 +153,9 @@
       const cloneName       = ref("");
       const cloneDesc       = ref("");
       const hasMounted      = ref(false);
+
+      const title = computed(() => activeTab.value === "create" ? "Create a Gallery" : "Galleries");
+      setTitle(title);
 
       const sortedGalleries = computed(
         () => {
