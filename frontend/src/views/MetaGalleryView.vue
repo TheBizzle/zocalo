@@ -98,6 +98,9 @@
           <strong>{{ cloneSource?.name }}</strong>.  Uploads and comments will <strong>not</strong> be
           copied over.
         </p>
+
+        <div class="alert alert-danger" v-if="cloneError">{{ cloneError }}</div>
+
         <div class="form-stack">
           <div class="form-group">
             <label class="form-label">New gallery name <span class="required">*</span></label>
@@ -145,13 +148,14 @@
         }
       );
 
-      const activeTab       = ref<"list" | "create">("list");
-      const sortKey         = ref("created_desc");
-      const cloneModal      = ref(false);
-      const cloneSource     = ref<Gallery | null>(null);
-      const cloneName       = ref("");
-      const cloneDesc       = ref("");
-      const hasMounted      = ref(false);
+      const activeTab   = ref<"list" | "create">("list");
+      const sortKey     = ref("created_desc");
+      const cloneError  = ref<string | null>(null);
+      const cloneModal  = ref(false);
+      const cloneSource = ref<Gallery | null>(null);
+      const cloneName   = ref("");
+      const cloneDesc   = ref("");
+      const hasMounted  = ref(false);
 
       const title = computed(() => activeTab.value === "create" ? "Create a Gallery" : "Galleries");
       setTitle(title);
@@ -233,6 +237,7 @@
       }
 
       function openCloneModal(g: Gallery): void {
+        cloneError.value  = "";
         cloneSource.value = g;
         cloneName.value   = "";
         cloneDesc.value   = "";
@@ -240,6 +245,13 @@
       }
 
       function confirmClone(): void {
+
+        cloneError.value   = null;
+
+        if (cloneName.value.trim() === "") {
+          cloneError.value = "Please enter a gallery name.";
+          return;
+        }
 
         // TODO: API call to clone gallery
         const newGallery: Gallery = {
@@ -270,9 +282,9 @@
       }
 
       return {
-        activeTab, cloneDesc, cloneModal, cloneName, cloneSource, confirmClone, formatDate, hasMounted
-      , onGalleryCanceled, onGalleryCreated, openCloneModal, openCreateModal, sortedGalleries, sortKey
-      , viewAsStudent, viewAsTeacher
+        activeTab, cloneDesc, cloneError, cloneModal, cloneName, cloneSource, confirmClone, formatDate
+      , hasMounted, onGalleryCanceled, onGalleryCreated, openCloneModal, openCreateModal, sortedGalleries
+      , sortKey, viewAsStudent, viewAsTeacher
       };
 
     }
