@@ -92,21 +92,20 @@
     <div class="modal-overlay animate-fade" v-if="cloneModal" @click.self="cloneModal = false">
       <div class="modal-box animate-scale">
         <button class="btn-icon modal-close" @click="cloneModal = false">✕</button>
-        <p class="section-eyebrow">Duplicate gallery</p>
         <h2 style="margin-bottom: var(--space-5)">Make another copy</h2>
         <p style="margin-bottom: var(--space-4); font-size: 0.9rem; color: var(--clr-ink-2)">
-          This will create a new gallery identical to
-          <strong>{{ cloneSource?.name }}</strong>, with a different name and optional description.
+          This will create another gallery with the same configuration as
+          <strong>{{ cloneSource?.name }}</strong>.  Uploads and comments will <strong>not</strong> be
+          copied over.
         </p>
         <div class="form-stack">
           <div class="form-group">
             <label class="form-label">New gallery name <span class="required">*</span></label>
-            <input v-model="cloneName" class="form-input" type="text" placeholder="My Gallery #2" />
+            <input v-model="cloneName" class="form-input" type="text" />
           </div>
           <div class="form-group">
             <label class="form-label">Description</label>
-            <textarea v-model="cloneDesc" class="form-textarea"
-                      placeholder="Notes for your future self…" rows="3"></textarea>
+            <textarea v-model="cloneDesc" class="form-textarea" rows="3"></textarea>
           </div>
         </div>
         <div class="modal-footer">
