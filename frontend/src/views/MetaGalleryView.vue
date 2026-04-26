@@ -14,7 +14,7 @@
       <div class="high-level-controls">
 
         <div class="sort-bar">
-          <label class="form-label" style="margin: 0; white-space: nowrap;">Sort by:</label>
+          <label class="form-label" style="margin: 0 0 0 2px; white-space: nowrap;">Sort by:</label>
           <select v-model="sortKey" class="form-select sort-select">
             <option value="created_desc">Latest creation</option>
             <option value="submission_desc">Latest student submission</option>
