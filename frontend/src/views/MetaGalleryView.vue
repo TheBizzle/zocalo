@@ -126,11 +126,11 @@
   import { computed, defineComponent, onMounted, ref } from "vue";
   import { useRouter                                 } from "vue-router";
 
-  import CreateGalleryForm from "@/components/CreateGalleryForm.vue";
-
+  import CreateGalleryForm                    from "@/components/CreateGalleryForm.vue";
+  import { uploadNewGallery                 } from "@/composables/uploadNewGallery.ts";
   import { setTitle                         } from "@/composables/setTitle.ts";
   import { type Gallery, GalleryArraySchema } from "@/core/Gallery.ts";
-  import { authorizedFetch                  } from "@/core/TeacherAuth.ts";
+  import { authorizedFetch, getTeacherID    } from "@/core/TeacherAuth.ts";
 
   export default defineComponent({
     name:       "MetaGalleryView"
@@ -236,37 +236,52 @@
         void router.push(`/gallery/${g.id}`);
       }
 
+      function resetCloneModal(): void {
+        cloneError.value = null;
+        cloneName.value  = "";
+        cloneDesc.value  = "";
+      }
+
       function openCloneModal(g: Gallery): void {
-        cloneError.value  = "";
+        resetCloneModal();
         cloneSource.value = g;
-        cloneName.value   = "";
-        cloneDesc.value   = "";
         cloneModal.value  = true;
       }
 
-      function confirmClone(): void {
+      async function confirmClone(): Promise<void> {
 
-        cloneError.value   = null;
+        cloneError.value = null;
 
-        if (cloneName.value.trim() === "") {
+        const galleryName = cloneName.value.trim();
+
+        if (cloneSource.value === null) {
+          cloneError.value = "Impossible to clone nothing.";
+          return;
+        }
+
+        if (galleryName === "") {
           cloneError.value = "Please enter a gallery name.";
           return;
         }
 
-        // TODO: API call to clone gallery
-        const newGallery: Gallery = {
-          ...(cloneSource.value as Gallery)
-        , id:           Date.now()
-        , name:         cloneName.value.trim()
-        , description:  cloneDesc.value
-        , numApproved:  0
-        , numWaiting:   0
-        , creationTime: new Date()
-        , lastSubTime:  null,
-        };
+        const result = await fetch(`api/galleries/public/${getTeacherID()}/${galleryName}/starter-config`);
 
-        galleries.value.push(newGallery);
+        if (result.ok) {
 
+          const starterData = await result.text();
+
+          const newGallery =
+            await uploadNewGallery( galleryName, cloneSource.value.template
+                                  , cloneSource.value.isPrescreened, cloneDesc.value
+                                  , starterData);
+
+          galleries.value.push(newGallery);
+
+        } else {
+          throw new Error(await result.text());
+        }
+
+        resetCloneModal();
         cloneModal.value = false;
         activeTab.value  = "list";
 
