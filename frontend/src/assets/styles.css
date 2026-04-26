@@ -361,10 +361,11 @@ a:hover { color: var(--clr-primary-dk); }
   text-decoration: none;
 }
 .navbar-brand .brand-dot {
-  width: 8px; height: 8px;
-  background: var(--clr-primary);
+  display:       inline-block;
+  background:    var(--clr-primary);
   border-radius: 50%;
-  display: inline-block;
+  width:         11px;
+  height:        11px;
 }
 .navbar-links {
   display: flex;
