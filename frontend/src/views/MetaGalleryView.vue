@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <div v-if="activeTab === 'list'" class="animate-fade list-tab">
+    <div v-if="activeTab === 'list'" class="animate-fade">
 
       <!-- Sort bar -->
       <div class="high-level-controls">
@@ -285,10 +285,6 @@
     margin-bottom: var(--space-6);
   }
 
-  .list-tab {
-    width: 550px;
-  }
-
   .high-level-controls {
     display:         flex;
     flex-direction:  row;
@@ -309,21 +305,24 @@
   }
 
   .galleries-list {
-    display:        flex;
-    flex-direction: column;
-    gap:            6px;
+    display:               grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap:                   6px;
   }
 
   .gallery-row {
-    background:    var(--clr-surface);
-    border:        0.5px solid var(--clr-border-2);
-    border-radius: var(--radius-md);
-    overflow:      hidden;
-    padding:       unset;
+    background:     var(--clr-surface);
+    border:         0.5px solid var(--clr-border-2);
+    border-radius:  var(--radius-md);
+    display:        flex;
+    flex-direction: column;
+    overflow:       hidden;
+    padding:        unset;
   }
 
   .card-body {
-    padding: 1rem 1.25rem;
+    flex-grow: 1;
+    padding:   1rem 1.25rem;
   }
 
   .card-title {
