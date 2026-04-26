@@ -64,18 +64,18 @@
 
           <div class="card-footer">
             <div class="footer-actions-left">
-              <button class="btn btn-primary" @click="$emit('student-view', gallery)">
+              <button class="btn btn-primary" @click="viewAsStudent(gallery)">
                 Student view
               </button>
               <button
                 v-if="gallery.isPrescreened"
                 class="btn btn-accent"
-                @click="$emit('moderator-view', gallery)"
+                @click="viewAsTeacher(gallery)"
               >
                 Moderation view
               </button>
             </div>
-            <button class="btn-text" @click="$emit('make-another', gallery)">
+            <button class="btn-text" @click="openCloneModal(gallery)">
               Make another
             </button>
           </div>
