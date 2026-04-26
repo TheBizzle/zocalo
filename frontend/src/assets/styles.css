@@ -12,6 +12,7 @@
   --clr-surface-2:  #f7f2e4;
   --clr-border:     #e9e0c8;
   --clr-border-2:   #d6c99a;
+  --clr-border-3:   #e3b575;
 
   --clr-primary:    #c49a0a;   /* rich golden amber */
   --clr-primary-dk: #9e7c06;
@@ -156,13 +157,13 @@ a:hover { color: var(--clr-primary-dk); }
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--clr-ink-2);
-  border-color: var(--clr-border);
+  background:   transparent;
+  color:        var(--clr-ink-2);
+  border-color: var(--clr-border-2);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: var(--clr-surface-2);
-  border-color: var(--clr-border-2);
+  background:   var(--clr-surface-2);
+  border-color: var(--clr-border-3);
 }
 
 .btn-accent {
