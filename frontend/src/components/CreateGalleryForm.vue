@@ -130,12 +130,10 @@
 
   import { defineComponent, reactive, ref, computed } from "vue";
 
-  import { authorizedFetch } from "@/core/TeacherAuth.ts";
+  import { uploadNewGallery } from "@/composables/uploadNewGallery.ts";
 
   import InfoIndicator from "./InfoIndicator.vue";
   import Switcher      from "./Switcher.vue";
-
-  import type { Gallery } from "@/core/Gallery.ts";
 
   type Template = { id: string; name: string; description: string }
 
@@ -287,46 +285,12 @@
         isLoading.value = true;
 
         try {
-
-          const starterConfig = new Blob([form.starterData], { type: "text/plain" });
-
-          const postData = new FormData();
-          postData.append("gallery-name"    , form.name);
-          postData.append("template"        , form.template);
-          postData.append("gets-prescreened", form.isModerated.toString());
-          postData.append("description"     , form.description);
-          postData.append("config"          , starterConfig, "config");
-          const options = { method: "POST", body: postData };
-
-          const url    = "/api/galleries/teacher/new-session";
-          const result = await authorizedFetch(url, options);
-
-          if (result.ok) {
-
-            const id = parseInt(await result.text());
-            // TODO: Scroll to error, on error
-
-            const newGallery: Gallery = {
-              id
-            , name:           form.name.trim()
-            , template:       templates.find(t => t.id === form.template)?.name ?? form.template
-            , isPrescreened:  form.isModerated
-            , description:    form.description
-            , numApproved:    0
-            , numWaiting:     0
-            , creationTime:   new Date()
-            , lastSubTime:    null
-            };
-
-            successMsg.value = `Gallery "${newGallery.name}" created!`;
-            emit("created", newGallery);
-            resetForm();
-
-          } else {
-            const message = await result.text();
-            throw new Error(message);
-          }
-
+          const newGallery =
+            await uploadNewGallery( form.name, form.template, form.isModerated
+                                  , form.description, form.starterData);
+          successMsg.value = `Gallery "${newGallery.name}" created!`;
+          emit("created", newGallery);
+          resetForm();
         } catch (err: unknown) {
           if (err instanceof Error) {
             errorMsg.value = err.message;
