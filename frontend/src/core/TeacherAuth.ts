@@ -6,7 +6,8 @@ type Auth =
   , readonly rawToken:  string
   };
 
-let authM: Auth | null = null;
+let authM:        Auth | null = null;
+let teacherIDM: number | null = null;
 
 function amLoggedInSimple(): boolean {
   return Date.now() < (authM?.expiry ?? -1); // TODO?
@@ -28,7 +29,8 @@ async function authorizedFetch(url: string, options: RequestInit = {}): Promise<
 }
 
 function clearAuth(): void {
-  authM = null;
+  authM      = null;
+  teacherIDM = null;
 }
 
 async function getAuthToken(): Promise<string | null> {
@@ -44,14 +46,34 @@ async function logout():  Promise<void> {
 }
 
 async function refreshAuth(): Promise<boolean> {
+
+  let reason = null;
+
   const res = await fetch("/api/auth/teacher/refresh", { method: "POST" , credentials: "include" });
+
   if (res.ok) {
     storeToken(await res.text());
+    const res2 = await authorizedFetch("/api/auth/teacher/who-am-i");
+    if (res2.ok) {
+      const num = parseInt(await res2.text());
+      if (!Number.isNaN(num)) {
+        teacherIDM = num;
+        return true;
+      } else {
+        reason = `Non-numeric teacher ID: ${num}`;
+      }
+    } else {
+      reason = await res2.text();
+    }
   } else {
-    clearAuth();
-    console.error("Auth refresh failed", await res.text());
+    reason = await res.text();
   }
-  return res.ok;
+
+  clearAuth();
+  console.error("Auth refresh failed", reason);
+
+  return false;
+
 }
 
 function storeToken(compactToken: string): void {
@@ -84,4 +106,12 @@ function decodeJWT(compactToken: string): [string, number] {
 
 }
 
-export { amLoggedIn, authorizedFetch, getAuthToken, logout, refreshAuth, storeToken };
+function getTeacherID(): number {
+  if (teacherIDM !== null) {
+    return teacherIDM;
+  } else {
+    throw new Error("Illegal state: Requested teacher ID while it was unset.");
+  }
+}
+
+export { amLoggedIn, authorizedFetch, getAuthToken, getTeacherID, logout, refreshAuth, storeToken };

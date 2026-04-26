@@ -36,8 +36,9 @@ import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
 import Zocalo.Gallery.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, readCommentsFor
   , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
-  , readSubmissionListings, readSubmissionListingsForModeration, registerNewGallery, readTemplateName
-  , registerNewUser, runMigrations, storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission
+  , readSubmissionListings, readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery
+  , readTemplateName, registerNewUser, runMigrations, storeOTP, suppressSubmission, validateOTP
+  , writeComment, writeSubmission
   )
 
 import Zocalo.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
@@ -54,6 +55,7 @@ routes = [ ("echo/:param"                                                   ,   
          , ("api/auth/teacher/is-logged-in/"                                ,      ac GET    handleTeacherIsLoggedIn)
          , ("api/auth/teacher/logout"                                       ,      ac POST   handleLogout)
          , ("api/auth/teacher/verify-cookie"                                ,      ac POST   handleRegister)
+         , ("api/auth/teacher/who-am-i"                                     , wc $ ac GET    handleWhoIsTeacher)
          , ("api/galleries/public/comments/:teacher-id/:session-id/:item-id", wc $ ac GET    handleGetComments)
          , ("api/galleries/public/:session-id/template-name"                ,      ac GET    handleGetTemplateName)
          , ("api/galleries/student/comments"                                ,      ac POST   handleSubmitComment)
@@ -127,6 +129,13 @@ handleListSessionForModeration =
         do
           listingsResult <- liftIO $ readSubmissionListingsForModeration teacher sessionID
           whenSuccess listingsResult $ encodeText &> succeed "application/json"
+
+handleWhoIsTeacher :: Snap ()
+handleWhoIsTeacher =
+  ifAuthorizedTeacher $ \teacher ->
+    do
+      resultV <- liftIO $ readWhoIsTeacher teacher
+      whenSuccess (map showText resultV) $ succeed "text/plain"
 
 handleDownloadItem :: Snap ()
 handleDownloadItem =

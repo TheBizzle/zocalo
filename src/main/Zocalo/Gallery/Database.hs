@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, registerNewGallery, registerNewUser, runMigrations, storeOTP, suppressSubmission, uniqueGalleryName, upsertTeacherRefreshToken, validateOTP, writeComment, writeSubmission) where
+module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewUser, runMigrations, storeOTP, suppressSubmission, uniqueGalleryName, upsertTeacherRefreshToken, validateOTP, writeComment, writeSubmission) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -225,6 +225,11 @@ readTemplateName :: Int -> Text -> IO (ActionResult Text)
 readTemplateName teacherIDNum galleryName =
   withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
     \(_, galleryDB) -> return $ Success $ extractTemplateName galleryDB
+
+readWhoIsTeacher :: AuthorizedTeacher -> IO (ActionResult Int64)
+readWhoIsTeacher teacher =
+  withTeacher teacher.teacherAddr $
+    \(teacherID, _) -> return $ Success $ fromSqlKey teacherID
 
 suppressSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> Text -> IO (ActionResult ())
 suppressSubmission teacherM studentM teacherIDNum galleryName uploadName =
