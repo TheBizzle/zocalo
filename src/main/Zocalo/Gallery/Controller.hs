@@ -246,9 +246,10 @@ handleGetStarterConfig =
   handle2 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty) $ \(teacherID, sessionID) ->
     do
       let ident           = "(" <> (showText teacherID) <> " | " <> sessionID <> ")"
+      let errorMsg        = "No starter config has been uploaded for gallery '" <> ident <> "'."
       starterMaybeResult <- liftIO $ readStarterConfigFor teacherID sessionID
       whenSuccess starterMaybeResult $
-        \case Nothing        -> failWith 404 $ writeText $ "No starter config has been uploaded for gallery '" <> ident <> "'."
+        \case Nothing        -> failWith 404 $ writeText errorMsg
               (Just starter) -> succeed "text/plain" starter
 
 handleGetGalleryTypes :: Snap ()
