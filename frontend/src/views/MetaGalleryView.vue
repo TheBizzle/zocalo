@@ -11,7 +11,7 @@
     <div v-if="activeTab === 'list'" class="animate-fade">
 
       <!-- Sort bar -->
-      <div class="high-level-controls">
+      <div v-if="hasMounted && sortedGalleries.length > 0" class="high-level-controls">
 
         <div class="sort-bar">
           <label class="form-label" style="margin: 0 0 0 2px; white-space: nowrap;">Sort by:</label>
@@ -35,7 +35,7 @@
         <div class="empty-state-icon">🖼️</div>
         <h3>No galleries yet</h3>
         <p>Create your first gallery to get started.</p>
-        <button class="btn btn-primary" style="margin-top: 16px" @click="openCreateModal">
+        <button class="btn btn-primary btn-main" style="margin-top: 16px" @click="openCreateModal">
           Create a gallery
         </button>
       </div>
@@ -443,6 +443,11 @@
     display:        flex;
     flex-direction: column;
     gap:            var(--space-4);
+  }
+
+  .btn-main {
+    font-size: var(--space-5);
+    padding:   var(--space-4) var(--space-5);
   }
 
 </style>
