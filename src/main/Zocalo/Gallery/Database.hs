@@ -29,7 +29,7 @@ import Data.UUID(UUID)
 import Database.Persist((<-.), (=.), (==.), (>=.), count, Entity(Entity, entityVal), get, getBy, insert, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateWhere, upsert)
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
 import Database.Persist.Sql(fromSqlKey, toSqlKey)
-import Database.Persist.TH(mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
+import Database.Persist.TH(mkMigrate, mkPersist, share, sqlSettings)
 
 import Zocalo.Common.DBCredentials(password, username)
 import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
@@ -38,14 +38,15 @@ import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID)
 
 import Zocalo.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
 import Zocalo.Gallery.Comment(Comment(Comment, time))
+import Zocalo.Gallery.DBSnakeCase(bizzleSnakeCase)
 import Zocalo.Gallery.RandGen(generateName)
 import Zocalo.Gallery.Submission(GalleryListing(GalleryListing), Submission(Submission), SubmissionListing(SubmissionListing))
 
-import qualified Data.Text          as Text
-import qualified Data.UUID          as UUID
+import qualified Data.Text as Text
+import qualified Data.UUID as UUID
 
 
-share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
+share [mkPersist sqlSettings, mkMigrate "migrateAll"] [bizzleSnakeCase|
 
 TeacherDB
   emailAddr    Text
