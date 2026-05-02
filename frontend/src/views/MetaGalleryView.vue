@@ -270,20 +270,24 @@
 
           const starterData = await result.text();
 
-          const newGallery =
+          const newGalleryR =
             await uploadNewGallery( galleryName, cloneSource.value.template
                                   , cloneSource.value.isPrescreened, cloneDesc.value
                                   , starterData);
 
-          galleries.value.push(newGallery);
+          newGalleryR.fold(
+            (error)   => { cloneError.value = error.message; }
+          , (gallery) => {
+              galleries.value.push(gallery);
+              resetCloneModal();
+              cloneModal.value = false;
+              activeTab.value  = "list";
+            }
+          );
 
         } else {
-          throw new Error(await result.text());
+          cloneError.value = await result.text();
         }
-
-        resetCloneModal();
-        cloneModal.value = false;
-        activeTab.value  = "list";
 
       }
 

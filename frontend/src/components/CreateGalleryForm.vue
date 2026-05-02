@@ -285,12 +285,21 @@
         isLoading.value = true;
 
         try {
-          const newGallery =
+
+          const newGalleryR =
             await uploadNewGallery( form.name, form.template, form.isModerated
                                   , form.description, form.starterData);
-          successMsg.value = `Gallery "${newGallery.name}" created!`;
-          emit("created", newGallery);
+
+          newGalleryR.fold(
+            (error  ) => { errorMsg.value = error.message; }
+          , (gallery) => {
+              successMsg.value = `Gallery "${gallery.name}" created!`;
+              emit("created", gallery);
+            }
+          );
+
           resetForm();
+
         } catch (err: unknown) {
           if (err instanceof Error) {
             errorMsg.value = err.message;

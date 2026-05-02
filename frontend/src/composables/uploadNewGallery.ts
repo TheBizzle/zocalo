@@ -1,8 +1,9 @@
-import type { Gallery    } from "@/core/Gallery.ts";
-import { authorizedFetch } from "@/core/TeacherAuth.ts";
+import type { Gallery                  } from "@/core/Gallery.ts";
+import { Failure, type Result, Success } from "@/core/Result.ts";
+import { authorizedFetch               } from "@/core/TeacherAuth.ts";
 
 async function uploadNewGallery( name: string, template: string, isPrescreened: boolean
-                               , desc: string, starterData: string): Promise<Gallery> {
+                               , desc: string, starterData: string): Promise<Result<Gallery>> {
 
   const starterConfig = new Blob([starterData], { type: "text/plain" });
 
@@ -36,12 +37,10 @@ async function uploadNewGallery( name: string, template: string, isPrescreened: 
     , lastSubTime:  null
     };
 
-    return newGallery;
+    return new Success(newGallery);
 
   } else {
-    // TODO: Scroll to error, on error
-    const message = await result.text();
-    throw new Error(message);
+    return new Failure(new Error(await result.text()));
   }
 
 }
