@@ -92,6 +92,7 @@ StudentRefreshTokenDB
 
 GalleryDB
   galleryName     LowerText
+  galleryDisplay  Text
   templateName    Text
   ownerID         TeacherDBId
   getsPrescreened Bool
@@ -104,6 +105,7 @@ GalleryDB
 SubmissionDB
   galleryID            GalleryDBId
   uploadName           LowerText
+  uploadDisplay        Text
   base64Image          Text
   authorID             StudentRefreshTokenDBId
   isSuppressed         Bool
@@ -150,7 +152,7 @@ registerNewGallery teacher template galleryName getsPrescreened configMaybe desc
       timestamp      <- getCurrentTime
       let lName       = asLowerText galleryName
       let lTemplate   = Text.toLower template
-      let galleryDB   = GalleryDB lName lTemplate teacherID getsPrescreened configMaybe description timestamp
+      let galleryDB   = GalleryDB lName galleryName lTemplate teacherID getsPrescreened configMaybe description timestamp
       insertionM     <- withDB $ insertUnique galleryDB
       return $ case insertionM of
         Nothing  -> Failure Duplicate
@@ -161,7 +163,7 @@ readGalleryListings teacher =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> do
       rows     <- withDB $ selectList [GalleryDBOwnerID ==. teacherID] [Asc GalleryDBDateAdded]
-      listings <- flip mapM rows $ \(Entity subID (GalleryDB name template _ isPre _ desc cDate)) -> withDB $ do
+      listings <- flip mapM rows $ \(Entity subID (GalleryDB _ name template _ isPre _ desc cDate)) -> withDB $ do
         numWaiting <- count [SubmissionDBGalleryID ==. subID, SubmissionDBIsAwaitingModeration ==. True]
         rows       <- selectList [ SubmissionDBGalleryID            ==. subID
                                  , SubmissionDBIsAwaitingModeration ==. False
@@ -277,7 +279,7 @@ writeSubmission student teacherIDNum galleryName imageBytes metadata extraData =
       gEntityMaybe    <- withDB $ selectFirst [GalleryDBGalleryName ==. galleryName] []
       let getsPreed    = maybe False (entityVal &> extractGetsPrescreened) gEntityMaybe
       timestamp       <- getCurrentTime
-      let subDB        = SubmissionDB galleryID lUploadName imageBytes studID False False getsPreed metadata extraData timestamp
+      let subDB        = SubmissionDB galleryID lUploadName uploadName imageBytes studID False False getsPreed metadata extraData timestamp
       void $ withDB $ insert subDB
       return $ Success uploadName
 
@@ -340,7 +342,7 @@ canDeleteSubmission3 teacherM studentM teacherIDNum galleryName uploadName =
 canDeleteSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO Bool
 canDeleteSubmission teacherM studentM submission =
   do
-    (Just (GalleryDB galleryName _ _ _ _ _ _)) <- withDB $ get submission.submissionDBGalleryID
+    (Just (GalleryDB galleryName _ _ _ _ _ _ _)) <- withDB $ get submission.submissionDBGalleryID
     (teacherM `ownsOneNamed` galleryName) <|> (belongsToThisStudent studentM)
   where
     belongsToThisStudent Nothing                    = return False
@@ -510,41 +512,41 @@ withPair key f =
       Just (Entity xID xDB) -> f (xID, xDB)
 
 extractTemplateName :: GalleryDB -> Text
-extractTemplateName (GalleryDB _ tn _ _ _ _ _) = tn
+extractTemplateName (GalleryDB _ _ tn _ _ _ _ _) = tn
 
 extractGetsPrescreened :: GalleryDB -> Bool
-extractGetsPrescreened (GalleryDB _ _ _ gp _ _ _) = gp
+extractGetsPrescreened (GalleryDB _ _ _ _ gp _ _ _) = gp
 
 extractStarterConfig :: GalleryDB -> Maybe Text
-extractStarterConfig (GalleryDB _ _ _ _ sc _ _) = sc
+extractStarterConfig (GalleryDB _ _ _ _ _ sc _ _) = sc
 
 dbToSubListing :: SubmissionDB -> SubmissionListing
-dbToSubListing (SubmissionDB _ uploadName _ _ isSuppressed _ _ _ _ _) = SubmissionListing (lowText uploadName) isSuppressed
+dbToSubListing (SubmissionDB _ uploadName _ _ _ isSuppressed _ _ _ _ _) = SubmissionListing (lowText uploadName) isSuppressed
 
 dbToSubmission :: SubmissionDB -> Submission
-dbToSubmission (SubmissionDB _ uploadName image studentID _ _ _ metadata _ _) =
+dbToSubmission (SubmissionDB _ _ uploadName image studentID _ _ _ metadata _ _) =
   Submission uploadName image (fromIntegral $ fromSqlKey studentID) metadata
 
 dbToComment :: (Entity CommentDB) -> Comment
 dbToComment (Entity cid (CommentDB comment author parent _ time)) = Comment (fromSqlKey cid) comment author parent $ asPOSIX time
 
 extractUploadName :: SubmissionDB -> LowerText
-extractUploadName (SubmissionDB _ un _ _ _ _ _ _ _ _) = un
+extractUploadName (SubmissionDB _ un _ _ _ _ _ _ _ _ _) = un
 
 extractStudentID :: SubmissionDB -> Word64
-extractStudentID (SubmissionDB _ _ _ authorID _ _ _ _ _ _) = fromIntegral $ fromSqlKey authorID
+extractStudentID (SubmissionDB _ _ _ _ authorID _ _ _ _ _ _) = fromIntegral $ fromSqlKey authorID
 
 extractIsSuppressed :: SubmissionDB -> Bool
-extractIsSuppressed (SubmissionDB _ _ _ _ isSuppressed _ _ _ _ _) = isSuppressed
+extractIsSuppressed (SubmissionDB _ _ _ _ _ isSuppressed _ _ _ _ _) = isSuppressed
 
 extractNeedsModeration :: SubmissionDB -> Bool
-extractNeedsModeration (SubmissionDB _ _ _ _ _ _ needsModeration _ _ _) = needsModeration
+extractNeedsModeration (SubmissionDB _ _ _ _ _ _ _ needsModeration _ _ _) = needsModeration
 
 extractData :: SubmissionDB -> Text
-extractData (SubmissionDB _ _ _ _ _ _ _ _ extraData _) = extraData
+extractData (SubmissionDB _ _ _ _ _ _ _ _ _ extraData _) = extraData
 
 extractSubDateAdded :: SubmissionDB -> Integer
-extractSubDateAdded (SubmissionDB _ _ _ _ _ _ _ _ _ dateAdded) = asPOSIX dateAdded
+extractSubDateAdded (SubmissionDB _ _ _ _ _ _ _ _ _ _ dateAdded) = asPOSIX dateAdded
 
 extractEmailAddr :: TeacherDB -> LowerText
 extractEmailAddr (TeacherDB addr _ _ _ _ _) = addr
