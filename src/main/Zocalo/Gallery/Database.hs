@@ -39,6 +39,7 @@ import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID)
 import Zocalo.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
 import Zocalo.Gallery.Comment(Comment(Comment, time))
 import Zocalo.Gallery.DBSnakeCase(bizzleSnakeCase)
+import Zocalo.Gallery.LowerText(asLowerText, LowerText, lowText)
 import Zocalo.Gallery.RandGen(generateName)
 import Zocalo.Gallery.Submission(GalleryListing(GalleryListing), Submission(Submission), SubmissionListing(SubmissionListing))
 
@@ -49,7 +50,7 @@ import qualified Data.UUID as UUID
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [bizzleSnakeCase|
 
 TeacherDB
-  emailAddr    Text
+  emailAddr    LowerText
   firstName    Text
   lastName     Text
   organization Text Maybe
@@ -90,7 +91,7 @@ StudentRefreshTokenDB
   deriving Show
 
 GalleryDB
-  galleryName     Text
+  galleryName     LowerText
   templateName    Text
   ownerID         TeacherDBId
   getsPrescreened Bool
@@ -102,7 +103,7 @@ GalleryDB
 
 SubmissionDB
   galleryID            GalleryDBId
-  uploadName           Text
+  uploadName           LowerText
   base64Image          Text
   authorID             StudentRefreshTokenDBId
   isSuppressed         Bool
@@ -128,16 +129,16 @@ uniqueGalleryName :: Int -> IO Text
 uniqueGalleryName teacherIDNum =
   do
     name   <- generateName
-    result <- withGallery (toSqlKey $ fromIntegral teacherIDNum) name chillax
+    result <- withGallery (toSqlKey $ fromIntegral teacherIDNum) (asLowerText name) chillax
     case result of
       Success _ -> uniqueGalleryName teacherIDNum
       Failure _ -> return name
 
-uniqueSubmissionName :: Int -> Text -> IO Text
+uniqueSubmissionName :: Int -> LowerText -> IO Text
 uniqueSubmissionName teacherIDNum galleryName =
   do
     name   <- generateName
-    result <- withSubmission3 teacherIDNum galleryName name chillax
+    result <- withSubmission3 teacherIDNum galleryName (asLowerText name) chillax
     case result of
       Success _ -> uniqueSubmissionName teacherIDNum galleryName
       Failure _ -> return name
@@ -147,7 +148,7 @@ registerNewGallery teacher template galleryName getsPrescreened configMaybe desc
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> do
       timestamp      <- getCurrentTime
-      let lName       = Text.toLower galleryName
+      let lName       = asLowerText galleryName
       let lTemplate   = Text.toLower template
       let galleryDB   = GalleryDB lName lTemplate teacherID getsPrescreened configMaybe description timestamp
       insertionM     <- withDB $ insertUnique galleryDB
@@ -177,7 +178,7 @@ readGalleryListings teacher =
     getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
     chooseLater a b = if a < b then b else a
 
-readSubmissionListings :: Int -> Text -> IO (ActionResult [SubmissionListing])
+readSubmissionListings :: Int -> LowerText -> IO (ActionResult [SubmissionListing])
 readSubmissionListings teacherIDNum galleryName =
   withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
     \(gID, _) -> withDB $ do
@@ -187,7 +188,7 @@ readSubmissionListings teacherIDNum galleryName =
                          ] [Asc SubmissionDBDateAdded]
       return $ Success $ map (entityVal &> dbToSubListing) rows
 
-readSubmissionListingsForModeration :: AuthorizedTeacher -> Text -> IO (ActionResult [Text])
+readSubmissionListingsForModeration :: AuthorizedTeacher -> LowerText -> IO (ActionResult [LowerText])
 readSubmissionListingsForModeration teacher galleryName =
   withGallery2 teacher.teacherAddr galleryName $
     \(galleryID, _) -> do
@@ -200,7 +201,7 @@ readSubmissionListingsForModeration teacher galleryName =
       else
         return $ Failure NotAuthorized
 
-readSubmissionData :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> Text -> IO (ActionResult Text)
+readSubmissionData :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> LowerText -> IO (ActionResult Text)
 readSubmissionData teacherM studentM teacherIDNum galleryName uploadName =
   withSubmission3 teacherIDNum galleryName uploadName $
     \(_, uploadDB) ->
@@ -208,12 +209,12 @@ readSubmissionData teacherM studentM teacherIDNum galleryName uploadName =
         dta <- processSubmissionAuth extractData teacherM studentM uploadDB
         return $ second fst dta
 
-readSubmissionsLite :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> [Text] -> IO (ActionResult [(Submission, Bool)])
+readSubmissionsLite :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> [Text] -> IO (ActionResult [(Submission, Bool)])
 readSubmissionsLite teacherM studentM teacherIDNum galleryName names =
   withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
     \(galleryID, _) -> do
       entities  <- withDB $ selectList [ SubmissionDBGalleryID  ==. galleryID
-                                       , SubmissionDBUploadName <-. (map Text.toLower names)
+                                       , SubmissionDBUploadName <-. (map asLowerText names)
                                        ] [Asc SubmissionDBDateAdded]
       let subs   = map entityVal entities
       validSubs <- mapM (processSubmissionAuth dbToSubmission teacherM studentM &> liftIO) subs
@@ -222,7 +223,7 @@ readSubmissionsLite teacherM studentM teacherIDNum galleryName names =
     collectSuccessful (Success x) = [x]
     collectSuccessful _           = []
 
-readTemplateName :: Int -> Text -> IO (ActionResult Text)
+readTemplateName :: Int -> LowerText -> IO (ActionResult Text)
 readTemplateName teacherIDNum galleryName =
   withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
     \(_, galleryDB) -> return $ Success $ extractTemplateName galleryDB
@@ -232,7 +233,7 @@ readWhoIsTeacher teacher =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> return $ Success $ fromSqlKey teacherID
 
-suppressSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> Text -> IO (ActionResult ())
+suppressSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> LowerText -> IO (ActionResult ())
 suppressSubmission teacherM studentM teacherIDNum galleryName uploadName =
   withSubmission3 teacherIDNum galleryName uploadName $
     \(uploadID, _) -> do
@@ -246,13 +247,13 @@ suppressSubmission teacherM studentM teacherIDNum galleryName uploadName =
             return $ Failure NotAuthorized
         x -> return $ second (const ()) x
 
-forbidSubmission :: AuthorizedTeacher -> Text -> Text -> IO (ActionResult ())
+forbidSubmission :: AuthorizedTeacher -> LowerText -> LowerText -> IO (ActionResult ())
 forbidSubmission = moderateSubmission True
 
-approveSubmission :: AuthorizedTeacher -> Text -> Text -> IO (ActionResult ())
+approveSubmission :: AuthorizedTeacher -> LowerText -> LowerText -> IO (ActionResult ())
 approveSubmission = moderateSubmission False
 
-moderateSubmission :: Bool -> AuthorizedTeacher -> Text -> Text -> IO (ActionResult ())
+moderateSubmission :: Bool -> AuthorizedTeacher -> LowerText -> LowerText -> IO (ActionResult ())
 moderateSubmission isForbidden teacher galleryName uploadName =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) ->
@@ -266,34 +267,34 @@ moderateSubmission isForbidden teacher galleryName uploadName =
           else
             return $ Failure NotAuthorized
 
-writeSubmission :: AuthorizedStudent -> Int -> Text -> Text -> Maybe Text -> Text -> IO (ActionResult Text)
+writeSubmission :: AuthorizedStudent -> Int -> LowerText -> Text -> Maybe Text -> Text -> IO (ActionResult Text)
 writeSubmission student teacherIDNum galleryName imageBytes metadata extraData =
   withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
     \(galleryID, _) -> do
       uploadName      <- uniqueSubmissionName teacherIDNum galleryName
-      let lUploadName  = Text.toLower uploadName
+      let lUploadName  = asLowerText uploadName
       let studID       = student |> studentID &> fromIntegral &> toSqlKey
-      gEntityMaybe    <- withDB $ selectFirst [GalleryDBGalleryName ==. (Text.toLower galleryName)] []
+      gEntityMaybe    <- withDB $ selectFirst [GalleryDBGalleryName ==. galleryName] []
       let getsPreed    = maybe False (entityVal &> extractGetsPrescreened) gEntityMaybe
       timestamp       <- getCurrentTime
       let subDB        = SubmissionDB galleryID lUploadName imageBytes studID False False getsPreed metadata extraData timestamp
       void $ withDB $ insert subDB
       return $ Success uploadName
 
-readStarterConfigFor :: Int -> Text -> IO (ActionResult (Maybe Text))
+readStarterConfigFor :: Int -> LowerText -> IO (ActionResult (Maybe Text))
 readStarterConfigFor teacherIDNum galleryName =
   withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
     \(_, galleryDB) ->
       return $ Success $ extractStarterConfig galleryDB
 
-readCommentsFor :: Int -> Text -> Text -> IO (ActionResult [Comment])
+readCommentsFor :: Int -> LowerText -> LowerText -> IO (ActionResult [Comment])
 readCommentsFor teacherIDNum galleryName uploadName =
   withSubmission3 teacherIDNum galleryName uploadName $
     \(uploadID, _) -> do
       rows <- withDB $ selectList [CommentDBUploadID ==. uploadID] [Asc CommentDBTime]
       return $ Success $ rows |> (map dbToComment) &> (sortBy $ comparing time)
 
-writeComment :: Int -> Text -> Text -> Maybe UUID -> Text -> Text -> IO (ActionResult ())
+writeComment :: Int -> LowerText -> LowerText -> Maybe UUID -> Text -> Text -> IO (ActionResult ())
 writeComment teacherIDNum galleryName uploadName parentUUIDM author comment =
   withSubmission3 teacherIDNum galleryName uploadName $
     \(uploadID, _) -> do
@@ -322,7 +323,7 @@ processSubmissionAuth f teacherM studentM submission =
       else
         Failure NotAuthorized
 
-ownsOneNamed :: Maybe AuthorizedTeacher -> Text -> IO Bool
+ownsOneNamed :: Maybe AuthorizedTeacher -> LowerText -> IO Bool
 ownsOneNamed Nothing                _           = return False
 ownsOneNamed (Just (ATeacher addr)) galleryName =
   do
@@ -331,7 +332,7 @@ ownsOneNamed (Just (ATeacher addr)) galleryName =
       Success _ -> True
       _         -> False
 
-canDeleteSubmission3 :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> Text -> Text -> IO (ActionResult Bool)
+canDeleteSubmission3 :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> LowerText -> IO (ActionResult Bool)
 canDeleteSubmission3 teacherM studentM teacherIDNum galleryName uploadName =
   withSubmission3 teacherIDNum galleryName uploadName $
     \(_, subDB) -> Success <$> canDeleteSubmission teacherM studentM subDB
@@ -345,25 +346,23 @@ canDeleteSubmission teacherM studentM submission =
     belongsToThisStudent Nothing                    = return False
     belongsToThisStudent (Just (AStudent studID _)) = return $ submission |> extractStudentID &> (== studID)
 
-checkUserExists :: Text -> IO Bool
+checkUserExists :: LowerText -> IO Bool
 checkUserExists emailAddr =
   do
-    let lowerEmail  = Text.toLower emailAddr
-    authMaybe      <- withDB $ selectFirst [TeacherDBEmailAddr ==. lowerEmail, TeacherDBIsConfirmed ==. True] []
+    authMaybe <- withDB $ selectFirst [TeacherDBEmailAddr ==. emailAddr, TeacherDBIsConfirmed ==. True] []
     return $ isJust authMaybe
 
-registerNewUser :: Text -> Text -> Text -> Maybe Text -> SecureToken -> IO (ActionResult ())
+registerNewUser :: LowerText -> Text -> Text -> Maybe Text -> SecureToken -> IO (ActionResult ())
 registerNewUser emailAddr firstName lastName orgM confirmationToken =
   do
-    let lowerEmail  = Text.toLower emailAddr
-    teacherM       <- withDB $ selectFirst [TeacherDBEmailAddr ==. lowerEmail, TeacherDBIsConfirmed ==. True] []
+    teacherM <- withDB $ selectFirst [TeacherDBEmailAddr ==. emailAddr, TeacherDBIsConfirmed ==. True] []
     if isJust teacherM then
       return $ Failure Duplicate
     else do
       now           <- getCurrentTime
       let confToken  = confirmationToken.tokenText
       void $ withDB $ do
-        (Entity tID _) <- upsert (TeacherDB lowerEmail firstName lastName orgM False now)
+        (Entity tID _) <- upsert (TeacherDB emailAddr firstName lastName orgM False now)
                                  [ TeacherDBFirstName    =. firstName, TeacherDBLastName  =. lastName
                                  , TeacherDBOrganization =.      orgM, TeacherDBCreatedAt =. now
                                  ]
@@ -392,7 +391,7 @@ confirmNewUser confirmationToken =
           else
             return $ Failure Incorrect
 
-storeOTP :: Text -> Text -> IO (ActionResult ())
+storeOTP :: LowerText -> Text -> IO (ActionResult ())
 storeOTP emailAddr otp =
   withTeacher emailAddr $
     \(teacherID, teacherDB) ->
@@ -405,7 +404,7 @@ storeOTP emailAddr otp =
       else
         return $ Failure Unconfirmed
 
-validateOTP :: Text -> Text -> IO (ActionResult ())
+validateOTP :: LowerText -> Text -> IO (ActionResult AuthorizedTeacher)
 validateOTP emailAddr passcode =
   withTeacher emailAddr $
     \(teacherID, teacherDB) -> do
@@ -426,7 +425,7 @@ validateOTP emailAddr passcode =
           else do
             withDB $ updateWhere [OTPRequestDBTeacherID ==. teacherID, OTPRequestDBPasscode ==. passcode]
                                  [OTPRequestDBWasUsed =. True]
-            return $ Success ()
+            return $ Success $ ATeacher $ extractEmailAddr teacherDB
 
 -- TODO: How/when do refresh tokens get revoked?
 -- TODO: Are `data` files blobs?
@@ -447,7 +446,7 @@ lookupTeacherRefreshToken refreshToken =
         else
           return $ Failure Expired
 
-upsertTeacherRefreshToken :: Text -> SecureToken ->  IO (ActionResult ())
+upsertTeacherRefreshToken :: LowerText -> SecureToken ->  IO (ActionResult ())
 upsertTeacherRefreshToken emailAddr refreshToken =
   withTeacher emailAddr $
     \(teacherID, _) -> do
@@ -465,7 +464,7 @@ logoutTeacher teacher =
       withDB $ updateWhere [TeacherRefreshTokenDBTeacherID ==. teacherID] [TeacherRefreshTokenDBWasRevoked =. True]
       return $ Success ()
 
-checkIsOkayOTPRate :: Text -> IO (ActionResult Bool)
+checkIsOkayOTPRate :: LowerText -> IO (ActionResult Bool)
 checkIsOkayOTPRate emailAddr =
   withTeacher emailAddr $
     \(teacherID, _) -> do
@@ -477,25 +476,25 @@ checkIsOkayOTPRate emailAddr =
 chillax :: a -> IO (ActionResult ())
 chillax = const $ return $ Success ()
 
-withTeacher :: Text -> ((TeacherDBId, TeacherDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withTeacher :: LowerText -> ((TeacherDBId, TeacherDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withTeacher addr f =
-  withPair (UniqueTeacherEmail $ Text.toLower addr) f
+  withPair (UniqueTeacherEmail addr) f
 
-withGallery :: TeacherDBId -> Text -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withGallery :: TeacherDBId -> LowerText -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withGallery teacherID galleryName f =
-  withPair (UniqueGallery teacherID $ Text.toLower galleryName) f
+  withPair (UniqueGallery teacherID galleryName) f
 
-withGallery2 :: Text -> Text -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withGallery2 :: LowerText -> LowerText -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withGallery2 teacherAddr galleryName f =
   withTeacher teacherAddr $
     \(teacherID, _) ->
       withGallery teacherID galleryName f
 
-withSubmission :: GalleryDBId -> Text -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withSubmission :: GalleryDBId -> LowerText -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withSubmission galleryID uploadName f =
-  withPair (UniqueSubmission galleryID $ Text.toLower uploadName) f
+  withPair (UniqueSubmission galleryID uploadName) f
 
-withSubmission3 :: Int -> Text -> Text -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withSubmission3 :: Int -> LowerText -> LowerText -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withSubmission3 teacherIDNum galleryName uploadName f =
   withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
     \(galleryID, _) ->
@@ -520,7 +519,7 @@ extractStarterConfig :: GalleryDB -> Maybe Text
 extractStarterConfig (GalleryDB _ _ _ _ sc _ _) = sc
 
 dbToSubListing :: SubmissionDB -> SubmissionListing
-dbToSubListing (SubmissionDB _ uploadName _ _ isSuppressed _ _ _ _ _) = SubmissionListing uploadName isSuppressed
+dbToSubListing (SubmissionDB _ uploadName _ _ isSuppressed _ _ _ _ _) = SubmissionListing (lowText uploadName) isSuppressed
 
 dbToSubmission :: SubmissionDB -> Submission
 dbToSubmission (SubmissionDB _ uploadName image studentID _ _ _ metadata _ _) =
@@ -529,7 +528,7 @@ dbToSubmission (SubmissionDB _ uploadName image studentID _ _ _ metadata _ _) =
 dbToComment :: (Entity CommentDB) -> Comment
 dbToComment (Entity cid (CommentDB comment author parent _ time)) = Comment (fromSqlKey cid) comment author parent $ asPOSIX time
 
-extractUploadName :: SubmissionDB -> Text
+extractUploadName :: SubmissionDB -> LowerText
 extractUploadName (SubmissionDB _ un _ _ _ _ _ _ _ _) = un
 
 extractStudentID :: SubmissionDB -> Word64
@@ -546,6 +545,9 @@ extractData (SubmissionDB _ _ _ _ _ _ _ _ extraData _) = extraData
 
 extractSubDateAdded :: SubmissionDB -> Integer
 extractSubDateAdded (SubmissionDB _ _ _ _ _ _ _ _ _ dateAdded) = asPOSIX dateAdded
+
+extractEmailAddr :: TeacherDB -> LowerText
+extractEmailAddr (TeacherDB addr _ _ _ _ _) = addr
 
 extractTeacherIsConfirmed :: TeacherDB -> Bool
 extractTeacherIsConfirmed (TeacherDB _ _ _ _ isConfirmed _) = isConfirmed

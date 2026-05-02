@@ -4,6 +4,8 @@ module Zocalo.Gallery.Auth.AuthorizedUser(
   , AuthorizedUser(readUser)
   ) where
 
+import Zocalo.Gallery.LowerText(asLowerText, LowerText)
+
 import qualified Data.Text      as Text
 import qualified Data.Text.Read as Read
 
@@ -20,12 +22,12 @@ instance AuthorizedUser AuthorizedStudent where
       (sid, name) = Text.breakOn "|" text
 
 instance AuthorizedUser AuthorizedTeacher where
-  readUser = ATeacher &> Just
+  readUser = asLowerText &> ATeacher &> Just
 
 data AuthorizedStudent =
   AStudent { studentID :: Word64, studentName :: Text }
   deriving Show
 
 newtype AuthorizedTeacher =
-  ATeacher { teacherAddr :: Text }
+  ATeacher { teacherAddr :: LowerText }
   deriving Show

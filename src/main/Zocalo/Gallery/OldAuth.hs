@@ -11,10 +11,11 @@ import Zocalo.Gallery.Auth.FancyAuth(genSecureToken)
 
 import Zocalo.Gallery.ActionResult(ActionResult)
 import Zocalo.Gallery.Database(checkIsOkayOTPRate)
+import Zocalo.Gallery.LowerText(LowerText)
 import Zocalo.Gallery.RandGen(generate6Digit)
 import Zocalo.Gallery.WebReq(HTTPMethod(POST), httpRequest, HTTPRequest(HTTPRequest), MailtrapBody(MailtrapBody))
 
-sendOTP :: Text -> IO (ActionResult Text)
+sendOTP :: LowerText -> IO (ActionResult Text)
 sendOTP emailAddr =
     do
       resultV <- checkIsOkayOTPRate emailAddr
@@ -37,7 +38,7 @@ sendOTP emailAddr =
           , "If you did not attempt to sign in, you can safely ignore this message."
           ]
 
-setUpNewUser :: Text -> Text -> IO SecureToken
+setUpNewUser :: LowerText -> Text -> IO SecureToken
 setUpNewUser emailAddr registrationURL =
     do
       token <- genSecureToken
@@ -46,7 +47,7 @@ setUpNewUser emailAddr registrationURL =
   where
     body token = "A Zócalo gallery account has been registered for this e-mail address.  Please click <a href='" <> registrationURL <> token <> "'>this link</a> to confirm your registration."
 
-sendMail :: Text -> Text -> Text -> IO Text
+sendMail :: LowerText -> Text -> Text -> IO Text
 sendMail emailAddr subject text = httpRequest req
   where
     req  = HTTPRequest POST "https://send.api.mailtrap.io/api/send" Map.empty body

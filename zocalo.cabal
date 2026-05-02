@@ -49,6 +49,7 @@ Library
     Zocalo.Gallery.Comment,
     Zocalo.Gallery.Database,
     Zocalo.Gallery.DBSnakeCase,
+    Zocalo.Gallery.LowerText,
     Zocalo.Gallery.OldAuth,
     Zocalo.Gallery.RandGen,
     Zocalo.Gallery.Submission,

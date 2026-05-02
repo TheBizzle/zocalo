@@ -20,22 +20,23 @@ import Snap.Core(
 
 import Zocalo.Common.SecureToken(genSecureToken, SecureToken(SecureToken, tokenText))
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher, AuthorizedUser(readUser))
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher(ATeacher), AuthorizedUser(readUser))
 
 import Zocalo.Gallery.ActionResult(ActionError(Incorrect, InternalError, Malformed, NotAuthorized), ActionResult)
 import Zocalo.Gallery.Database(lookupTeacherRefreshToken, upsertTeacherRefreshToken)
+import Zocalo.Gallery.LowerText(lowText)
 
 import qualified Data.ByteString.Char8      as BS
 import qualified Data.ByteString.Lazy       as LazyBS
 import qualified Data.Text                  as Text
 
 
-issueNewTeacherTokens :: Text -> Snap (ActionResult Text)
-issueNewTeacherTokens username =
+issueNewTeacherTokens :: AuthorizedTeacher -> Snap (ActionResult Text)
+issueNewTeacherTokens (ATeacher addr) =
   do
     refreshToken  <- attachRefreshCookie
-    upsertionAR   <- liftIO $ upsertTeacherRefreshToken username refreshToken
-    accessTokenAR <- liftIO $ genAccessTokenAR username
+    upsertionAR   <- liftIO $ upsertTeacherRefreshToken addr refreshToken
+    accessTokenAR <- liftIO $ genAccessTokenAR $ lowText addr
     return $ upsertionAR *> accessTokenAR
   where
     -- Ideally, `cookieSecure` would be `True`.  But the real app does HTTPS via a proxy.  --Jason B. (3/15/26)

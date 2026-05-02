@@ -12,6 +12,8 @@ import Network.HTTP.Simple(getResponseBody, httpJSON, parseRequest_, Request, se
 
 import Text.Regex.PCRE.Heavy(gsub, re)
 
+import Zocalo.Gallery.LowerText(LowerText, lowText)
+
 import qualified Data.List          as List
 import qualified Data.Map           as Map
 import qualified Data.Text          as Text
@@ -40,7 +42,7 @@ data HTTPMethod
 
 data MailtrapBody
   = MailtrapBody {
-    toAddr  :: Text
+    toAddr  :: LowerText
   , subject :: Text
   , html    :: Text
   }
@@ -60,7 +62,7 @@ instance ToJSON MailtrapBody where
         , "name"  .= asText "RenDuPo"
         ]
       , "to" .= [object [
-          "email" .= toAddr
+          "email" .= lowText toAddr
         ]]
       , "subject"  .= subject
       , "headers"  .= mailHeaders

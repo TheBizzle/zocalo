@@ -24,7 +24,7 @@ import Zocalo.Gallery.Auth.FancyAuth(
     issueNewTeacherTokens, validateStudentAccessToken, validateTeacherAccessToken, validateTeacherRefreshToken
   )
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher(ATeacher))
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher)
 
 import Zocalo.Gallery.ActionResult(
     ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
@@ -40,6 +40,8 @@ import Zocalo.Gallery.Database(
   , readTemplateName, registerNewUser, runMigrations, storeOTP, suppressSubmission, validateOTP
   , writeComment, writeSubmission
   )
+
+import Zocalo.Gallery.LowerText(asLowerText, lowText)
 
 import Zocalo.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
 
@@ -118,7 +120,7 @@ handleListSession =
   handle2 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty) $
     \(teacherID, sessionID) ->
       do
-        listingsResult <- liftIO $ readSubmissionListings teacherID sessionID
+        listingsResult <- liftIO $ readSubmissionListings teacherID $ asLowerText sessionID
         whenSuccess listingsResult $ encodeText &> succeed "application/json"
 
 handleListSessionForModeration :: Snap ()
@@ -127,8 +129,8 @@ handleListSessionForModeration =
     handle1 (Arg "session-id" notEmpty) $
       \sessionID ->
         do
-          listingsResult <- liftIO $ readSubmissionListingsForModeration teacher sessionID
-          whenSuccess listingsResult $ encodeText &> succeed "application/json"
+          listingsResult <- liftIO $ readSubmissionListingsForModeration teacher $ asLowerText sessionID
+          whenSuccess listingsResult $ (map lowText) &> encodeText &> succeed "application/json"
 
 handleWhoIsTeacher :: Snap ()
 handleWhoIsTeacher =
@@ -142,7 +144,9 @@ handleDownloadItem =
   handle3 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
     \(teacherID, sessionID, uploadID) ->
       withAuthorizations $ \teacherM studM -> do
-        dlResult <- liftIO $ readSubmissionData teacherM studM teacherID sessionID uploadID
+        let sid   = asLowerText sessionID
+        let uid   = asLowerText uploadID
+        dlResult <- liftIO $ readSubmissionData teacherM studM teacherID sid uid
         whenSuccess dlResult $ succeed "text/plain"
 
 handleSuppressItem :: Snap ()
@@ -151,7 +155,9 @@ handleSuppressItem =
     \(teacherID, sessionID, uploadID) ->
       withAuthorizations $ \teacherM studM -> do
         do
-          result <- liftIO $ suppressSubmission teacherM studM teacherID sessionID uploadID
+          let sid = asLowerText sessionID
+          let uid = asLowerText uploadID
+          result <- liftIO $ suppressSubmission teacherM studM teacherID sid uid
           whenSuccess result $ const $ succeed "text/plain" "Submission successfully suppressed"
 
 handleApproveItem :: Snap ()
@@ -160,7 +166,9 @@ handleApproveItem =
     handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
       \(sessionID, uploadID) ->
         do
-          result <- liftIO $ approveSubmission teacher sessionID uploadID
+          let sid = asLowerText sessionID
+          let uid = asLowerText uploadID
+          result <- liftIO $ approveSubmission teacher sid uid
           whenSuccess result $ const $ succeed "text/plain" "Submission approved"
 
 handleForbidItem :: Snap ()
@@ -169,7 +177,9 @@ handleForbidItem =
     handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
       \(sessionID, uploadID) ->
         do
-          result <- liftIO $ forbidSubmission teacher sessionID uploadID
+          let sid = asLowerText sessionID
+          let uid = asLowerText uploadID
+          result <- liftIO $ forbidSubmission teacher sid uid
           whenSuccess result $ const $ succeed "text/plain" "Submission successfully forbidden"
 
 handleGetUploaderToken :: Snap ()
@@ -187,7 +197,7 @@ handleSubmissionsLite =
         case namesM of
           Nothing      -> failWith 422 $ writeText $ "Parameter 'names' is invalid JSON: " <> namesText
           (Just names) -> do
-            pairsResult <- liftIO $ readSubmissionsLite teacherM studM teacherID sessionID names
+            pairsResult <- liftIO $ readSubmissionsLite teacherM studM teacherID (asLowerText sessionID) names
             whenSuccess pairsResult $ (map $ convert studM) &> encodeText &> succeed "application/json"
   where
     convert studM (Submission name b64 sid meta, canDelete) =
@@ -213,7 +223,7 @@ handleUploadHelper datum image fileMap =
       sessionID <- getParamVM fileMap $ Arg "session-id" notEmpty
       metadata  <- getParamVM fileMap $ Arg "metadata"   notEmpty
       let meta   = (map Just metadata) <> (Success Nothing)
-      let tupleV = (,,,,) <$> teacherID <*> sessionID <*> image <*> meta <*> datum
+      let tupleV = (,,,,) <$> teacherID <*> (map asLowerText sessionID) <*> image <*> meta <*> datum
       case tupleV of
         Failure es    -> notifyBadParams es
         Success tuple -> do
@@ -222,23 +232,27 @@ handleUploadHelper datum image fileMap =
 
 handleGetComments :: Snap ()
 handleGetComments = handle3 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
-  \(teacherID, sessionName, uploadName) -> do
-    commentsResult <- liftIO $ readCommentsFor teacherID sessionName uploadName
+  \(teacherID, sessionID, uploadID) -> do
+    let sid         = asLowerText sessionID
+    let uid         = asLowerText uploadID
+    commentsResult <- liftIO $ readCommentsFor teacherID sid uid
     whenSuccess commentsResult $ encodeText &> succeed "application/json"
 
 handleSubmitComment :: Snap ()
 handleSubmitComment =
   handle6 ( Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty, Arg "item-id" notEmpty
           , Arg "parent" free, Arg "author" notEmpty, Arg "comment" notEmpty) $
-    \(teacherID, sessionName, uploadName, parent, author, comment) -> do
-      result <- liftIO $ writeComment teacherID sessionName uploadName (UUID.fromText parent) author comment
+    \(teacherID, sessionID, uploadID, parent, author, comment) -> do
+      let sid = asLowerText sessionID
+      let uid = asLowerText uploadID
+      result <- liftIO $ writeComment teacherID sid uid (UUID.fromText parent) author comment
       whenSuccess result $ const $ writeText ""
 
 handleGetTemplateName :: Snap ()
 handleGetTemplateName =
   handle2 (Arg "teacher-id" asNonNegInt, Arg "session-id" notEmpty) $ \(teacherID, sessionID) ->
     do
-      templateNameResult <- liftIO $ readTemplateName teacherID sessionID
+      templateNameResult <- liftIO $ readTemplateName teacherID $ asLowerText sessionID
       whenSuccess templateNameResult writeText
 
 handleGetStarterConfig :: Snap ()
@@ -247,7 +261,7 @@ handleGetStarterConfig =
     do
       let ident           = "(" <> (showText teacherID) <> " | " <> sessionID <> ")"
       let errorMsg        = "No starter config has been uploaded for gallery '" <> ident <> "'."
-      starterMaybeResult <- liftIO $ readStarterConfigFor teacherID sessionID
+      starterMaybeResult <- liftIO $ readStarterConfigFor teacherID $ asLowerText sessionID
       whenSuccess starterMaybeResult $
         \case Nothing        -> failWith 404 $ writeText errorMsg
               (Just starter) -> succeed "text/plain" starter
@@ -262,15 +276,16 @@ handleGetGalleryTypes =
 handleRegister :: Snap ()
 handleRegister =
   handle3 (Arg "email" notEmpty, Arg "firstName" notEmpty, Arg "lastName" notEmpty) $
-    \(email, firstName, lastName) ->
+    \(rawAddr, firstName, lastName) ->
       do
         orgV       <- getParamV $ Arg "organization" notEmpty
         let orgM    = validation (const Nothing) Just orgV
-        isExistent <- liftIO $ checkUserExists email
+        let addr    = asLowerText rawAddr
+        isExistent <- liftIO $ checkUserExists addr
         if not isExistent then do
          returnAddress     <- genRegistrationURL
-         registrationToken <- liftIO $    setUpNewUser email returnAddress
-         result            <- liftIO $ registerNewUser email firstName lastName orgM registrationToken
+         registrationToken <- liftIO $    setUpNewUser addr returnAddress
+         result            <- liftIO $ registerNewUser addr firstName lastName orgM registrationToken
          whenSuccess result $ const ok
         else
           failWith 409 $ writeText $ "An account for that e-mail address already exists."
@@ -280,17 +295,18 @@ handleAuthConfirm =
   handle1 (Arg "token" asToken) $ \token ->
     do
       emailResult <- liftIO $ confirmNewUser token
-      whenSuccess emailResult $ \(ATeacher emailAddr) -> do
-        accessTokenResult <- issueNewTeacherTokens emailAddr
+      whenSuccess emailResult $ \teacher -> do
+        accessTokenResult <- issueNewTeacherTokens teacher
         whenSuccess accessTokenResult $ succeed "text/plain"
 
 handleRequestOTP :: Snap ()
 handleRequestOTP =
-  handle1 (Arg "email" notEmpty) $ \email ->
+  handle1 (Arg "email" notEmpty) $ \rawAddr ->
     do
-      otpResult <- liftIO $ sendOTP email
+      let addr   = asLowerText rawAddr
+      otpResult <- liftIO $ sendOTP addr
       whenSuccess otpResult $ \otp -> do
-        result <- liftIO $ storeOTP email otp
+        result <- liftIO $ storeOTP addr otp
         whenSuccess result $ const ok
 
 handleVerifyOTP :: Snap ()
@@ -298,9 +314,9 @@ handleVerifyOTP =
   handle2 (Arg "email" notEmpty, Arg "passcode" notEmpty) $
     \(emailAddr, passcode) ->
       do
-        result <- liftIO $ validateOTP emailAddr passcode
-        whenSuccess result $ const $ do
-          accessTokenResult <- issueNewTeacherTokens emailAddr
+        result <- liftIO $ validateOTP (asLowerText emailAddr) passcode
+        whenSuccess result $ \teacher -> do
+          accessTokenResult <- issueNewTeacherTokens teacher
           whenSuccess accessTokenResult $ succeed "text/plain"
 
 handleTeacherIsLoggedIn :: Snap ()
@@ -321,8 +337,8 @@ handleTeacherTokenRefresh :: Snap ()
 handleTeacherTokenRefresh =
   do
     teacherResult <- validateTeacherRefreshToken
-    whenSuccess teacherResult $ \(ATeacher emailAddr) -> do
-      accessTokenResult <- issueNewTeacherTokens emailAddr
+    whenSuccess teacherResult $ \teacher -> do
+      accessTokenResult <- issueNewTeacherTokens teacher
       whenSuccess accessTokenResult $ succeed "text/plain"
 
 genRegistrationURL :: Snap Text
