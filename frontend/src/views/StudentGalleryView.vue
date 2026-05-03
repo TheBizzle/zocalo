@@ -96,7 +96,14 @@
 
 <style scoped>
 
+  @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400&display=swap');
+
   .gallery-name {
+    font-family:    "Lora", Georgia, serif;
+    font-size:      clamp(1.25rem, 2.5vw, 1.75rem);
+    font-weight:    400;
+    letter-spacing: 0.02em;
+    color:          var(--color-ink);
   }
 
   .student-nav {
