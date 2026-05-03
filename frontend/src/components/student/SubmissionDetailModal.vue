@@ -1,6 +1,7 @@
 <template>
 
-  <div class="modal-overlay animate-fade" v-if="submission" @click.self="deactivate">
+  <div ref="modalRef" class="modal-overlay animate-fade" v-if="submission" tabindex="-1"
+       @click.self="deactivate" @keyup.esc="handleEsc">
     <div class="modal-box item-detail-modal animate-scale">
       <button class="btn-icon modal-close" @click="deactivate">✕</button>
       <h2 style="margin-bottom: var(--space-2)">{{ submission.title }}</h2>
@@ -28,8 +29,8 @@
 
 <script lang="ts">
 
-  import { defineComponent, type PropType } from "vue";
-  import { useRoute                       } from "vue-router";
+  import { defineComponent, nextTick, type PropType, ref, watch } from "vue";
+  import { useRoute                                             } from "vue-router";
 
   import type { Submission } from "@/core/Submission.ts";
 
@@ -40,9 +41,21 @@
   , components: { CommentThread }
   , props:      { submission: { type: Object as PropType<Submission | null>, required: true } }
   , emits:      ["unset-active-submission"]
-  , setup(_props, { emit }) {
+  , setup(props, { emit }) {
 
       const _ = useRoute();
+
+      const modalRef = ref<HTMLDivElement | null>(null);
+
+      watch(
+        () => props.submission
+      , async (sub) => {
+          if (sub !== null) {
+            await nextTick();
+            modalRef.value?.focus();
+          }
+        }
+      );
 
       function download(item: Submission): void {
         alert(`Downloading: ${item.title}`);
@@ -52,7 +65,17 @@
         emit("unset-active-submission");
       }
 
-      return { download, deactivate };
+      function handleEsc(e: KeyboardEvent): void {
+        const target  = e.target as HTMLElement;
+        const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+        if (!isInput) {
+          deactivate();
+        } else {
+          modalRef.value?.focus();
+        }
+      }
+
+      return { download, deactivate, handleEsc, modalRef };
 
     }
   });
