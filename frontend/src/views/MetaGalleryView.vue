@@ -314,6 +314,7 @@
 <style scoped>
 
   .page-header {
+    font-family:   var(--font-fancy);
     margin-bottom: var(--space-6);
   }
 

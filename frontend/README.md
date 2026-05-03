@@ -55,7 +55,7 @@ All colours, spacing, and typography are driven by CSS custom properties in
 - `--clr-primary`  → golden amber (#c49a0a)
 - `--clr-accent`   → sky blue (#3d7ea6)
 - `--clr-bg`       → warm white (#fdfaf3)
-- `--font-display` → Fraunces (serif, for headings)
+- `--font-display` → Lora (serif, for headings)
 - `--font-body`    → DM Sans (for UI text)
 
 Fonts are loaded from Google Fonts.
