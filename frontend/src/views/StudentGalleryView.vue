@@ -109,7 +109,7 @@
     background:              rgba(253,246,238,0.92);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter:         blur(12px);
-    border-bottom:           1px solid var(--clr-border);
+    border-bottom:           1px solid var(--clr-border-2);
     padding:                 0 var(--space-6);
     height:                  60px;
   }
