@@ -48,9 +48,7 @@
 
 <script lang="ts">
 
-  import { defineComponent, ref } from "vue";
-
-  import type { PropType } from "vue";
+  import { defineComponent, type PropType, ref } from "vue";
 
   type Comment = {
     id:        string

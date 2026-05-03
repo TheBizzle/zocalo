@@ -18,7 +18,7 @@ import "./assets/styles.css";
 const routes =
   [ { path: "/", redirect: "/login" }
   , { path: "/gallery/:id"                     , component: StudentGalleryView   , name: "student-gallery"        , meta: {  requiresStudent: true } }
-  , { path: "/gallery/:id/split"               , component: SplitGalleryView     , name: "split-gallery"                                             }
+  , { path: "/gallery/:id/split"               , component: SplitGalleryView     , name: "split-gallery"          , meta: {  requiresStudent: true } }
   , { path: "/login"                           , component: LoginView            , name: "login"                  , meta: { disallowsTeacher: true } }
   , { path: "/register"                        , component: RegisterView         , name: "register"               , meta: { disallowsTeacher: true } }
   , { path: "/moderate/:id"                    , component: ModerationView       , name: "moderation"             , meta: {  requiresTeacher: true } }

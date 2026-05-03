@@ -148,7 +148,7 @@
   import { computed, defineComponent, ref } from "vue";
   import { useRoute                       } from "vue-router";
 
-  import CommentThread from "@/components/CommentThread.vue";
+  import CommentThread from "@/components/student/CommentThread.vue";
   import { setTitle }  from "@/composables/setTitle.ts";
 
   type Comment = { id: string; author: string; text: string; createdAt: Date }
