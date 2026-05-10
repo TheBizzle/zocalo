@@ -231,13 +231,13 @@
       }
 
       function onFileChange(e: Event): void {
-        const file = (e.target as HTMLInputElement).files![0];
+        const file = (e.target as HTMLInputElement).files![0]!;
         readFile(file);
       }
 
       function onDrop(e: DragEvent): void {
         isDragging.value = false;
-        const file     = e.dataTransfer!.files[0];
+        const file       = e.dataTransfer!.files[0]!;
         readFile(file);
       }
 

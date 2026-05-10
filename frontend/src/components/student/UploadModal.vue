@@ -65,7 +65,7 @@
   , components: {}
   , setup(_props, { emit }) {
 
-      const _ = useRoute();
+      useRoute();
 
       const uploadDragging  = ref(false);
       const uploadError     = ref("");

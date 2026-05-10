@@ -169,7 +169,7 @@
   , components: { CommentThread }
   , setup() {
 
-      const _ = useRoute();
+      useRoute();
 
       const galleryName      = ref("Science Fair Posters");
       const selectedItem     = ref<Submission | null>(null);

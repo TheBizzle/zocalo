@@ -25,7 +25,7 @@
         async () => {
 
           const route = useRoute();
-          const token = route.params.token;
+          const token = route.params["token"];
 
           const res  = await fetch(`/api/auth/teacher/confirm/${token}`, { method: "GET" });
           const text = await res.text();

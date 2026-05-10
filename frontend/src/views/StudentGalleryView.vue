@@ -50,7 +50,7 @@
   , components: { BasicGallery, SubmissionDetailModal, UploadModal }
   , setup() {
 
-      const _ = useRoute();
+      useRoute();
 
       const activeSubmission = ref<Submission | null>(null);
       const galleryName      = ref("Spring Art Showcase");

@@ -43,7 +43,7 @@
   , emits:      ["unset-active-submission"]
   , setup(props, { emit }) {
 
-      const _ = useRoute();
+      useRoute();
 
       const modalRef = ref<HTMLDivElement | null>(null);
 

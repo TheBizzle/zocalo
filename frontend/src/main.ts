@@ -15,6 +15,14 @@ import TeacherAccConfirmView from "./views/TeacherAccConfirmView.vue";
 
 import "./assets/styles.css";
 
+declare module "vue-router" {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+  interface RouteMeta {
+    requiresTeacher?:  boolean
+    disallowsTeacher?: boolean
+  }
+}
+
 const routes =
   [ { path: "/", redirect: "/login" }
   , { path: "/gallery/:id"                     , component: StudentGalleryView   , name: "student-gallery"        , meta: {  requiresStudent: true } }
@@ -35,9 +43,9 @@ const router =
 
 router.beforeEach(
   async (to, _from, next) => {
-    if ((to.meta.requiresTeacher as boolean) && !(await amLoggedIn())) {
+    if ((to.meta.requiresTeacher!) && !(await amLoggedIn())) {
       next({ path: "/login", query: { redirect: to.fullPath } });
-    } else if ((to.meta.disallowsTeacher as boolean) && await amLoggedIn()) {
+    } else if ((to.meta.disallowsTeacher!) && await amLoggedIn()) {
       next({ path: "/galleries/teacher/overview" });
     } else {
       next();

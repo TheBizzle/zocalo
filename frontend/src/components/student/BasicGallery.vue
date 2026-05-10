@@ -35,7 +35,7 @@
   , emits: ["set-active-submission"]
   , setup(_props, { emit }) {
 
-      const _ = useRoute();
+      useRoute();
 
       function formatDate(d: Date): string {
         return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });

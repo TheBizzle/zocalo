@@ -153,7 +153,7 @@
     name: "ModerationView"
   , setup() {
 
-      const _ = useRoute();
+      useRoute();
 
       const galleryName  = ref("Spring Art Showcase"); // TODO: fetch from API using route.params.id
       const pendingOpen  = ref(true);

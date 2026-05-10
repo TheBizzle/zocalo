@@ -94,7 +94,7 @@ function decodeJWT(compactToken: string): [string, number] {
   const chunks = compactToken.split(".");
   if (chunks.length === 3) {
     const [_rawHeader, rawPayload, _signature] = chunks;
-    const { aud, exp, sub } = JSON.parse(decodeBase64URL(rawPayload)) as JWTPayload;
+    const { aud, exp, sub } = JSON.parse(decodeBase64URL(rawPayload!)) as JWTPayload;
     if (aud === "gallery") {
       return [sub, Math.floor(exp * 1e3)];
     } else {
