@@ -455,15 +455,15 @@ a:hover { color: var(--clr-primary-dk); }
   padding: var(--space-5);
 }
 .modal-box {
-  background: var(--clr-surface);
+  position:      relative;
+  background:    var(--clr-surface);
   border-radius: var(--radius-xl);
-  padding: var(--space-7);
-  max-width: 560px;
-  width: 100%;
-  box-shadow: var(--shadow-lift);
-  position: relative;
-  max-height: 90vh;
-  overflow-y: auto;
+  box-shadow:    var(--shadow-lift);
+  padding:       var(--space-7);
+  padding-right: 22px;
+  max-height:    90vh;
+  max-width:     560px;
+  width:         100%;
 }
 .modal-close {
   position: absolute;

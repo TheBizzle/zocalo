@@ -5,23 +5,30 @@
     <div class="modal-box item-detail-modal animate-scale">
       <button class="btn-icon modal-close" @click="deactivate">✕</button>
       <h2 style="margin-bottom: var(--space-2)">{{ submission.title }}</h2>
-      <p v-if="submission.description"
-         style="color: var(--clr-ink-3); font-size: 0.9rem; margin-bottom: var(--space-4)">
-        {{ submission.description }}
-      </p>
+      <hr style="margin-left: 12px; margin-right: 58px">
 
-      <div class="item-preview">
-        <img v-if="submission.thumbnail" :src="submission.thumbnail"
-             :alt="submission.title" style="max-width: 100%; border-radius: var(--radius-md)" />
-        <div v-else class="no-thumb-large">📄</div>
+      <div class="scroll-pane">
+
+        <p v-if="submission.description"
+           style="color: var(--clr-ink-3); font-size: 0.9rem; margin-bottom: var(--space-4)">
+          {{ submission.description }}
+        </p>
+
+        <div class="item-preview">
+          <img v-if="submission.thumbnail" :src="submission.thumbnail"
+               :alt="submission.title" style="max-width: 100%; border-radius: var(--radius-md)" />
+          <div v-else class="no-thumb-large">📄</div>
+        </div>
+
+        <div class="item-actions">
+          <button class="btn btn-ghost btn-sm" @click="download(submission)">↓ Download</button>
+        </div>
+
+        <hr class="divider" />
+        <CommentThread :submissionId="submission.id" :comments="submission.comments" />
+
       </div>
 
-      <div class="item-actions">
-        <button class="btn btn-ghost btn-sm" @click="download(submission)">↓ Download</button>
-      </div>
-
-      <hr class="divider" />
-      <CommentThread :submissionId="submission.id" :comments="submission.comments" />
     </div>
   </div>
 
@@ -108,6 +115,12 @@
     align-items:     center;
     justify-content: center;
     font-size:       3rem;
+  }
+
+  .scroll-pane {
+    max-height:    60vh;
+    overflow-y:    auto;
+    padding-right: var(--space-6);
   }
 
 </style>
