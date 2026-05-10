@@ -5,20 +5,29 @@
       <span class="brand-dot"></span>
       zócalo
     </router-link>
-    <div class="gallery-name">{{ galleryName }}</div>
   </nav>
 
   <div class="page-wrapper-wide">
+
+    <div class="page-header animate-fade">
+      <div>
+        <h1>{{ galleryName }}</h1>
+      </div>
+    </div>
+
     <SubmissionDetailModal
       :submission="activeSubmission"
       @unset-active-submission="unsetActiveSubmission"
     />
+
     <UploadModal />
+
     <BasicGallery
       :activeSubmission="activeSubmission"
       :submissions="submissions"
       @set-active-submission="setActiveSubmission"
     />
+
   </div>
 
 </template>
@@ -96,12 +105,9 @@
 
 <style scoped>
 
-  .gallery-name {
-    font-family:    "Lora", Georgia, serif;
-    font-size:      clamp(1.25rem, 2.5vw, 1.75rem);
-    font-weight:    600;
-    letter-spacing: 0.02em;
-    color:          var(--color-ink);
+  .page-header {
+    font-family:   var(--font-fancy);
+    margin-bottom: var(--space-6);
   }
 
   .student-nav {
