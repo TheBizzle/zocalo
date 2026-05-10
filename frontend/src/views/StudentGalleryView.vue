@@ -23,7 +23,7 @@
     <UploadModal
       :isOpen="isUploadModalOpen"
       @add-new-submission="addNewSubmission"
-      @close="isUploadModalOpen = false"
+      @close-dialog="isUploadModalOpen = false"
     />
 
     <BasicGallery

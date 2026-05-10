@@ -1,6 +1,7 @@
 <template>
 
-  <div class="modal-overlay animate-fade" v-if="isOpen" @click.self="close">
+  <div ref="modalRef" class="modal-overlay animate-fade" v-if="isOpen" tabindex="-1"
+       @click.self="close" @keyup.esc="handleEsc">
     <div class="modal-box animate-scale">
       <button class="btn-icon modal-close" @click="close">✕</button>
       <p class="section-eyebrow">Share your work</p>
@@ -57,26 +58,48 @@
 
 <script lang="ts">
 
-  import { defineComponent, ref } from "vue";
-  import { useRoute             } from "vue-router";
+  import { defineComponent, nextTick, ref, watch } from "vue";
+  import { useRoute                              } from "vue-router";
 
   export default defineComponent({
     name:       "UploadModal"
   , components: {}
   , props:      { isOpen: { type: Boolean, required: true } }
-  , emits:      ["add-new-submission", "close"]
-  , setup(_props, { emit }) {
+  , emits:      ["add-new-submission", "close-dialog"]
+  , setup(props, { emit }) {
 
       useRoute();
 
+      const modalRef        = ref<HTMLDivElement | null>(null);
       const uploadDragging  = ref(false);
       const uploadError     = ref("");
       const uploadForm      = ref({ title: "", description: "", fileName: "", fileData: null as File | null });
       const uploading       = ref(false);
       const uploadInputRef  = ref<HTMLInputElement | null>(null);
 
+      watch(
+        () => props.isOpen
+      , async (isOpen) => {
+          if (isOpen) {
+            await nextTick();
+            modalRef.value?.focus();
+          }
+        }
+      );
+
       function close(): void {
-        emit("close");
+        emit("close-dialog");
+      }
+
+      function handleEsc(e: KeyboardEvent): void {
+        console.warn("Got here", e.target);
+        const target  = e.target as HTMLElement;
+        const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+        if (!isInput) {
+          close();
+        } else {
+          modalRef.value?.focus();
+        }
       }
 
       function onUploadDrop(e: DragEvent): void {
@@ -128,7 +151,7 @@
             , comments:     []
             };
           emit("add-new-submission", submission);
-          uploadForm.value      = { title: "", description: "", fileName: "", fileData: null };
+          uploadForm.value = { title: "", description: "", fileName: "", fileData: null };
           close();
         } catch (err: unknown) {
           if (err instanceof Error) {
@@ -146,8 +169,8 @@
         uploadInputRef.value?.click();
       }
 
-      return { close, onUploadDrop, onUploadFile, setUploadFile, submitUpload, triggerUploadInput
-             , uploadDragging, uploadError, uploadForm, uploading, uploadInputRef };
+      return { close, handleEsc, modalRef, onUploadDrop, onUploadFile, setUploadFile, submitUpload
+             , triggerUploadInput, uploadDragging, uploadError, uploadForm, uploading, uploadInputRef };
 
     }
   });
