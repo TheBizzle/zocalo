@@ -11,14 +11,14 @@
       @click="openItem(item)"
     >
       <div class="gallery-item-thumb">
-        <img v-if="item.thumbnail" :src="item.thumbnail" :alt="item.title" />
+        <img v-if="item.image" :src="item.image" :alt="item.uploadName" />
         <div v-else class="no-thumb">📄</div>
       </div>
       <div class="gallery-item-info">
-        <div class="gallery-item-title">{{ item.title }}</div>
+        <div class="gallery-item-title">{{ item.uploadName }}</div>
         <div class="gallery-item-meta">
-          {{ item.commentCount }} comment{{ item.commentCount !== 1 ? 's' : '' }}
-          · {{ formatDate(item.submittedAt) }}
+          {{ item.comments.length }} comment{{ item.comments.length !== 1 ? 's' : '' }}
+          · {{ formatDate(item.creationTime) }}
         </div>
       </div>
     </div>
@@ -91,8 +91,8 @@
 <style scoped>
 
   .btn-main {
-    font-size: var(--space-5);
-    padding:   var(--space-4) var(--space-5);
+    font-size: var(--space-4);
+    padding:   var(--space-3) var(--space-4);
   }
 
   .gallery-grid {

@@ -4,19 +4,19 @@
        @click.self="deactivate" @keyup.esc="handleEsc">
     <div class="modal-box item-detail-modal animate-scale">
       <button class="btn-icon modal-close" @click="deactivate">✕</button>
-      <h2 style="margin-bottom: var(--space-2)">{{ submission.title }}</h2>
+      <h2 style="margin-bottom: var(--space-2)">{{ submission.uploadName }}</h2>
       <hr style="margin-left: 12px; margin-right: 58px">
 
       <div class="scroll-pane">
 
-        <p v-if="submission.description"
+        <p v-if="description"
            style="color: var(--clr-ink-3); font-size: 0.9rem; margin-bottom: var(--space-4)">
-          {{ submission.description }}
+          {{ description }}
         </p>
 
         <div class="item-preview">
-          <img v-if="submission.thumbnail" :src="submission.thumbnail"
-               :alt="submission.title" style="max-width: 100%; border-radius: var(--radius-md)" />
+          <img v-if="submission?.image" :src="submission?.image"
+               :alt="submission?.uploadName" style="max-width: 100%; border-radius: var(--radius-md)" />
           <div v-else class="no-thumb-large">📄</div>
         </div>
 
@@ -25,7 +25,7 @@
         </div>
 
         <hr class="divider" />
-        <CommentThread :submissionId="submission.id" :comments="submission.comments" />
+        <CommentThread :submissionID="submission.id" :comments="submission.comments" />
 
       </div>
 
@@ -36,8 +36,8 @@
 
 <script lang="ts">
 
-  import { defineComponent, nextTick, type PropType, ref, watch } from "vue";
-  import { useRoute                                             } from "vue-router";
+  import { computed, defineComponent, nextTick, type PropType, ref, watch } from "vue";
+  import { useRoute                                                       } from "vue-router";
 
   import type { Submission } from "@/core/Submission.ts";
 
@@ -64,8 +64,24 @@
         }
       );
 
+      const description =
+        computed(
+          (): string | null => {
+            if (props.submission !== null && props.submission.metadata !== null) {
+              try {
+                const parsed = JSON.parse(props.submission.metadata) as { description?: string };
+                return parsed.description ?? null;
+              } catch {
+                return null;
+              }
+            } else {
+              return null;
+            }
+          }
+        );
+
       function download(item: Submission): void {
-        alert(`Downloading: ${item.title}`);
+        alert(`Downloading: ${item.uploadName}`);
       }
 
       function deactivate(): void {
@@ -82,7 +98,7 @@
         }
       }
 
-      return { download, deactivate, handleEsc, modalRef };
+      return { description, download, deactivate, handleEsc, modalRef };
 
     }
   });

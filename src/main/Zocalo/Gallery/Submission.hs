@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
-module Zocalo.Gallery.Submission(GalleryListing(..), Submission(..), SubmissionListing(..), SubmissionSendable(..)) where
+module Zocalo.Gallery.Submission(Submission(..), SubmissionListing(..), SubmissionSendable(..)) where
 
 import Data.Aeson(ToJSON)
 
@@ -13,32 +13,23 @@ data SubmissionListing
     , isSuppressed :: Bool
     } deriving (Generic, Show, ToJSON)
 
-data GalleryListing
-  = GalleryListing {
-    id            :: Int
-  , name          :: Text
-  , template      :: Text
-  , description   :: Text
-  , isPrescreened :: Bool
-  , numWaiting    :: Int
-  , numApproved   :: Int
-  , creationTime  :: Integer
-  , lastSubTime   :: Integer
-  } deriving (Generic, Show, ToJSON)
-
 data Submission
   = Submission {
-      uploadName'  :: Text
-    , base64Image' :: Text
-    , studentID'   :: Word64
-    , metadata'    :: Maybe Text
+      id'           :: Word64
+    , uploadName'   :: Text
+    , base64Image'  :: Text
+    , studentID'    :: Word64
+    , metadata'     :: Maybe Text
+    , creationTime' :: Integer
     } deriving Show
 
 data SubmissionSendable
   = SubmissionSendable {
-      uploadName   :: Text
-    , base64Image  :: Text
+      id           :: Int64
+    , uploadName   :: Text
+    , image        :: Text
     , isOwner      :: Bool
     , canModerate  :: Bool
     , metadata     :: Maybe Text
+    , creationTime :: Integer
     } deriving (Generic, Show, ToJSON)

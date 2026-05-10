@@ -1,11 +1,12 @@
 {-# LANGUAGE TupleSections #-}
-module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asInt, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, uncurry6, withFileUploads) where
+module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asInt, asNanoID, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, uncurry6, withFileUploads) where
 
 import Codec.Compression.Zlib.Internal(decompressST, defaultDecompressParams, foldDecompressStreamWithInput, gzipFormat)
 
 import Control.Lens((#))
 
 import Data.Aeson(decode, encode, FromJSON, ToJSON)
+import Data.NanoID(defaultAlphabet, NanoID(NanoID), unAlphabet)
 import Data.Text.Encoding(decodeUtf8, encodeUtf8)
 import Data.UUID(UUID)
 import Data.Validation(_Failure, _Success)
@@ -18,6 +19,7 @@ import System.IO.Streams(InputStream)
 
 import Zocalo.Common.SecureToken(SecureToken, tokenFromText)
 
+import qualified Data.ByteString.Char8   as BSChar
 import qualified Data.ByteString.Lazy    as LazyByteString
 import qualified Data.Map                as Map
 import qualified Data.Text               as Text
@@ -141,6 +143,16 @@ succeed contentType output =
 
 ok :: Snap ()
 ok = succeed "text/plain" ""
+
+asNanoID :: Constraint NanoID
+asNanoID = Constraint $ buildConstraint $
+  \x ->
+    if Text.length x == 21 && Text.all (`Text.elem` allowed) x then
+      Just (NanoID (encodeUtf8 x))
+    else
+      Nothing
+  where
+    allowed = asText $ BSChar.unpack $ unAlphabet defaultAlphabet
 
 asNonNegInt :: Constraint Int
 asNonNegInt = Constraint $ buildConstraint $ \x -> (readMaybe (asString x) :: Maybe Int) |>

@@ -25,11 +25,11 @@ declare module "vue-router" {
 
 const routes =
   [ { path: "/", redirect: "/login" }
-  , { path: "/gallery/:id"                     , component: StudentGalleryView   , name: "student-gallery"        , meta: {  requiresStudent: true } }
-  , { path: "/gallery/:id/split"               , component: SplitGalleryView     , name: "split-gallery"          , meta: {  requiresStudent: true } }
+  , { path: "/gallery/:nanoid"                 , component: StudentGalleryView   , name: "student-gallery"        , meta: {  requiresStudent: true } }
+  , { path: "/gallery/:nanoid/split"           , component: SplitGalleryView     , name: "split-gallery"          , meta: {  requiresStudent: true } }
   , { path: "/login"                           , component: LoginView            , name: "login"                  , meta: { disallowsTeacher: true } }
   , { path: "/register"                        , component: RegisterView         , name: "register"               , meta: { disallowsTeacher: true } }
-  , { path: "/moderate/:id"                    , component: ModerationView       , name: "moderation"             , meta: {  requiresTeacher: true } }
+  , { path: "/moderate/:nanoid"                , component: ModerationView       , name: "moderation"             , meta: {  requiresTeacher: true } }
   , { path: "/galleries/teacher/confirm/:token", component: TeacherAccConfirmView, name: "teacher-account-confirm", meta: { disallowsTeacher: true } }
   , { path: "/galleries/teacher/overview"      , component: MetaGalleryView      , name: "meta-gallery"           , meta: {  requiresTeacher: true } }
   ];

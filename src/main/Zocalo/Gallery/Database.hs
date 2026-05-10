@@ -20,16 +20,18 @@ import Control.Monad.Trans.Reader(ReaderT)
 import Control.Monad.Trans.Resource(ResourceT)
 
 import Data.List(sortBy)
+import Data.NanoID(nanoID, NanoID, unNanoID)
 import Data.Ord(comparing)
 import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
 import Data.Type.Equality(type (~))
-import Data.UUID(UUID)
 
-import Database.Persist((<-.), (=.), (==.), (>=.), count, Entity(Entity, entityVal), get, getBy, insert, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateWhere, upsert)
+import Database.Persist((<-.), (=.), (==.), (>=.), count, Entity(Entity, entityKey, entityVal), get, getBy, insert, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateWhere, upsert)
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
 import Database.Persist.Sql(fromSqlKey, toSqlKey)
 import Database.Persist.TH(mkMigrate, mkPersist, share, sqlSettings)
+
+import System.Random.MWC(createSystemRandom)
 
 import Zocalo.Common.DBCredentials(password, username)
 import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
@@ -37,14 +39,15 @@ import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromTex
 import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID), AuthorizedTeacher(ATeacher, teacherAddr))
 
 import Zocalo.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
-import Zocalo.Gallery.Comment(Comment(Comment, time))
+import Zocalo.Gallery.Comment(Comment(Comment, creationTime))
 import Zocalo.Gallery.DBSnakeCase(bizzleSnakeCase)
+import Zocalo.Gallery.GalleryListing(GalleryListing(GalleryListing))
 import Zocalo.Gallery.LowerText(asLowerText, LowerText, lowText)
 import Zocalo.Gallery.RandGen(generateName)
-import Zocalo.Gallery.Submission(GalleryListing(GalleryListing), Submission(Submission), SubmissionListing(SubmissionListing))
+import Zocalo.Gallery.Submission(Submission(Submission), SubmissionListing(SubmissionListing))
 
-import qualified Data.Text as Text
-import qualified Data.UUID as UUID
+import qualified Data.Text          as Text
+import qualified Data.Text.Encoding as TE
 
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [bizzleSnakeCase|
@@ -95,11 +98,13 @@ GalleryDB
   galleryDisplay  Text
   templateName    Text
   ownerID         TeacherDBId
+  nanoID          Text
   getsPrescreened Bool
   config          Text Maybe
   description     Text
   dateAdded       UTCTime
   UniqueGallery ownerID galleryName
+  UniqueGalleryNano nanoID
   deriving Show
 
 SubmissionDB
@@ -120,7 +125,7 @@ SubmissionDB
 CommentDB
   comment  Text
   author   Text
-  parent   Text Maybe
+  parent   CommentDBId Maybe
   uploadID SubmissionDBId
   time     UTCTime
   deriving Show
@@ -136,13 +141,13 @@ uniqueGalleryName teacherIDNum =
       Success _ -> uniqueGalleryName teacherIDNum
       Failure _ -> return name
 
-uniqueSubmissionName :: Int -> LowerText -> IO Text
-uniqueSubmissionName teacherIDNum galleryName =
+uniqueSubmissionName :: NanoID -> IO Text
+uniqueSubmissionName nid =
   do
     name   <- generateName
-    result <- withSubmission3 teacherIDNum galleryName (asLowerText name) chillax
+    result <- withSubmission2 nid (asLowerText name) chillax
     case result of
-      Success _ -> uniqueSubmissionName teacherIDNum galleryName
+      Success _ -> uniqueSubmissionName nid
       Failure _ -> return name
 
 registerNewGallery :: AuthorizedTeacher -> Text -> Text -> Bool -> Maybe Text -> Text -> IO (ActionResult Int64)
@@ -152,7 +157,10 @@ registerNewGallery teacher template galleryName getsPrescreened configMaybe desc
       timestamp      <- getCurrentTime
       let lName       = asLowerText galleryName
       let lTemplate   = Text.toLower template
-      let galleryDB   = GalleryDB lName galleryName lTemplate teacherID getsPrescreened configMaybe description timestamp
+      rng            <- createSystemRandom
+      rawNanoID      <- nanoID rng
+      let nid         = TE.decodeUtf8 $ unNanoID rawNanoID
+      let galleryDB   = GalleryDB lName galleryName lTemplate teacherID nid getsPrescreened configMaybe description timestamp
       insertionM     <- withDB $ insertUnique galleryDB
       return $ case insertionM of
         Nothing  -> Failure Duplicate
@@ -163,7 +171,7 @@ readGalleryListings teacher =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> do
       rows     <- withDB $ selectList [GalleryDBOwnerID ==. teacherID] [Asc GalleryDBDateAdded]
-      listings <- flip mapM rows $ \(Entity subID (GalleryDB _ name template _ isPre _ desc cDate)) -> withDB $ do
+      listings <- flip mapM rows $ \(Entity subID (GalleryDB _ name template _ _ isPre _ desc cDate)) -> withDB $ do
         numWaiting <- count [SubmissionDBGalleryID ==. subID, SubmissionDBIsAwaitingModeration ==. True]
         rows       <- selectList [ SubmissionDBGalleryID            ==. subID
                                  , SubmissionDBIsAwaitingModeration ==. False
@@ -180,9 +188,9 @@ readGalleryListings teacher =
     getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
     chooseLater a b = if a < b then b else a
 
-readSubmissionListings :: Int -> LowerText -> IO (ActionResult [SubmissionListing])
-readSubmissionListings teacherIDNum galleryName =
-  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+readSubmissionListings :: NanoID -> IO (ActionResult [SubmissionListing])
+readSubmissionListings nid =
+  withGalleryNano nid $
     \(gID, _) -> withDB $ do
       rows <- selectList [ SubmissionDBGalleryID            ==. gID
                          , SubmissionDBIsAwaitingModeration ==. False
@@ -203,31 +211,34 @@ readSubmissionListingsForModeration teacher galleryName =
       else
         return $ Failure NotAuthorized
 
-readSubmissionData :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> LowerText -> IO (ActionResult Text)
-readSubmissionData teacherM studentM teacherIDNum galleryName uploadName =
-  withSubmission3 teacherIDNum galleryName uploadName $
+readSubmissionData :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> NanoID -> LowerText -> IO (ActionResult Text)
+readSubmissionData teacherM studentM nid uploadName =
+  withSubmission2 nid uploadName $
     \(_, uploadDB) ->
       do
         dta <- processSubmissionAuth extractData teacherM studentM uploadDB
         return $ second fst dta
 
-readSubmissionsLite :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> [Text] -> IO (ActionResult [(Submission, Bool)])
-readSubmissionsLite teacherM studentM teacherIDNum galleryName names =
-  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+readSubmissionsLite :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> NanoID -> [Text] -> IO (ActionResult [(Submission, Bool)])
+readSubmissionsLite teacherM studentM nid names =
+  withGalleryNano nid $
     \(galleryID, _) -> do
       entities  <- withDB $ selectList [ SubmissionDBGalleryID  ==. galleryID
                                        , SubmissionDBUploadName <-. (map asLowerText names)
                                        ] [Asc SubmissionDBDateAdded]
-      let subs   = map entityVal entities
-      validSubs <- mapM (processSubmissionAuth dbToSubmission teacherM studentM &> liftIO) subs
+      validSubs <- flip mapM entities $
+        \entity -> liftIO $ do
+          let key = fromIntegral $ fromSqlKey $ entityKey entity
+          let val = entityVal entity
+          processSubmissionAuth (dbToSubmission key) teacherM studentM val
       return $ Success $ validSubs >>= collectSuccessful
   where
     collectSuccessful (Success x) = [x]
     collectSuccessful _           = []
 
-readTemplateName :: Int -> LowerText -> IO (ActionResult Text)
-readTemplateName teacherIDNum galleryName =
-  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+readTemplateName :: NanoID -> IO (ActionResult Text)
+readTemplateName nid =
+  withGalleryNano nid $
     \(_, galleryDB) -> return $ Success $ extractTemplateName galleryDB
 
 readWhoIsTeacher :: AuthorizedTeacher -> IO (ActionResult Int64)
@@ -235,11 +246,11 @@ readWhoIsTeacher teacher =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> return $ Success $ fromSqlKey teacherID
 
-suppressSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> LowerText -> IO (ActionResult ())
-suppressSubmission teacherM studentM teacherIDNum galleryName uploadName =
-  withSubmission3 teacherIDNum galleryName uploadName $
+suppressSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> NanoID -> LowerText -> IO (ActionResult ())
+suppressSubmission teacherM studentM nid uploadName =
+  withSubmission2 nid uploadName $
     \(uploadID, _) -> do
-      result <- canDeleteSubmission3 teacherM studentM teacherIDNum galleryName uploadName
+      result <- canDeleteSubmission2 teacherM studentM nid uploadName
       case result of
         Success canDeleteIt ->
           if canDeleteIt then do
@@ -269,40 +280,40 @@ moderateSubmission isForbidden teacher galleryName uploadName =
           else
             return $ Failure NotAuthorized
 
-writeSubmission :: AuthorizedStudent -> Int -> LowerText -> Text -> Maybe Text -> Text -> IO (ActionResult Text)
-writeSubmission student teacherIDNum galleryName imageBytes metadata extraData =
-  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
-    \(galleryID, _) -> do
-      uploadName      <- uniqueSubmissionName teacherIDNum galleryName
+writeSubmission :: AuthorizedStudent -> NanoID -> Text -> Maybe Text -> Text -> IO (ActionResult Text)
+writeSubmission student nid imageBytes metadata extraData =
+  withGalleryNano nid $
+    \(galleryID, gallery) -> do
+      uploadName      <- uniqueSubmissionName nid
       let lUploadName  = asLowerText uploadName
       let studID       = student |> studentID &> fromIntegral &> toSqlKey
-      gEntityMaybe    <- withDB $ selectFirst [GalleryDBGalleryName ==. galleryName] []
+      gEntityMaybe    <- withDB $ selectFirst [GalleryDBGalleryName ==. (extractGalleryName gallery)] []
       let getsPreed    = maybe False (entityVal &> extractGetsPrescreened) gEntityMaybe
       timestamp       <- getCurrentTime
       let subDB        = SubmissionDB galleryID lUploadName uploadName imageBytes studID False False getsPreed metadata extraData timestamp
       void $ withDB $ insert subDB
       return $ Success uploadName
 
-readStarterConfigFor :: Int -> LowerText -> IO (ActionResult (Maybe Text))
-readStarterConfigFor teacherIDNum galleryName =
-  withGallery (toSqlKey $ fromIntegral teacherIDNum) galleryName $
+readStarterConfigFor :: NanoID -> IO (ActionResult (Maybe Text))
+readStarterConfigFor nid =
+  withGalleryNano nid $
     \(_, galleryDB) ->
       return $ Success $ extractStarterConfig galleryDB
 
-readCommentsFor :: Int -> LowerText -> LowerText -> IO (ActionResult [Comment])
-readCommentsFor teacherIDNum galleryName uploadName =
-  withSubmission3 teacherIDNum galleryName uploadName $
+readCommentsFor :: NanoID -> LowerText -> IO (ActionResult [Comment])
+readCommentsFor nid uploadName =
+  withSubmission2 nid uploadName $
     \(uploadID, _) -> do
       rows <- withDB $ selectList [CommentDBUploadID ==. uploadID] [Asc CommentDBTime]
-      return $ Success $ rows |> (map dbToComment) &> (sortBy $ comparing time)
+      return $ Success $ rows |> (map dbToComment) &> (sortBy $ comparing creationTime)
 
-writeComment :: Int -> LowerText -> LowerText -> Maybe UUID -> Text -> Text -> IO (ActionResult ())
-writeComment teacherIDNum galleryName uploadName parentUUIDM author comment =
-  withSubmission3 teacherIDNum galleryName uploadName $
+writeComment :: NanoID -> LowerText -> Maybe Int64 -> Text -> Text -> IO (ActionResult ())
+writeComment nid uploadName parentIDM author comment =
+  withSubmission2 nid uploadName $
     \(uploadID, _) -> do
       timestamp       <- getCurrentTime
-      let parentTextM  = map UUID.toText parentUUIDM
-      void $ withDB $ insert $ CommentDB comment author parentTextM uploadID timestamp
+      let parentDBIDM  = map toSqlKey parentIDM
+      void $ withDB $ insert $ CommentDB comment author parentDBIDM uploadID timestamp
       return $ Success ()
 
 runMigrations :: IO ()
@@ -334,15 +345,15 @@ ownsOneNamed (Just (ATeacher addr)) galleryName =
       Success _ -> True
       _         -> False
 
-canDeleteSubmission3 :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Int -> LowerText -> LowerText -> IO (ActionResult Bool)
-canDeleteSubmission3 teacherM studentM teacherIDNum galleryName uploadName =
-  withSubmission3 teacherIDNum galleryName uploadName $
+canDeleteSubmission2 :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> NanoID -> LowerText -> IO (ActionResult Bool)
+canDeleteSubmission2 teacherM studentM nid uploadName =
+  withSubmission2 nid uploadName $
     \(_, subDB) -> Success <$> canDeleteSubmission teacherM studentM subDB
 
 canDeleteSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO Bool
 canDeleteSubmission teacherM studentM submission =
   do
-    (Just (GalleryDB galleryName _ _ _ _ _ _ _)) <- withDB $ get submission.submissionDBGalleryID
+    (Just (GalleryDB galleryName _ _ _ _ _ _ _ _)) <- withDB $ get submission.submissionDBGalleryID
     (teacherM `ownsOneNamed` galleryName) <|> (belongsToThisStudent studentM)
   where
     belongsToThisStudent Nothing                    = return False
@@ -492,9 +503,19 @@ withGallery2 teacherAddr galleryName f =
     \(teacherID, _) ->
       withGallery teacherID galleryName f
 
+withGalleryNano :: NanoID -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withGalleryNano nid f =
+  withPair (UniqueGalleryNano $ TE.decodeUtf8 $ unNanoID nid) f
+
 withSubmission :: GalleryDBId -> LowerText -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withSubmission galleryID uploadName f =
   withPair (UniqueSubmission galleryID uploadName) f
+
+withSubmission2 :: NanoID -> LowerText -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withSubmission2 nid uploadName f =
+  withGalleryNano nid $
+    \(galleryID, _) ->
+      withSubmission galleryID uploadName f
 
 withSubmission3 :: Int -> LowerText -> LowerText -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withSubmission3 teacherIDNum galleryName uploadName f =
@@ -511,24 +532,28 @@ withPair key f =
       Nothing               -> return $ Failure NotFound
       Just (Entity xID xDB) -> f (xID, xDB)
 
+extractGalleryName :: GalleryDB -> LowerText
+extractGalleryName (GalleryDB gn _ _ _ _ _ _ _ _) = gn
+
 extractTemplateName :: GalleryDB -> Text
-extractTemplateName (GalleryDB _ _ tn _ _ _ _ _) = tn
+extractTemplateName (GalleryDB _ _ tn _ _ _ _ _ _) = tn
 
 extractGetsPrescreened :: GalleryDB -> Bool
-extractGetsPrescreened (GalleryDB _ _ _ _ gp _ _ _) = gp
+extractGetsPrescreened (GalleryDB _ _ _ _ _ gp _ _ _) = gp
 
 extractStarterConfig :: GalleryDB -> Maybe Text
-extractStarterConfig (GalleryDB _ _ _ _ _ sc _ _) = sc
+extractStarterConfig (GalleryDB _ _ _ _ _ _ sc _ _) = sc
 
 dbToSubListing :: SubmissionDB -> SubmissionListing
 dbToSubListing (SubmissionDB _ uploadName _ _ _ isSuppressed _ _ _ _ _) = SubmissionListing (lowText uploadName) isSuppressed
 
-dbToSubmission :: SubmissionDB -> Submission
-dbToSubmission (SubmissionDB _ _ uploadName image studentID _ _ _ metadata _ _) =
-  Submission uploadName image (fromIntegral $ fromSqlKey studentID) metadata
+dbToSubmission :: Word64 -> SubmissionDB -> Submission
+dbToSubmission subID (SubmissionDB _ _ uploadName image studentID _ _ _ metadata _ time) =
+  Submission subID uploadName image (fromIntegral $ fromSqlKey studentID) metadata $ asPOSIX time
 
 dbToComment :: (Entity CommentDB) -> Comment
-dbToComment (Entity cid (CommentDB comment author parent _ time)) = Comment (fromSqlKey cid) comment author parent $ asPOSIX time
+dbToComment (Entity cid (CommentDB comment author parentIDM _ time)) =
+  Comment (fromSqlKey cid) comment author (map fromSqlKey parentIDM) $ asPOSIX time
 
 extractUploadName :: SubmissionDB -> LowerText
 extractUploadName (SubmissionDB _ un _ _ _ _ _ _ _ _ _) = un

@@ -7,11 +7,11 @@ import GHC.Generics(Generic)
 
 data Comment
   = Comment {
-      uuid    :: Int64
-    , comment :: Text
-    , author  :: Text
-    , parent  :: Maybe Text
-    , time    :: Integer
+      id           :: Int64
+    , comment      :: Text
+    , author       :: Text
+    , parentID     :: Maybe Int64
+    , creationTime :: Integer
     } deriving (Generic, Show)
 
 instance ToJSON Comment

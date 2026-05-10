@@ -9,8 +9,8 @@
     <div class="comment-thread" v-if="localComments.length > 0">
       <div v-for="c in localComments" :key="c.id" class="comment-bubble animate-fade">
         <div class="comment-author">{{ c.author }}</div>
-        <div class="comment-text">{{ c.text }}</div>
-        <div class="comment-time">{{ formatTime(c.createdAt) }}</div>
+        <div class="comment-text">{{ c.comment }}</div>
+        <div class="comment-time">{{ formatTime(c.creationTime) }}</div>
       </div>
     </div>
     <div v-else class="no-comments">
@@ -50,17 +50,12 @@
 
   import { defineComponent, type PropType, ref } from "vue";
 
-  type Comment = {
-    id:        string
-    author:    string
-    text:      string
-    createdAt: Date
-  }
+  import type { Comment } from "@/core/Submission.ts";
 
   export default defineComponent({
     name: "CommentThread"
   , props: {
-      submissionId: { type: String, required: true }
+      submissionID: { type: Number, required: true }
     , comments:     { type: Array as PropType<Array<Comment>>, default: () => [] }
     }
   , setup(props) {
@@ -80,6 +75,9 @@
 
         errorMsg.value = "";
 
+        const author  = newName.value.trim();
+        const comment = newText.value.trim();
+
         if (newName.value.trim() === "" || newText.value.trim() === "")
           return;
 
@@ -87,19 +85,21 @@
 
         try {
           // TODO: API call
-          // await fetch(`/api/submissions/${props.submissionId}/comments`, {
+          // await fetch(`/api/submissions/${props.submissionID}/comments`, {
           //   method: 'POST',
           //   headers: { 'Content-Type': 'application/json' },
           //   body: JSON.stringify({ author: newName.value.trim(), text: newText.value.trim() })
           // })
           await new Promise(r => setTimeout(r, 400));
 
-          localComments.value.push({
-            id:        Date.now().toString()
-          , author:    newName.value.trim()
-          , text:      newText.value.trim()
-          , createdAt: new Date(),
-          });
+          localComments.value.push(
+            { id:           17
+            , comment
+            , author
+            , parentID:     null
+            , creationTime: new Date()
+            }
+          );
 
           newName.value = "";
           newText.value = "";

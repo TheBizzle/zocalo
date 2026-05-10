@@ -64,23 +64,29 @@
       // TODO: Demo submissions
       const submissions =
         ref<Array<Submission>>(
-          [ { id:           "1"
-            , title:        "Still Life — Fruit Bowl"
-            , description:  "Oil pastel on paper."
-            , thumbnail:    "https://picsum.photos/seed/art3/400/300"
-            , submittedAt:  new Date("2025-04-01")
-            , commentCount: 4
+          [ { id:           1
+            , data:         null
+            , uploadName:   "Still Life — Fruit Bowl"
+            , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+            , isOwner:      false
+            , canModerate:  false
+            , metadata:     "{ description: 'Oil pastel on paper.' }"
             , comments: [
-                { id: "c1", author: "Jamie", text:      "I love the colours you chose!", createdAt: new Date("2025-04-02") }
-              , { id: "c2", author:   "Sam", text: "Really nice shading on the banana.", createdAt: new Date("2025-04-03") }
+                { id: 1, author: "Jamie", comment:      "I love the colours you chose!"
+                , parentID: null, creationTime: new Date("2025-04-02") }
+              , { id: 2, author:   "Sam", comment: "Really nice shading on the banana."
+                , parentID:    1, creationTime: new Date("2025-04-03") }
             , ]
+            , creationTime: new Date("2025-04-01")
             }
-          , { id:           "2"
-            , title:        "Portrait Study"
-            , description:  ""
-            , thumbnail:    "https://picsum.photos/seed/art4/400/300"
-            , submittedAt:  new Date("2025-03-28")
-            , commentCount: 2
+          , { id:           2
+            , data:         null
+            , uploadName:   "Portrait Study"
+            , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+            , isOwner:      true
+            , canModerate:  false
+            , metadata:     null
+            , creationTime: new Date("2025-03-28")
             , comments:     []
             }
           ]

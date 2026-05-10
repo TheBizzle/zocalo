@@ -36,13 +36,13 @@
           :class="{ selected: selectedItem?.id === item.id }"
           @click="selectItem(item)"
         >
-          <div class="sidebar-thumb" v-if="item.thumbnail">
-            <img :src="item.thumbnail" :alt="item.title" />
+          <div class="sidebar-thumb" v-if="item.image">
+            <img :src="item.image" :alt="item.uploadName" />
           </div>
           <div class="sidebar-thumb no-img" v-else>📄</div>
           <div class="sidebar-info">
-            <div class="sidebar-title">{{ item.title }}</div>
-            <div class="sidebar-meta">{{ formatDate(item.submittedAt) }}</div>
+            <div class="sidebar-title">{{ item.uploadName }}</div>
+            <div class="sidebar-meta">{{ formatDate(item.creationTime) }}</div>
           </div>
         </div>
       </aside>
@@ -53,7 +53,7 @@
         <div class="split-iframe-toolbar">
           <template v-if="selectedItem">
             <span class="selected-label">
-              Viewing: <strong>{{ selectedItem.title }}</strong>
+              Viewing: <strong>{{ selectedItem.uploadName }}</strong>
             </span>
             <div style="flex: 1"></div>
             <button class="btn btn-ghost btn-sm" @click="download(selectedItem)">
@@ -63,7 +63,8 @@
               Load in viewer →
             </button>
             <button class="btn btn-ghost btn-sm" @click="commentPanelOpen = !commentPanelOpen">
-              💬 Comments {{ selectedItem.commentCount > 0 ? `(${selectedItem.commentCount})` : '' }}
+              💬 Comments {{ selectedItem.comments.length > 0 ? `(${selectedItem.comments.length})`
+                                                              : "" }}
             </button>
           </template>
           <template v-else>
@@ -77,7 +78,7 @@
         <div class="iframe-area" v-if="iframeSrc">
           <iframe
             :src="iframeSrc"
-            :title="selectedItem?.title ?? 'Gallery content'"
+            :title="selectedItem?.uploadName ?? 'Gallery content'"
             sandbox="allow-scripts allow-same-origin"
           ></iframe>
         </div>
@@ -93,7 +94,7 @@
         <!-- Comment panel — slide in below iframe -->
         <div class="comment-panel" :class="{ open: commentPanelOpen }" v-if="selectedItem">
           <div class="comment-panel-inner">
-            <CommentThread :submissionId="selectedItem.id" :comments="selectedItem.comments" />
+            <CommentThread :submissionID="selectedItem.id" :comments="selectedItem.comments" />
           </div>
         </div>
       </main>
@@ -151,18 +152,7 @@
   import CommentThread from "@/components/student/CommentThread.vue";
   import { setTitle }  from "@/composables/setTitle.ts";
 
-  type Comment = { id: string; author: string; text: string; createdAt: Date }
-
-  type Submission = {
-    id:           string;
-    title:        string;
-    description:  string
-    thumbnail:    string | null;
-    submittedAt:  Date
-    commentCount: number;
-    comments:     Array<Comment>
-    fileUrl:      string
-  }
+  import type { Submission } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "SplitGalleryView"
@@ -187,28 +177,37 @@
       // TODO: Demo data
       const submissions =
         ref<Array<Submission>>(
-          [ { id:           "1"
-            , title:        "Solar System Model"
-            , description:  "A scale diagram."
-            , thumbnail:    "https://picsum.photos/seed/sci1/80/60"
-            , submittedAt:  new Date("2025-04-05")
-            , commentCount: 3
-            , comments:     []
-            , fileUrl:      "https://example.com/solar.html"
+          [ { id:           1
+            , data:         null
+            , uploadName:   "Still Life — Fruit Bowl"
+            , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+            , isOwner:      false
+            , canModerate:  false
+            , metadata:     "{ description: 'Oil pastel on paper.' }"
+            , comments: [
+                { id: 1, author: "Jamie", comment:      "I love the colours you chose!"
+                , parentID: null, creationTime: new Date("2025-04-02") }
+              , { id: 2, author:   "Sam", comment: "Really nice shading on the banana."
+                , parentID:    1, creationTime: new Date("2025-04-03") }
+            , ]
+            , creationTime: new Date("2025-04-01")
             }
-          , { id:           "2"
-            , title:        "Photosynthesis Explained"
-            , description:  ""
-            , thumbnail:    "https://picsum.photos/seed/sci2/80/60"
-            , submittedAt:  new Date("2025-04-06")
-            , commentCount: 1
+          , { id:           2
+            , data:         null
+            , uploadName:   "Portrait Study"
+            , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+            , isOwner:      true
+            , canModerate:  false
+            , metadata:     null
+            , creationTime: new Date("2025-03-28")
             , comments:     []
-            , fileUrl:      "https://example.com/photo.html"
             }
-         ]);
+          ]
+        );
 
-      function formatDate(d: Date): string {
-        return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      function formatDate(_d: Date): string {
+        alert("TODO");
+        return "";
       }
 
       function selectItem(item: Submission): void {
@@ -219,12 +218,12 @@
 
       function loadIntoIframe(): void {
         if (selectedItem.value) {
-          iframeSrc.value = selectedItem.value.fileUrl;
+          alert("TODO");
         }
       }
 
       function download(item: Submission): void {
-        alert(`Downloading: ${item.title}`);
+        alert(`Downloading: ${item.uploadName}`);
       }
 
       function triggerInput(): void {
@@ -262,16 +261,21 @@
 
           await new Promise(r => setTimeout(r, 800));
 
-          submissions.value.unshift({
-            id:           Date.now().toString()
-          , title:        uploadForm.value.title.trim()
-          , description:  uploadForm.value.description
-          , thumbnail:    null
-          , submittedAt:  new Date()
-          , commentCount: 0
-          , comments:     []
-          , fileUrl:      ""
-          });
+          const response = { id: 6, name: "TODO" };
+
+          const submission =
+            { id:           response.id
+            , uploadName:   response.name
+            , data:         "TODO"
+            , image:        "TODO"
+            , isOwner:      true
+            , canModerate:  false
+            , metadata:     null
+            , comments:     []
+            , creationTime: new Date()
+            };
+
+          submissions.value.unshift(submission);
 
           uploadForm.value      = { title: "", description: "", fileName: "", fileData: null };
           uploadModalOpen.value = false;
