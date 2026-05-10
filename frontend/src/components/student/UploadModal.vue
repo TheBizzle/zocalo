@@ -1,8 +1,8 @@
 <template>
 
-  <div class="modal-overlay animate-fade" v-if="uploadModalOpen" @click.self="uploadModalOpen = false">
+  <div class="modal-overlay animate-fade" v-if="isOpen" @click.self="close">
     <div class="modal-box animate-scale">
-      <button class="btn-icon modal-close" @click="uploadModalOpen = false">✕</button>
+      <button class="btn-icon modal-close" @click="close">✕</button>
       <p class="section-eyebrow">Share your work</p>
       <h2 style="margin-bottom: var(--space-5)">Upload to gallery</h2>
 
@@ -44,7 +44,7 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-ghost" @click="uploadModalOpen = false">Cancel</button>
+        <button class="btn btn-ghost" @click="close">Cancel</button>
         <button class="btn btn-primary" @click="submitUpload" :disabled="uploading">
           <span v-if="uploading">Uploading...</span>
           <span v-else>Submit →</span>
@@ -63,6 +63,8 @@
   export default defineComponent({
     name:       "UploadModal"
   , components: {}
+  , props:      { isOpen: { type: Boolean, required: true } }
+  , emits:      ["add-new-submission", "close"]
   , setup(_props, { emit }) {
 
       useRoute();
@@ -72,7 +74,10 @@
       const uploadForm      = ref({ title: "", description: "", fileName: "", fileData: null as File | null });
       const uploading       = ref(false);
       const uploadInputRef  = ref<HTMLInputElement | null>(null);
-      const uploadModalOpen = ref(false);
+
+      function close(): void {
+        emit("close");
+      }
 
       function onUploadDrop(e: DragEvent): void {
         uploadDragging.value = false;
@@ -124,7 +129,7 @@
             };
           emit("add-new-submission", submission);
           uploadForm.value      = { title: "", description: "", fileName: "", fileData: null };
-          uploadModalOpen.value = false;
+          close();
         } catch (err: unknown) {
           if (err instanceof Error) {
             uploadError.value = err.message;
@@ -141,8 +146,8 @@
         uploadInputRef.value?.click();
       }
 
-      return { onUploadDrop, onUploadFile, setUploadFile, submitUpload, triggerUploadInput
-             , uploadDragging, uploadError, uploadForm, uploadModalOpen, uploading, uploadInputRef };
+      return { close, onUploadDrop, onUploadFile, setUploadFile, submitUpload, triggerUploadInput
+             , uploadDragging, uploadError, uploadForm, uploading, uploadInputRef };
 
     }
   });

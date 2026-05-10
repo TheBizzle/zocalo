@@ -20,11 +20,16 @@
       @unset-active-submission="unsetActiveSubmission"
     />
 
-    <UploadModal />
+    <UploadModal
+      :isOpen="isUploadModalOpen"
+      @add-new-submission="addNewSubmission"
+      @close="isUploadModalOpen = false"
+    />
 
     <BasicGallery
       :activeSubmission="activeSubmission"
       :submissions="submissions"
+      @open-upload-dialog="isUploadModalOpen = true"
       @set-active-submission="setActiveSubmission"
     />
 
@@ -52,8 +57,9 @@
 
       useRoute();
 
-      const activeSubmission = ref<Submission | null>(null);
-      const galleryName      = ref("Spring Art Showcase");
+      const activeSubmission  = ref<Submission | null>(null);
+      const galleryName       = ref("Spring Art Showcase");
+      const isUploadModalOpen = ref(false);
 
       // TODO: Demo submissions
       const submissions =
@@ -95,7 +101,7 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addNewSubmission, galleryName, setActiveSubmission
+      return { activeSubmission, addNewSubmission, galleryName, isUploadModalOpen, setActiveSubmission
              , unsetActiveSubmission, submissions };
 
     }

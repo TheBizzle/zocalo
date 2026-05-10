@@ -1,4 +1,9 @@
 <template>
+
+  <button class="btn btn-primary btn-main" @click="openUploadDialog">
+    Upload your own
+  </button>
+
   <div class="gallery-grid stagger animate-fade">
     <div
       v-for="item in submissions" :key="item.id"
@@ -18,6 +23,7 @@
       </div>
     </div>
   </div>
+
 </template>
 
 <script lang="ts">
@@ -30,9 +36,9 @@
   export default defineComponent({
     name:  "BasicGallery"
   , props: { activeSubmission: { type: Object as PropType<Submission | null>, required: true }
-           , submissions:      { type: Array as PropType<Array<Submission>> , required: true }
+           , submissions:      { type: Array  as PropType<Array<Submission>>, required: true }
            }
-  , emits: ["set-active-submission"]
+  , emits: ["open-upload-dialog", "set-active-submission"]
   , setup(_props, { emit }) {
 
       useRoute();
@@ -71,7 +77,11 @@
         emit("set-active-submission", sub);
       }
 
-      return { formatDate, openItem };
+      function openUploadDialog(): void {
+        emit("open-upload-dialog");
+      }
+
+      return { formatDate, openItem, openUploadDialog };
 
     }
   });
@@ -79,6 +89,11 @@
 </script>
 
 <style scoped>
+
+  .btn-main {
+    font-size: var(--space-5);
+    padding:   var(--space-4) var(--space-5);
+  }
 
   .gallery-grid {
     margin-top: var(--space-5);
