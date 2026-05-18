@@ -2,7 +2,7 @@ module Zocalo.Gallery.Controller(routes, runMigrations) where
 
 import Data.CaseInsensitive(CI)
 
-import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Snap, writeText)
+import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Snap, writeBS, writeText)
 import Snap.Util.FileServe(serveDirectory)
 import Snap.Util.GZip(withCompression)
 
@@ -39,12 +39,13 @@ import Zocalo.Gallery.LowerText(asLowerText, lowText)
 
 import Zocalo.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
 
-import qualified Data.List          as List
-import qualified Data.Map           as Map
-import qualified Data.Text.Encoding as TextEncoding
-import qualified Data.UUID          as UUID
-import qualified Data.UUID.V4       as UUIDGen
-import qualified Text.Read          as TRead
+import qualified Data.ByteString.Base64 as Base64
+import qualified Data.List              as List
+import qualified Data.Map               as Map
+import qualified Data.Text.Encoding     as TextEncoding
+import qualified Data.UUID              as UUID
+import qualified Data.UUID.V4           as UUIDGen
+import qualified Text.Read              as TRead
 
 
 routes :: [(ByteString, Snap ())]
@@ -85,8 +86,11 @@ routes = [ ("echo/:param"                                    ,      ac POST   ha
 
 handleEchoData :: Snap ()
 handleEchoData = handle1 (Arg "param" notEmpty) $ \param -> withFileUploads $ \fileMap -> do
-  prm <- getParam $ TextEncoding.encodeUtf8 param
-  maybe (notifyBadParams [param]) writeText ((map TextEncoding.decodeUtf8 prm) <|> (Map.lookup param fileMap))
+  paramValueM <- getParam $ TextEncoding.encodeUtf8 param
+  let valueM = paramValueM <|> (Map.lookup param fileMap)
+  case valueM of
+    Nothing      -> notifyBadParams [param]
+    (Just value) -> writeBS value
 
 handleNewSessionWithParams :: Snap ()
 handleNewSessionWithParams =
@@ -100,7 +104,9 @@ handleNewSessionWithParams =
     bimapM_ notifyBadParams (_handleNewSessionWithParams teacher) tupleV
   where
     lookupParam param fileMap = maybe (Failure [param]) Success $ Map.lookup param fileMap
-    genConfigMaybe config     = if config == "" then Nothing else Just config
+
+    genConfigMaybe     "" = Nothing
+    genConfigMaybe config = Just $ TextEncoding.decodeUtf8 config
 
     _handleNewSessionWithParams :: AuthorizedTeacher -> (Text, Text, Bool, Maybe Text, Text) -> Snap ()
     _handleNewSessionWithParams teacher (template, name, getsPrescreened, config, desc) =
@@ -220,7 +226,13 @@ handleUploadFile = withFileUploads $ \fileMap ->
             uploadNameResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
             whenSuccess uploadNameResult $ succeed "text/plain"
   where
-    lookupParam param fileMap = maybe (Failure [param]) Success $ Map.lookup param fileMap
+    lookupParam param fileMap =
+      case Map.lookup param fileMap of
+        Nothing       -> Failure [param]
+        (Just result) -> Success $
+          case TextEncoding.decodeUtf8' result of
+            Right good -> good
+            Left     _ -> TextEncoding.decodeUtf8 $ Base64.encode result
 
 handleGetComments :: Snap ()
 handleGetComments = handle2 (Arg "nano-id" asNanoID, Arg "item-id" notEmpty) $

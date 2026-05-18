@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asInt, asNanoID, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, uncurry6, withFileUploads) where
+module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asBytes, asInt, asNanoID, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, uncurry6, withFileUploads) where
 
 import Codec.Compression.Zlib.Internal(decompressST, defaultDecompressParams, foldDecompressStreamWithInput, gzipFormat)
 
@@ -29,7 +29,7 @@ import qualified Data.UUID               as UUID
 
 
 data Constraint t =
-  Constraint (ByteString -> Text -> Validation [Text] t)
+  Constraint (ByteString -> ByteString -> Validation [Text] t)
 
 data Arg t =
   Arg ByteString (Constraint t)
@@ -100,20 +100,20 @@ getParamV :: Arg to -> Snap (Validation [Text] to)
 getParamV (Arg paramName (Constraint constrain)) =
   do
     param <- getParam paramName
-    let paramV = maybe (_Failure # [decodeUtf8 paramName]) (\x -> _Success # (decodeUtf8 x)) param
+    let paramV = maybe (_Failure # [decodeUtf8 paramName]) (_Success #) param
     return $ case paramV of
                (Success value) -> constrain paramName value
                (Failure errs)  -> _Failure # errs
 
-getParamVM :: Map Text Text -> Arg to -> Snap (Validation [Text] to)
+getParamVM :: Map Text ByteString -> Arg to -> Snap (Validation [Text] to)
 getParamVM paramMap (Arg paramName (Constraint constrain)) =
   do
-    param <- getParam paramName
-    let paramA = (map decodeUtf8 param) <|> (Map.lookup (decodeUtf8 paramName) paramMap)
-    let paramV = maybe (_Failure # [decodeUtf8 paramName]) (_Success #) paramA
+    param      <- getParam paramName
+    let paramA  = param <|> (Map.lookup (decodeUtf8 paramName) paramMap)
+    let paramV  = maybe (_Failure # [decodeUtf8 paramName]) (_Success #) paramA
     return $ case paramV of
-               (Success value) -> constrain paramName value
-               (Failure errs)  -> _Failure # errs
+      (Success value) -> constrain paramName value
+      (Failure errs)  -> _Failure # errs
 
 allowingCORS :: Method -> Snap () -> Snap ()
 allowingCORS mthd f = applyCORS defaultOptions $ method mthd f
@@ -174,26 +174,28 @@ asToken = Constraint $ buildConstraint tokenFromText
 asUUID :: Constraint UUID
 asUUID = Constraint $ buildConstraint UUID.fromText
 
+asBytes :: Constraint ByteString
+asBytes = Constraint $ const (_Success #)
+
 free :: Constraint Text
-free = Constraint $ const (_Success #)
+free = Constraint $ const (decodeUtf8 &> (_Success #))
 
 notEmpty :: Constraint Text
-notEmpty = Constraint $ (\paramName x -> case x of
-                                              "" -> _Failure # [(decodeUtf8 paramName) <> " cannot be empty"]
-                                              y  -> _Success # y)
+notEmpty =
+  Constraint $ \paramName x ->
+    case x of
+      "" -> _Failure # [(decodeUtf8 paramName) <> " cannot be empty"]
+      y  -> _Success # (decodeUtf8 y)
 
-buildConstraint :: (Text -> Maybe a) -> ByteString -> Text -> Validation [Text] a
+buildConstraint :: (Text -> Maybe a) -> ByteString -> ByteString -> Validation [Text] a
 buildConstraint f paramName x =
-  maybe (_Failure # [(decodeUtf8 paramName)]) (_Success #) (f x)
+  maybe (_Failure # [(decodeUtf8 paramName)]) (_Success #) (f $ decodeUtf8 x)
 
-uncurry6 :: (a -> b -> c -> d -> e -> f -> g) -> ((a, b, c, d, e, f) -> g)
-uncurry6 g (a, b, c, d, e, f) = g a b c d e f
-
-withFileUploads :: (Map Text Text -> Snap ()) -> Snap ()
+withFileUploads :: (Map Text ByteString -> Snap ()) -> Snap ()
 withFileUploads f =
   do
     (formParams, formFiles) <- handleFormUploads uploadPolicy filePolicy handleRead
-    let fileKVPairs         = formFiles <&> formFileValue
+    let fileKVPairs          = formFiles <&> formFileValue
     paramKVPairs            <- liftIO $ traverse (processParamPair &> return) formParams
     (paramKVPairs <> fileKVPairs) |> Map.fromList &> f
   where
@@ -201,21 +203,21 @@ withFileUploads f =
     filePolicy   = setMaximumFileSize      _20MB defaultFileUploadPolicy
     _20MB        = 20 * 1024 * 1024
 
-    processParamPair :: (ByteString, ByteString) -> (Text, Text)
+    processParamPair :: (ByteString, ByteString) -> (Text, ByteString)
     processParamPair (k, v) = processThem (sbsToLBS k) $ sbsToLBS v
 
-    processThem :: LazyByteString.ByteString -> LazyByteString.ByteString -> (Text, Text)
+    processThem :: LazyByteString.ByteString -> LazyByteString.ByteString -> (Text, ByteString)
     processThem key = readPossibleGZip &> (lbsToText key,)
 
-    readPossibleGZip :: LazyByteString.ByteString -> Text
+    readPossibleGZip :: LazyByteString.ByteString -> ByteString
     readPossibleGZip input = foldDecompressStreamWithInput
-                               (sbsToLBS &> lbsToText &> (<>))
-                               (lbsToText)
-                               (const $ input |> lbsToText)
+                               (sbsToLBS &> LazyByteString.toStrict &> (<>))
+                               LazyByteString.toStrict
+                               (const $ input |> LazyByteString.toStrict)
                                (decompressST gzipFormat defaultDecompressParams)
                                input
 
-    handleRead :: PartInfo -> InputStream ByteString -> IO (Text, Text)
+    handleRead :: PartInfo -> InputStream ByteString -> IO (Text, ByteString)
     handleRead partInfo = storeAsLazyByteString &>= ((processThem extractedKey) &> return)
       where
         extractedKey = partInfo |> partFileName &> (fromMaybe "-") &> sbsToLBS
