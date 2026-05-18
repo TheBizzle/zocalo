@@ -20,7 +20,7 @@ import Control.Monad.Trans.Reader(ReaderT)
 import Control.Monad.Trans.Resource(ResourceT)
 
 import Data.List(sortBy)
-import Data.NanoID(nanoID, NanoID, unNanoID)
+import Data.NanoID(nanoID, NanoID(NanoID), unNanoID)
 import Data.Ord(comparing)
 import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
@@ -149,7 +149,7 @@ uniqueSubmissionName nid =
       Success _ -> uniqueSubmissionName nid
       Failure _ -> return name
 
-registerNewGallery :: AuthorizedTeacher -> Text -> Text -> Bool -> Maybe Text -> Text -> IO (ActionResult Int64)
+registerNewGallery :: AuthorizedTeacher -> Text -> Text -> Bool -> Maybe Text -> Text -> IO (ActionResult NanoID)
 registerNewGallery teacher template galleryName getsPrescreened configMaybe description =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> do
@@ -163,14 +163,14 @@ registerNewGallery teacher template galleryName getsPrescreened configMaybe desc
       insertionM     <- withDB $ insertUnique galleryDB
       return $ case insertionM of
         Nothing  -> Failure Duplicate
-        Just key -> Success $ fromSqlKey key
+        Just _   -> Success rawNanoID
 
 readGalleryListings :: AuthorizedTeacher -> IO (ActionResult [GalleryListing])
 readGalleryListings teacher =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> do
       rows     <- withDB $ selectList [GalleryDBOwnerID ==. teacherID] [Asc GalleryDBDateAdded]
-      listings <- flip mapM rows $ \(Entity subID (GalleryDB _ name template _ _ isPre _ desc cDate)) -> withDB $ do
+      listings <- flip mapM rows $ \(Entity subID (GalleryDB _ name template _ rawNID isPre _ desc cDate)) -> withDB $ do
         waitingCount <- count [SubmissionDBGalleryID ==. subID, SubmissionDBIsAwaitingModeration ==. True]
         rows         <- selectList [ SubmissionDBGalleryID            ==. subID
                                    , SubmissionDBIsAwaitingModeration ==. False
@@ -179,9 +179,10 @@ readGalleryListings teacher =
         let uploads     = map entityVal rows
         let numApproved = length uploads
         let numWaiting  = fromIntegral waitingCount
+        let nid         = NanoID $ TE.encodeUtf8 rawNID
         let cTime       = asPOSIX cDate
         let lTime       = getMax cTime uploads
-        return $ GalleryListing sid name template desc isPre numWaiting numApproved cTime lTime
+        return $ GalleryListing nid name template desc isPre numWaiting numApproved cTime lTime
       return $ Success listings
   where
     getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)

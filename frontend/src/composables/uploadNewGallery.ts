@@ -23,19 +23,19 @@ async function uploadNewGallery( name: string, template: string, isPrescreened: 
 
   if (result.ok) {
 
-    const id = parseInt(await result.text());
+    const id = await result.text();
 
-    const newGallery: Gallery = {
-      id
-    , name
-    , template
-    , isPrescreened
-    , description
-    , numApproved:  0
-    , numWaiting:   0
-    , creationTime: new Date()
-    , lastSubTime:  null
-    };
+    const newGallery: Gallery =
+      { id
+      , name
+      , template
+      , isPrescreened
+      , description
+      , numApproved:  0
+      , numWaiting:   0
+      , creationTime: new Date()
+      , lastSubTime:  null
+      };
 
     return new Success(newGallery);
 

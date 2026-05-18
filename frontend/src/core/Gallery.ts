@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const GallerySchema =
   z.object(
-    { id:             z.number()
+    { id:             z.nanoid()
     , name:           z.string()
     , template:       z.string()
     , isPrescreened:  z.boolean()

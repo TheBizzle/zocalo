@@ -3,13 +3,14 @@
 module Zocalo.Gallery.GalleryListing(GalleryListing(..)) where
 
 import Data.Aeson(ToJSON)
+import Data.NanoID(NanoID)
 
 import GHC.Generics(Generic)
 
 
 data GalleryListing
   = GalleryListing {
-    id            :: Int
+    id            :: NanoID
   , name          :: Text
   , template      :: Text
   , description   :: Text
