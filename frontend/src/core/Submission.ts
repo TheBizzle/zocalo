@@ -16,19 +16,26 @@ const CommentArraySchema = z.array(CommentSchema);
 const SubmissionSchema =
   z.object(
     { id:           z.number()
-    , data:         z.string().nullable()
+    , data:         z.string().nullish()
     , uploadName:   z.string()
-    , image:        z.base64url()
+    , image:        z.base64().transform((s) => `data:image/png;base64,${s}`)
     , isOwner:      z.boolean()
     , canModerate:  z.boolean()
-    , metadata:     z.string().nullable()
-    , comments:     CommentArraySchema
+    , metadata:     z.string().nullish()
+    , comments:     CommentArraySchema.nullish().transform((cs) => cs ?? [])
     , creationTime: z.coerce.date()
     }
   );
 
 type Submission = z.infer<typeof SubmissionSchema>;
-const SubmissionArraySchema = z.array(SubmissionSchema);
 
-export { CommentArraySchema, CommentSchema, SubmissionArraySchema, SubmissionSchema };
+const AllSubmissionsSchema =
+  z.object(
+    { galleryName: z.string()
+    , isModerated: z.boolean()
+    , submissions: z.array(SubmissionSchema)
+    }
+  );
+
+export { AllSubmissionsSchema, CommentArraySchema, CommentSchema, SubmissionSchema };
 export type { Comment, Submission };

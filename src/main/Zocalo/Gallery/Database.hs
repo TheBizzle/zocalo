@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewTeacher, runMigrations, setTeacherRefreshToken, storeOTP, suppressSubmission, uniqueGalleryName, validateOTP, writeComment, writeSubmission) where
+module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken, setTeacherRefreshToken, storeOTP, suppressSubmission, uniqueGalleryName, validateOTP, writeComment, writeSubmission) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -41,9 +41,10 @@ import Zocalo.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, No
 import Zocalo.Gallery.Comment(Comment(Comment, creationTime))
 import Zocalo.Gallery.DBSnakeCase(bizzleSnakeCase)
 import Zocalo.Gallery.GalleryListing(GalleryListing(GalleryListing))
-import Zocalo.Gallery.LowerText(asLowerText, LowerText, lowText)
+import Zocalo.Gallery.LowerText(asLowerText, LowerText)
 import Zocalo.Gallery.RandGen(generateName)
-import Zocalo.Gallery.Submission(Submission(Submission), SubmissionListing(SubmissionListing))
+import Zocalo.Gallery.StudentUploadResponse(StudentUploadResponse(StudentUploadResponse))
+import Zocalo.Gallery.Submission(AllSubmissions(AllSubmissions), Submission(Submission), SubmissionSendable(SubmissionSendable))
 
 import qualified Data.Text          as Text
 import qualified Data.Text.Encoding as TE
@@ -188,15 +189,26 @@ readGalleryListings teacher =
     getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
     chooseLater a b = if a < b then b else a
 
-readSubmissionListings :: NanoID -> IO (ActionResult [SubmissionListing])
-readSubmissionListings nid =
+readSubmissionListings :: AuthorizedStudent -> NanoID -> IO (ActionResult AllSubmissions)
+readSubmissionListings student nid =
   withGalleryNano nid $
-    \(gID, _) -> withDB $ do
-      rows <- selectList [ SubmissionDBGalleryID            ==. gID
-                         , SubmissionDBIsAwaitingModeration ==. False
-                         , SubmissionDBIsForbidden          ==. False
-                         ] [Asc SubmissionDBDateAdded]
-      return $ Success $ map (entityVal &> dbToSubListing) rows
+    \(gID, (GalleryDB _ gname _ _ _ isPrescreened _ _ _)) -> withDB $ do
+      entities <- selectList [ SubmissionDBGalleryID            ==. gID
+                             , SubmissionDBIsAwaitingModeration ==. False
+                             , SubmissionDBIsForbidden          ==. False
+                             ] [Asc SubmissionDBDateAdded]
+      subs <- flip mapM entities $
+        \entity -> do
+          let key    = fromIntegral $ fromSqlKey $ entityKey entity
+          let val    = entityVal entity
+          canDelete <- liftIO $ canDeleteSubmission Nothing (Just student) val
+          return $ case dbToSubmission key val of
+            (Submission xid name b64 sid meta time) ->
+              let xidder = fromIntegral xid
+                  isMine = student.studentID == sid
+              in
+                SubmissionSendable xidder name b64 isMine canDelete meta time
+      return $ Success $ AllSubmissions gname isPrescreened subs
 
 readSubmissionListingsForModeration :: AuthorizedTeacher -> LowerText -> IO (ActionResult [LowerText])
 readSubmissionListingsForModeration teacher galleryName =
@@ -280,7 +292,7 @@ moderateSubmission isForbidden teacher galleryName uploadName =
           else
             return $ Failure NotAuthorized
 
-writeSubmission :: AuthorizedStudent -> NanoID -> Text -> Maybe Text -> Text -> IO (ActionResult Text)
+writeSubmission :: AuthorizedStudent -> NanoID -> Text -> Maybe Text -> Text -> IO (ActionResult StudentUploadResponse)
 writeSubmission student nid imageBytes metadata extraData =
   withGalleryNano nid $
     \(galleryID, gallery) -> do
@@ -292,7 +304,7 @@ writeSubmission student nid imageBytes metadata extraData =
       timestamp       <- getCurrentTime
       let subDB        = SubmissionDB galleryID lUploadName uploadName imageBytes studID False False getsPreed metadata extraData timestamp
       void $ withDB $ insert subDB
-      return $ Success uploadName
+      return $ Success $ StudentUploadResponse (fromSqlKey galleryID) uploadName
 
 readStarterConfigFor :: NanoID -> IO (ActionResult (Maybe Text))
 readStarterConfigFor nid =
@@ -443,6 +455,19 @@ validateOTP emailAddr passcode =
 -- TODO: How/when do refresh tokens get revoked?
 -- TODO: Are `data` files blobs?
 
+lookupStudentRefreshToken :: SecureToken -> IO (ActionResult AuthorizedStudent)
+lookupStudentRefreshToken refreshToken =
+  do
+    withPair (UniqueStudentRefreshTokenHash $ hashToken refreshToken) $
+      \(key, StudentRefreshTokenDB studentName _ birthday wasRevoked) -> do
+        now           <- getCurrentTime
+        let in180Days  = 60 * 60 * 24 * 180
+        let expirDate  = in180Days `addUTCTime` birthday
+        return $ if (not wasRevoked) && (now <= expirDate) then
+          Success $ AStudent (fromIntegral $ fromSqlKey key) studentName
+        else
+          Failure Expired
+
 lookupTeacherRefreshToken :: SecureToken -> IO (ActionResult AuthorizedTeacher)
 lookupTeacherRefreshToken refreshToken =
   do
@@ -459,6 +484,29 @@ lookupTeacherRefreshToken refreshToken =
         else
           return $ Failure Expired
 
+registerNewStudent :: Text -> IO (ActionResult Int64)
+registerNewStudent studentName =
+  do
+    now   <- getCurrentTime
+    ident <- withDB $ insert (StudentRefreshTokenDB studentName "" now False)
+    return $ Success $ fromSqlKey ident
+
+setStudentRefreshToken :: AuthorizedStudent -> SecureToken -> IO (ActionResult ())
+setStudentRefreshToken (AStudent studentID studentName) refreshToken =
+  withStudent (fromIntegral studentID) $
+    \(key, (StudentRefreshTokenDB sName _ _ wasRevoked)) -> do
+      if wasRevoked then
+        return $ Failure Expired
+      else if studentName /= sName then
+        return $ Failure Incorrect
+      else do
+        now             <- getCurrentTime
+        let refreshHash  = hashToken refreshToken
+        withDB $ update key [ StudentRefreshTokenDBHash     =. refreshHash
+                            , StudentRefreshTokenDBBirthday =. now
+                            ]
+        return $ Success ()
+
 setTeacherRefreshToken :: AuthorizedTeacher -> SecureToken -> IO (ActionResult ())
 setTeacherRefreshToken (ATeacher emailAddr) refreshToken =
   withTeacher emailAddr $
@@ -468,6 +516,13 @@ setTeacherRefreshToken (ATeacher emailAddr) refreshToken =
       void $ withDB $ upsert (TeacherRefreshTokenDB teacherID refreshHash now False)
                              [ TeacherRefreshTokenDBHash =. refreshHash, TeacherRefreshTokenDBBirthday =. now
                              , TeacherRefreshTokenDBWasRevoked =. False]
+      return $ Success ()
+
+logoutStudent :: AuthorizedStudent -> IO (ActionResult ())
+logoutStudent student =
+  withStudent (fromIntegral student.studentID) $
+    \(studentID, _) -> do
+      withDB $ update studentID [StudentRefreshTokenDBWasRevoked =. True]
       return $ Success ()
 
 logoutTeacher :: AuthorizedTeacher -> IO (ActionResult ())
@@ -488,6 +543,15 @@ checkIsOkayOTPRate emailAddr =
 
 chillax :: a -> IO (ActionResult ())
 chillax = const $ return $ Success ()
+
+withStudent :: Int64 -> ((StudentRefreshTokenDBId, StudentRefreshTokenDB) -> IO (ActionResult a)) -> IO (ActionResult a)
+withStudent studentID f =
+  do
+    let studentKey  = toSqlKey studentID
+    studentM       <- withDB $ get studentKey
+    case studentM of
+      Nothing        -> return $ Failure NotFound
+      Just studentDB -> f (studentKey, studentDB)
 
 withTeacher :: LowerText -> ((TeacherDBId, TeacherDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withTeacher addr f =
@@ -543,9 +607,6 @@ extractGetsPrescreened (GalleryDB _ _ _ _ _ gp _ _ _) = gp
 
 extractStarterConfig :: GalleryDB -> Maybe Text
 extractStarterConfig (GalleryDB _ _ _ _ _ _ sc _ _) = sc
-
-dbToSubListing :: SubmissionDB -> SubmissionListing
-dbToSubListing (SubmissionDB _ uploadName _ _ _ isSuppressed _ _ _ _ _) = SubmissionListing (lowText uploadName) isSuppressed
 
 dbToSubmission :: Word64 -> SubmissionDB -> Submission
 dbToSubmission subID (SubmissionDB _ _ uploadName image studentID _ _ _ metadata _ time) =

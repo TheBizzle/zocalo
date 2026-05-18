@@ -82,6 +82,8 @@
   import { readFileAsBase64 } from "@/composables/readFileAsBase64.ts";
   import { readFileAsText   } from "@/composables/readFileAsText.ts";
 
+  import { authorizedFetch } from "@/core/StudentAuth.ts";
+
   export default defineComponent({
     name:       "UploadModal"
   , components: {}
@@ -232,7 +234,7 @@
           const options = { method: "POST", body: postData };
 
           const url    = "/api/galleries/student/submission";
-          const result = await fetch(url, options);
+          const result = await authorizedFetch(url, options);
 
           if (result.ok) {
 

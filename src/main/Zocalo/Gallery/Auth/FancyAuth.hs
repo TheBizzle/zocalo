@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Zocalo.Gallery.Auth.FancyAuth(genSecureToken, issueNewTeacherTokens, SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateTeacherAccessToken, validateTeacherRefreshToken) where
+module Zocalo.Gallery.Auth.FancyAuth(genSecureToken, issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken) where
 
 import Control.Lens((^.), (.~), (&))
 
@@ -20,10 +20,10 @@ import Snap.Core(
 
 import Zocalo.Common.SecureToken(genSecureToken, SecureToken(SecureToken, tokenText))
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher(ATeacher), AuthorizedUser(readUser))
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent), AuthorizedTeacher(ATeacher), AuthorizedUser(readUser))
 
 import Zocalo.Gallery.ActionResult(ActionError(Incorrect, InternalError, Malformed, NotAuthorized), ActionResult)
-import Zocalo.Gallery.Database(lookupTeacherRefreshToken, setTeacherRefreshToken)
+import Zocalo.Gallery.Database(registerNewStudent, lookupStudentRefreshToken, lookupTeacherRefreshToken, setStudentRefreshToken, setTeacherRefreshToken)
 import Zocalo.Gallery.LowerText(lowText)
 
 import qualified Data.ByteString.Char8 as BS
@@ -32,7 +32,20 @@ import qualified Data.Text             as Text
 
 
 data Scope
-  = Teacher
+  = Student
+  | Teacher
+
+issueTotallyNewStudentTokens :: Text -> Snap (ActionResult Text)
+issueTotallyNewStudentTokens studentName =
+  do
+    identAR <- liftIO $ registerNewStudent studentName
+    identAR `failOrM` (\ident -> issueNewStudentTokens $ AStudent (fromIntegral ident) studentName)
+
+issueNewStudentTokens :: AuthorizedStudent -> Snap (ActionResult Text)
+issueNewStudentTokens astud@(AStudent studID studName) =
+    issueNewTokens (setStudentRefreshToken astud) identifier Student 180
+  where
+    identifier = (showText studID) <> "|" <> studName
 
 issueNewTeacherTokens :: AuthorizedTeacher -> Snap (ActionResult Text)
 issueNewTeacherTokens ateach@(ATeacher addr) =
@@ -81,8 +94,7 @@ issueNewTokens storeToken identifier scope daysToLive =
           Right jwt -> Success $ decodeUtf8 $ LazyBS.toStrict $ encodeCompact jwt
 
 validateStudentAccessToken :: Snap (ActionResult AuthorizedStudent)
-validateStudentAccessToken =
-  return $ Failure NotAuthorized -- TODO
+validateStudentAccessToken = validateAccessToken Student
 
 validateTeacherAccessToken :: Snap (ActionResult AuthorizedTeacher)
 validateTeacherAccessToken = validateAccessToken Teacher
@@ -103,6 +115,9 @@ validateAccessToken scope =
               Success     Nothing -> Failure Malformed
               Success (Just user) -> Success user
       Nothing -> return $ Failure NotAuthorized
+
+validateStudentRefreshToken :: Snap (ActionResult AuthorizedStudent)
+validateStudentRefreshToken = validateRefreshToken Student lookupStudentRefreshToken
 
 validateTeacherRefreshToken :: Snap (ActionResult AuthorizedTeacher)
 validateTeacherRefreshToken = validateRefreshToken Teacher lookupTeacherRefreshToken
@@ -133,6 +148,7 @@ verifyJWT scope tokenBS =
     audience = fromString $ BS.unpack $ galleryJWTAudience <> "|" <> (scopeBS scope)
 
 scopeBS :: Scope -> ByteString
+scopeBS Student = "student"
 scopeBS Teacher = "teacher"
 
 refreshTokenName :: ByteString

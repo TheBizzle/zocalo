@@ -1,16 +1,17 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
-module Zocalo.Gallery.Submission(Submission(..), SubmissionListing(..), SubmissionSendable(..)) where
+module Zocalo.Gallery.Submission(AllSubmissions(..), Submission(..), SubmissionSendable(..)) where
 
 import Data.Aeson(ToJSON)
 
 import GHC.Generics(Generic)
 
 
-data SubmissionListing
-  = SubmissionListing {
-      subName      :: Text
-    , isSuppressed :: Bool
+data AllSubmissions
+  = AllSubmissions {
+      galleryName :: Text
+    , isModerated :: Bool
+    , submissions :: [SubmissionSendable]
     } deriving (Generic, Show, ToJSON)
 
 data Submission

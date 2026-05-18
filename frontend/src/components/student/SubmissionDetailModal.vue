@@ -6,20 +6,20 @@
     <div class="modal-box item-detail-modal animate-scale">
       <button class="btn-icon modal-close" @click="deactivate">✕</button>
       <h2 style="margin-bottom: var(--space-2)">{{ submission.uploadName }}</h2>
-      <hr style="margin-left: 12px; margin-right: 58px">
+      <hr style="margin-left: 0px; margin-right: 46px">
 
       <div class="scroll-pane">
-
-        <p v-if="description"
-           style="color: var(--clr-ink-3); font-size: 0.9rem; margin-bottom: var(--space-4)">
-          {{ description }}
-        </p>
 
         <div class="item-preview">
           <img v-if="submission?.image" :src="submission?.image"
                :alt="submission?.uploadName" style="max-width: 100%; border-radius: var(--radius-md)" />
           <div v-else class="no-thumb-large">📄</div>
         </div>
+
+        <p v-if="description"
+           style="color: var(--clr-ink-3); font-size: 0.9rem; margin-bottom: var(--space-4)">
+          {{ description }}
+        </p>
 
         <div class="item-actions">
           <button class="btn btn-ghost btn-sm" @click="download(submission)">↓ Download</button>
@@ -68,7 +68,7 @@
       const description =
         computed(
           (): string | null => {
-            if (props.submission !== null && props.submission.metadata !== null) {
+            if (props.submission?.metadata !== undefined && props.submission.metadata !== null) {
               try {
                 const parsed = JSON.parse(props.submission.metadata) as { description?: string };
                 return parsed.description ?? null;

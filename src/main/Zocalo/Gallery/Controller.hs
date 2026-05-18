@@ -15,7 +15,8 @@ import Zocalo.Common.SnapHelpers(
   )
 
 import Zocalo.Gallery.Auth.FancyAuth(
-    issueNewTeacherTokens, validateStudentAccessToken, validateTeacherAccessToken, validateTeacherRefreshToken
+    issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, validateStudentAccessToken
+  , validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken
   )
 
 import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher)
@@ -28,8 +29,8 @@ import Zocalo.Gallery.ActionResult(
 import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
 
 import Zocalo.Gallery.Database(
-    approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, readCommentsFor
-  , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
+    approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher
+  , readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
   , readSubmissionListings, readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery
   , readTemplateName, registerNewTeacher, runMigrations, storeOTP, suppressSubmission, validateOTP
   , writeComment, writeSubmission
@@ -51,6 +52,9 @@ import qualified Text.Read              as TRead
 routes :: [(ByteString, Snap ())]
 routes = [ ("echo/:param"                                    ,      ac POST   handleEchoData)
          , ("api/version"                                    ,      ac GET    handleAPIVersion)
+         , ("api/auth/student/fresh-cookies"                 ,      ac POST   handleNewStudent)
+         , ("api/auth/student/logout"                        ,      ac POST   handleStudentLogout)
+         , ("api/auth/student/refresh"                       ,      ac POST   handleStudentTokenRefresh)
          , ("api/auth/teacher/refresh"                       ,      ac POST   handleTeacherTokenRefresh)
          , ("api/auth/teacher/register"                      ,      ac POST   handleRegister)
          , ("api/auth/teacher/confirm/:token"                ,      ac GET    handleTeacherAuthConfirm)
@@ -65,6 +69,7 @@ routes = [ ("echo/:param"                                    ,      ac POST   ha
          , ("api/galleries/public/:nano-id/template-name"    ,      ac GET    handleGetTemplateName)
          , ("api/galleries/student/comments"                 ,      ac POST   handleSubmitComment)
          , ("api/galleries/student/submission"               ,      ac POST   handleUploadFile)
+         , ("api/galleries/student/submissions/:nano-id"     , wc $ ac GET    handleListSession)
          , ("api/galleries/teacher/new-session"              ,      ac POST   handleNewSessionWithParams)
          , ("api/galleries/teacher/overview"                 , wc $ ac GET    handleListGalleries)
 
@@ -72,7 +77,6 @@ routes = [ ("echo/:param"                                    ,      ac POST   ha
          , ("uploads/:session-id/:item-id"                                ,      ac DELETE handleSuppressItem)
          , ("uploads/:session-id/:item-id/:token/approve"                 ,      ac POST   handleApproveItem)
          , ("uploads/:session-id/:item-id/:token/reject"                  ,      ac POST   handleForbidItem)
-         , ("listings/:session-id"                                        , wc $ ac GET    handleListSession)
          , ("mod-listings/:session-id/:token"                             , wc $ ac GET    handleListSessionForModeration)
          , ("data-lite"                                                   , wc $ ac POST   handleSubmissionsLite)
          , ("uploader-token"                                              ,      ac GET    handleGetUploaderToken)
@@ -123,11 +127,12 @@ handleListGalleries =
 
 handleListSession :: Snap ()
 handleListSession =
-  handle1 (Arg "nano-id" asNanoID) $
-    \nanoID ->
-      do
-        listingsResult <- liftIO $ readSubmissionListings nanoID
-        whenSuccess listingsResult $ encodeText &> succeed "application/json"
+  ifAuthorizedStudent $ \student ->
+    handle1 (Arg "nano-id" asNanoID) $
+      \nanoID ->
+        do
+          listingsResult <- liftIO $ readSubmissionListings student nanoID
+          whenSuccess listingsResult $ encodeText &> succeed "application/json"
 
 handleListSessionForModeration :: Snap ()
 handleListSessionForModeration =
@@ -211,20 +216,19 @@ handleSubmissionsLite =
         SubmissionSendable xidder name b64 studIDM canDelete meta time
 
 handleUploadFile :: Snap ()
-handleUploadFile = withFileUploads $ \fileMap ->
-    ifAuthorizedStudent $ \student ->
-      do
-        let datum   = lookupParam "data"  fileMap
-        let image   = lookupParam "image" fileMap
-        nanoID     <- getParamVM fileMap $ Arg "nano-id"  asNanoID
-        metadata   <- getParamVM fileMap $ Arg "metadata" notEmpty
-        let meta    = (map Just metadata) <> (Success Nothing)
-        let tupleV  = (,,,) <$> nanoID <*> image <*> meta <*> datum
-        case tupleV of
-          Failure es    -> notifyBadParams es
-          Success tuple -> do
-            uploadNameResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
-            whenSuccess uploadNameResult $ succeed "text/plain"
+handleUploadFile =
+  ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
+    let datum   = lookupParam "data"  fileMap
+    let image   = lookupParam "image" fileMap
+    nanoID     <- getParamVM fileMap $ Arg "nano-id"  asNanoID
+    metadata   <- getParamVM fileMap $ Arg "metadata" notEmpty
+    let meta    = (map Just metadata) <> (Success Nothing)
+    let tupleV  = (,,,) <$> nanoID <*> image <*> meta <*> datum
+    case tupleV of
+      Failure es    -> notifyBadParams es
+      Success tuple -> do
+        uploadNameResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
+        whenSuccess uploadNameResult $ encodeText &> succeed "text/plain"
   where
     lookupParam param fileMap =
       case Map.lookup param fileMap of
@@ -352,6 +356,29 @@ genRegistrationURL =
     let origin  = fromMaybe "" originM
     let proto   = if origin == ("http://" <> host) then "http" else "https"
     return $ proto <> "://" <> host <> "/galleries/teacher/confirm/"
+
+handleNewStudent :: Snap ()
+handleNewStudent =
+  handle1 (Arg "username" notEmpty) $ \username ->
+    do
+      accessTokenResult <- issueTotallyNewStudentTokens username
+      whenSuccess accessTokenResult $ succeed "text/plain"
+
+handleStudentTokenRefresh :: Snap ()
+handleStudentTokenRefresh =
+  do
+    studentResult <- validateStudentRefreshToken
+    whenSuccess studentResult $ \student -> do
+      accessTokenResult <- issueNewStudentTokens student
+      whenSuccess accessTokenResult $ succeed "text/plain"
+
+handleStudentLogout :: Snap ()
+handleStudentLogout =
+  do
+    studentResult <- validateStudentRefreshToken
+    whenSuccess studentResult $ \student -> do
+      result <- liftIO $ logoutStudent student
+      whenSuccess result $ const ok
 
 getHeaderText :: CI ByteString -> Snap (Maybe Text)
 getHeaderText headerName =

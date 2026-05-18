@@ -53,6 +53,7 @@ Library
     Zocalo.Gallery.LowerText,
     Zocalo.Gallery.OldAuth,
     Zocalo.Gallery.RandGen,
+    Zocalo.Gallery.StudentUploadResponse,
     Zocalo.Gallery.Submission,
     Zocalo.Gallery.WebReq
   Build-Depends:

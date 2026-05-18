@@ -50,14 +50,15 @@
 
   import { setTitle } from "@/composables/setTitle.ts";
 
-  import type { Submission } from "@/core/Submission.ts";
+  import { authorizedFetch                       } from "@/core/StudentAuth.ts";
+  import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "StudentGalleryView"
   , components: { BasicGallery, SubmissionDetailModal, UploadModal }
   , setup() {
 
-      useRoute();
+      const route = useRoute();
 
       const submissions = ref<Array<Submission>>([]);
       onMounted(
@@ -68,43 +69,15 @@
       );
 
       const activeSubmission  = ref<Submission | null>(null);
-      const galleryName       = ref("Spring Art Showcase");
+      const galleryName       = ref("");
+      const isModerated       = ref(true);
       const isUploadModalOpen = ref(false);
-
-      // TODO: Demo submissions
-      const submissions =
-        ref<Array<Submission>>(
-          [ { id:           1
-            , data:         null
-            , uploadName:   "Still Life — Fruit Bowl"
-            , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-            , isOwner:      false
-            , canModerate:  false
-            , metadata:     "{ description: 'Oil pastel on paper.' }"
-            , comments: [
-                { id: 1, author: "Jamie", comment:      "I love the colours you chose!"
-                , parentID: null, creationTime: new Date("2025-04-02") }
-              , { id: 2, author:   "Sam", comment: "Really nice shading on the banana."
-                , parentID:    1, creationTime: new Date("2025-04-03") }
-            , ]
-            , creationTime: new Date("2025-04-01")
-            }
-          , { id:           2
-            , data:         null
-            , uploadName:   "Portrait Study"
-            , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-            , isOwner:      true
-            , canModerate:  false
-            , metadata:     null
-            , creationTime: new Date("2025-03-28")
-            , comments:     []
-            }
-          ]
-        );
       const hasMounted        = ref(false);
 
       function addNewSubmission(sub: Submission): void {
-        submissions.value.unshift(sub);
+        if (!isModerated.value) {
+          submissions.value.unshift(sub);
+        }
       }
 
       function setActiveSubmission(sub: Submission): void {
@@ -116,7 +89,16 @@
       }
 
       async function updateSubmissions(): Promise<void> {
-        return new Promise(() => {});
+        const galleryID = route.params["nanoid"];
+        const result    = await authorizedFetch(`/api/galleries/student/submissions/${galleryID}`);
+        if (result.ok) {
+          const subs        = AllSubmissionsSchema.parse(await result.json());
+          isModerated.value = subs.isModerated;
+          submissions.value = subs.submissions;
+          galleryName.value = subs.galleryName;
+        } else {
+          alert(await result.text());
+        }
       }
 
       const title = computed(() => `${galleryName.value} Gallery`);
