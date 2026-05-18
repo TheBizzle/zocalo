@@ -212,7 +212,7 @@
       }
 
       async function updateGalleries(): Promise<void> {
-        const result  = await authorizedFetch("/api/galleries/teacher/overview");
+        const result = await authorizedFetch("/api/galleries/teacher/overview");
         if (result.ok) {
           galleries.value = GalleryArraySchema.parse(await result.json());
         } else {
@@ -340,7 +340,7 @@
 
   .galleries-list {
     display:               grid;
-    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
     gap:                   6px;
   }
 
