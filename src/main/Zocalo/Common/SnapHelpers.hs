@@ -13,7 +13,7 @@ import Data.Validation(_Failure, _Success)
 
 import Snap.Core(getParam, method, Method, modifyResponse, setContentType, setResponseStatus, Snap, writeText)
 import Snap.Util.CORS(applyCORS, defaultOptions)
-import Snap.Util.FileUploads(defaultFileUploadPolicy, defaultUploadPolicy, FormFile(formFileValue), handleFormUploads, PartInfo(partFileName), setMaximumFileSize, setMaximumFormInputSize, storeAsLazyByteString)
+import Snap.Util.FileUploads(defaultFileUploadPolicy, defaultUploadPolicy, FormFile(formFileValue), handleFormUploads, PartInfo(partFieldName), setMaximumFileSize, setMaximumFormInputSize, storeAsLazyByteString)
 
 import System.IO.Streams(InputStream)
 
@@ -220,7 +220,7 @@ withFileUploads f =
     handleRead :: PartInfo -> InputStream ByteString -> IO (Text, ByteString)
     handleRead partInfo = storeAsLazyByteString &>= ((processThem extractedKey) &> return)
       where
-        extractedKey = partInfo |> partFileName &> (fromMaybe "-") &> sbsToLBS
+        extractedKey = partInfo |> partFieldName &> sbsToLBS
 
     lbsToText = LazyTextEncoding.decodeUtf8 &> LazyText.toStrict
 
