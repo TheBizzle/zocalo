@@ -93,8 +93,9 @@
         const result    = await authorizedFetch(`/api/galleries/${galleryID}/student/submissions`);
         if (result.ok) {
           const subs        = AllSubmissionsSchema.parse(await result.json());
+          const asNum       = (s: Submission): number => s.creationTime.getTime();
+          submissions.value = subs.submissions.sort((x, y) => asNum(y) - asNum(x));
           isModerated.value = subs.isModerated;
-          submissions.value = subs.submissions;
           galleryName.value = subs.galleryName;
         } else {
           alert(await result.text());
