@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewUser, runMigrations, storeOTP, suppressSubmission, uniqueGalleryName, upsertTeacherRefreshToken, validateOTP, writeComment, writeSubmission) where
+module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewTeacher, runMigrations, setTeacherRefreshToken, storeOTP, suppressSubmission, uniqueGalleryName, validateOTP, writeComment, writeSubmission) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -365,8 +365,8 @@ checkUserExists emailAddr =
     authMaybe <- withDB $ selectFirst [TeacherDBEmailAddr ==. emailAddr, TeacherDBIsConfirmed ==. True] []
     return $ isJust authMaybe
 
-registerNewUser :: LowerText -> Text -> Text -> Maybe Text -> SecureToken -> IO (ActionResult ())
-registerNewUser emailAddr firstName lastName orgM confirmationToken =
+registerNewTeacher :: LowerText -> Text -> Text -> Maybe Text -> SecureToken -> IO (ActionResult ())
+registerNewTeacher emailAddr firstName lastName orgM confirmationToken =
   do
     teacherM <- withDB $ selectFirst [TeacherDBEmailAddr ==. emailAddr, TeacherDBIsConfirmed ==. True] []
     if isJust teacherM then
@@ -459,8 +459,8 @@ lookupTeacherRefreshToken refreshToken =
         else
           return $ Failure Expired
 
-upsertTeacherRefreshToken :: LowerText -> SecureToken ->  IO (ActionResult ())
-upsertTeacherRefreshToken emailAddr refreshToken =
+setTeacherRefreshToken :: AuthorizedTeacher -> SecureToken -> IO (ActionResult ())
+setTeacherRefreshToken (ATeacher emailAddr) refreshToken =
   withTeacher emailAddr $
     \(teacherID, _) -> do
       now             <- getCurrentTime

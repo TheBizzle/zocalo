@@ -31,7 +31,7 @@ import Zocalo.Gallery.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutTeacher, readCommentsFor
   , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
   , readSubmissionListings, readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery
-  , readTemplateName, registerNewUser, runMigrations, storeOTP, suppressSubmission, validateOTP
+  , readTemplateName, registerNewTeacher, runMigrations, storeOTP, suppressSubmission, validateOTP
   , writeComment, writeSubmission
   )
 
@@ -53,11 +53,11 @@ routes = [ ("echo/:param"                                    ,      ac POST   ha
          , ("api/version"                                    ,      ac GET    handleAPIVersion)
          , ("api/auth/teacher/refresh"                       ,      ac POST   handleTeacherTokenRefresh)
          , ("api/auth/teacher/register"                      ,      ac POST   handleRegister)
-         , ("api/auth/teacher/confirm/:token"                ,      ac GET    handleAuthConfirm)
+         , ("api/auth/teacher/confirm/:token"                ,      ac GET    handleTeacherAuthConfirm)
          , ("api/auth/teacher/request-otp"                   ,      ac POST   handleRequestOTP)
          , ("api/auth/teacher/verify-otp"                    ,      ac POST   handleVerifyOTP)
          , ("api/auth/teacher/is-logged-in/"                 ,      ac GET    handleTeacherIsLoggedIn)
-         , ("api/auth/teacher/logout"                        ,      ac POST   handleLogout)
+         , ("api/auth/teacher/logout"                        ,      ac POST   handleTeacherLogout)
          , ("api/auth/teacher/verify-cookie"                 ,      ac POST   handleRegister)
          , ("api/auth/teacher/who-am-i"                      , wc $ ac GET    handleWhoIsTeacher)
          , ("api/galleries/public/:nano-id/:item-id/comments", wc $ ac GET    handleGetComments)
@@ -286,14 +286,14 @@ handleRegister =
         isExistent <- liftIO $ checkUserExists addr
         if not isExistent then do
          returnAddress     <- genRegistrationURL
-         registrationToken <- liftIO $    setUpNewUser addr returnAddress
-         result            <- liftIO $ registerNewUser addr firstName lastName orgM registrationToken
+         registrationToken <- liftIO $ setUpNewUser       addr returnAddress
+         result            <- liftIO $ registerNewTeacher addr firstName lastName orgM registrationToken
          whenSuccess result $ const ok
         else
           failWith 409 $ writeText $ "An account for that e-mail address already exists."
 
-handleAuthConfirm :: Snap ()
-handleAuthConfirm =
+handleTeacherAuthConfirm :: Snap ()
+handleTeacherAuthConfirm =
   handle1 (Arg "token" asToken) $ \token ->
     do
       emailResult <- liftIO $ confirmNewUser token
@@ -327,8 +327,8 @@ handleTeacherIsLoggedIn =
     vldtn <- validateTeacherAccessToken
     validation (const $ succeed "text/plain" "0") (const $ succeed "text/plain" "1") vldtn
 
-handleLogout :: Snap ()
-handleLogout =
+handleTeacherLogout :: Snap ()
+handleTeacherLogout =
   do
     teacherV <- validateTeacherRefreshToken
     whenSuccess teacherV $ \teacher -> do

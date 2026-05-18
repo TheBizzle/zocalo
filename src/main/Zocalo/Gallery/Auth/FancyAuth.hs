@@ -4,12 +4,12 @@ module Zocalo.Gallery.Auth.FancyAuth(genSecureToken, issueNewTeacherTokens, Secu
 import Control.Lens((^.), (.~), (&))
 
 import Crypto.JOSE.JWK(fromOctets, JWK)
-import Crypto.JWT(Alg(HS256), Audience(Audience), claimAud, claimExp, ClaimsSet, claimSub, decodeCompact, defaultJWTValidationSettings, emptyClaimsSet, encodeCompact, JOSE, JWTError, newJWSHeader, NumericDate(NumericDate), runJOSE, signClaims, SignedJWT, string, StringOrURI, verifyClaims)
+import Crypto.JWT(Alg(HS256), Audience(Audience), claimAud, claimExp, ClaimsSet, claimSub, decodeCompact, defaultJWTValidationSettings, emptyClaimsSet, encodeCompact, JOSE, JWTError, newJWSHeader, NumericDate(NumericDate), runJOSE, signClaims, SignedJWT, string, verifyClaims)
 
 import Data.FileEmbed(embedFile)
 import Data.String(fromString)
 import Data.Text.Encoding(decodeUtf8, encodeUtf8)
-import Data.Time(addUTCTime)
+import Data.Time(addUTCTime, NominalDiffTime)
 import Data.Time.Clock.POSIX(getCurrentTime, getPOSIXTime, posixSecondsToUTCTime)
 
 import Snap.Core(
@@ -23,7 +23,7 @@ import Zocalo.Common.SecureToken(genSecureToken, SecureToken(SecureToken, tokenT
 import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher(ATeacher), AuthorizedUser(readUser))
 
 import Zocalo.Gallery.ActionResult(ActionError(Incorrect, InternalError, Malformed, NotAuthorized), ActionResult)
-import Zocalo.Gallery.Database(lookupTeacherRefreshToken, upsertTeacherRefreshToken)
+import Zocalo.Gallery.Database(lookupTeacherRefreshToken, setTeacherRefreshToken)
 import Zocalo.Gallery.LowerText(lowText)
 
 import qualified Data.ByteString.Char8 as BS
@@ -31,13 +31,20 @@ import qualified Data.ByteString.Lazy  as LazyBS
 import qualified Data.Text             as Text
 
 
+data Scope
+  = Teacher
+
 issueNewTeacherTokens :: AuthorizedTeacher -> Snap (ActionResult Text)
-issueNewTeacherTokens (ATeacher addr) =
+issueNewTeacherTokens ateach@(ATeacher addr) =
+  issueNewTokens (setTeacherRefreshToken ateach) (lowText addr) Teacher 28
+
+issueNewTokens :: (SecureToken -> IO (ActionResult ())) -> Text -> Scope -> NominalDiffTime -> Snap (ActionResult Text)
+issueNewTokens storeToken identifier scope daysToLive =
   do
     refreshToken  <- attachRefreshCookie
-    upsertionAR   <- liftIO $ upsertTeacherRefreshToken addr refreshToken
-    accessTokenAR <- liftIO $ genAccessTokenAR $ lowText addr
-    return $ upsertionAR *> accessTokenAR
+    updateAR      <- liftIO $ storeToken refreshToken
+    accessTokenAR <- liftIO $ genAccessTokenAR scope identifier
+    return $ updateAR *> accessTokenAR
   where
     -- Ideally, `cookieSecure` would be `True`.  But the real app does HTTPS via a proxy.  --Jason B. (3/15/26)
     attachRefreshCookie :: Snap SecureToken
@@ -46,12 +53,13 @@ issueNewTeacherTokens (ATeacher addr) =
         refreshToken   <- liftIO genSecureToken
         now            <- liftIO getCurrentTime
         let pathM       = Just "/"
-        let in28Days    = 60 * 60 * 24 * 7 * 4
-        let expirDateM  = Just $ in28Days `addUTCTime` now
+        let inXDays     = 60 * 60 * 24 * daysToLive
+        let expirDateM  = Just $ inXDays `addUTCTime` now
+        let cookieName  = refreshTokenName <> "|" <> (scopeBS scope)
         let fullCookie  = Cookie { cookieDomain   = Nothing
                                  , cookieExpires  = expirDateM
                                  , cookieHttpOnly = True
-                                 , cookieName     = refreshTokenName
+                                 , cookieName     = cookieName
                                  , cookiePath     = pathM
                                  , cookieSecure   = False
                                  , cookieValue    = encodeUtf8 refreshToken.tokenText
@@ -59,13 +67,13 @@ issueNewTeacherTokens (ATeacher addr) =
         modifyResponse $ addResponseCookie fullCookie
         return refreshToken
 
-    genAccessTokenAR :: Text -> IO (ActionResult Text)
-    genAccessTokenAR username =
+    genAccessTokenAR :: Scope -> Text -> IO (ActionResult Text)
+    genAccessTokenAR scope identifier =
       do
         now             <- getPOSIXTime
-        let newClaimSub  = Just $ fromString $ Text.unpack username
-        let newClaimAud  = Just $ Audience [galleryJWTAudience]
-        let newClaimExp  = Just $ NumericDate $ posixSecondsToUTCTime $ now + 60 * 5 -- 5 minutes
+        let newClaimSub  = Just $ fromString $ Text.unpack $ identifier
+        let newClaimAud  = Just $ Audience [fromString $ BS.unpack $ galleryJWTAudience <> "|" <> (scopeBS scope)]
+        let newClaimExp  = Just $ NumericDate $ posixSecondsToUTCTime $ now + (60 * 5) -- 5 minutes
         let claims       = emptyClaimsSet & (claimAud .~ newClaimAud) & (claimExp .~ newClaimExp) & (claimSub .~ newClaimSub)
         tokenE          <- runJOSE (signClaims jwtSecret (newJWSHeader ((), HS256)) claims :: JOSE JWTError IO SignedJWT)
         return $ case tokenE of
@@ -77,7 +85,10 @@ validateStudentAccessToken =
   return $ Failure NotAuthorized -- TODO
 
 validateTeacherAccessToken :: Snap (ActionResult AuthorizedTeacher)
-validateTeacherAccessToken =
+validateTeacherAccessToken = validateAccessToken Teacher
+
+validateAccessToken :: AuthorizedUser a => Scope -> Snap (ActionResult a)
+validateAccessToken scope =
   do
     authM <- getsRequest $ getHeader "Authorization"
     case authM of
@@ -86,7 +97,7 @@ validateTeacherAccessToken =
         case tokenBSM of
           Nothing      -> return $ Failure Malformed
           Just tokenBS -> do
-            verified <- liftIO $ verifyJWT tokenBS
+            verified <- liftIO $ verifyJWT scope tokenBS
             return $ case verified of
               Failure           _ -> Failure Incorrect
               Success     Nothing -> Failure Malformed
@@ -94,15 +105,19 @@ validateTeacherAccessToken =
       Nothing -> return $ Failure NotAuthorized
 
 validateTeacherRefreshToken :: Snap (ActionResult AuthorizedTeacher)
-validateTeacherRefreshToken =
+validateTeacherRefreshToken = validateRefreshToken Teacher lookupTeacherRefreshToken
+
+validateRefreshToken :: Scope -> (SecureToken -> IO (ActionResult a)) -> Snap (ActionResult a)
+validateRefreshToken scope lookupUser =
   do
-    refreshTokenCM <- getCookie refreshTokenName
+    let cookieName  = refreshTokenName <> "|" <> (scopeBS scope)
+    refreshTokenCM <- getCookie cookieName
     maybe (return $ Failure NotAuthorized)
-          (cookieValue &> decodeUtf8 &> SecureToken &> lookupTeacherRefreshToken &> liftIO)
+          (cookieValue &> decodeUtf8 &> SecureToken &> lookupUser &> liftIO)
           refreshTokenCM
 
-verifyJWT :: AuthorizedUser user => ByteString -> IO (ActionResult (Maybe user))
-verifyJWT tokenBS =
+verifyJWT :: AuthorizedUser user => Scope -> ByteString -> IO (ActionResult (Maybe user))
+verifyJWT scope tokenBS =
   claimsEIO <&> \case Left       _ -> Failure Incorrect
                       Right claims ->
                         case claims ^. claimSub of
@@ -113,7 +128,12 @@ verifyJWT tokenBS =
     claimsEIO =
       runJOSE $ do
         jwt <- decodeCompact $ LazyBS.fromStrict tokenBS
-        verifyClaims (defaultJWTValidationSettings (== galleryJWTAudience)) jwtSecret jwt
+        verifyClaims (defaultJWTValidationSettings (== audience)) jwtSecret jwt
+
+    audience = fromString $ BS.unpack $ galleryJWTAudience <> "|" <> (scopeBS scope)
+
+scopeBS :: Scope -> ByteString
+scopeBS Teacher = "teacher"
 
 refreshTokenName :: ByteString
 refreshTokenName = "refresh_token"
@@ -121,5 +141,5 @@ refreshTokenName = "refresh_token"
 jwtSecret :: JWK
 jwtSecret = fromOctets $(embedFile ".app_secret.txt")
 
-galleryJWTAudience :: StringOrURI
+galleryJWTAudience :: ByteString
 galleryJWTAudience = "gallery"
