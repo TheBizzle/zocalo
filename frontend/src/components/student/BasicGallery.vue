@@ -1,28 +1,40 @@
 <!-- First version made by Claude Opus 4.6 -->
 <template>
 
-  <button class="btn btn-primary btn-main" @click="openUploadDialog">
-    Upload your own
-  </button>
+  <div v-if="hasMounted && submissions.length > 0">
 
-  <div class="gallery-grid stagger animate-fade">
-    <div
-      v-for="item in submissions" :key="item.id"
-      class="gallery-item"
-      @click="openItem(item)"
-    >
-      <div class="gallery-item-thumb">
-        <img v-if="item.image" :src="item.image" :alt="item.uploadName" />
-        <div v-else class="no-thumb">📄</div>
-      </div>
-      <div class="gallery-item-info">
-        <div class="gallery-item-title">{{ item.uploadName }}</div>
-        <div class="gallery-item-meta">
-          {{ item.comments.length }} comment{{ item.comments.length !== 1 ? 's' : '' }}
-          · {{ formatDate(item.creationTime) }}
+    <button class="btn btn-primary btn-main" @click="openUploadDialog">
+      Upload your own
+    </button>
+
+    <div class="gallery-grid stagger animate-fade">
+      <div
+        v-for="item in submissions" :key="item.id"
+        class="gallery-item"
+        @click="openItem(item)"
+      >
+        <div class="gallery-item-thumb">
+          <img v-if="item.image" :src="item.image" :alt="item.uploadName" />
+          <div v-else class="no-thumb">📄</div>
+        </div>
+        <div class="gallery-item-info">
+          <div class="gallery-item-title">{{ item.uploadName }}</div>
+          <div class="gallery-item-meta">
+            {{ item.comments.length }} comment{{ item.comments.length !== 1 ? 's' : '' }}
+            · {{ formatDate(item.creationTime) }}
+          </div>
         </div>
       </div>
     </div>
+
+  </div>
+
+  <div v-if="hasMounted && submissions.length === 0" class="empty-state">
+    <div class="empty-state-icon">🖼️</div>
+    <h3>No one has uploaded anything yet</h3>
+    <button class="btn btn-primary btn-main" @click="openUploadDialog">
+      Make an upload to be the first!
+    </button>
   </div>
 
 </template>
@@ -37,6 +49,7 @@
   export default defineComponent({
     name:  "BasicGallery"
   , props: { activeSubmission: { type: Object as PropType<Submission | null>, required: true }
+           , hasMounted:       { type: Boolean                              , required: true }
            , submissions:      { type: Array  as PropType<Array<Submission>>, required: true }
            }
   , emits: ["open-upload-dialog", "set-active-submission"]

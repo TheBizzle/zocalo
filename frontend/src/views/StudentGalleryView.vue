@@ -29,6 +29,7 @@
 
     <BasicGallery
       :activeSubmission="activeSubmission"
+      :hasMounted="hasMounted"
       :submissions="submissions"
       @open-upload-dialog="isUploadModalOpen = true"
       @set-active-submission="setActiveSubmission"
@@ -40,8 +41,8 @@
 
 <script lang="ts">
 
-  import { computed, defineComponent, ref } from "vue";
-  import { useRoute                       } from "vue-router";
+  import { computed, defineComponent, onMounted, ref } from "vue";
+  import { useRoute                                  } from "vue-router";
 
   import BasicGallery          from "@/components/student/BasicGallery.vue";
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
@@ -57,6 +58,14 @@
   , setup() {
 
       useRoute();
+
+      const submissions = ref<Array<Submission>>([]);
+      onMounted(
+        async () => {
+          await updateSubmissions();
+          hasMounted.value = true;
+        }
+      );
 
       const activeSubmission  = ref<Submission | null>(null);
       const galleryName       = ref("Spring Art Showcase");
@@ -92,6 +101,7 @@
             }
           ]
         );
+      const hasMounted        = ref(false);
 
       function addNewSubmission(sub: Submission): void {
         submissions.value.unshift(sub);
@@ -105,11 +115,15 @@
         activeSubmission.value = null;
       }
 
+      async function updateSubmissions(): Promise<void> {
+        return new Promise(() => {});
+      }
+
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addNewSubmission, galleryName, isUploadModalOpen, setActiveSubmission
-             , unsetActiveSubmission, submissions };
+      return { activeSubmission, addNewSubmission, galleryName, hasMounted, isUploadModalOpen
+             , setActiveSubmission, unsetActiveSubmission, submissions };
 
     }
   });
