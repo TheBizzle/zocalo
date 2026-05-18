@@ -1,3 +1,4 @@
+<!-- First version made by Claude Opus 4.6 -->
 <template>
   <div class="split-page">
     <!-- Compact top bar -->

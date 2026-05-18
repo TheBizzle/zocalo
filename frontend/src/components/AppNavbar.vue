@@ -1,3 +1,4 @@
+<!-- First version made by Claude Opus 4.6 -->
 <template>
   <nav class="navbar" v-if="showNav">
     <router-link to="/" class="navbar-brand">

@@ -1,3 +1,4 @@
+<!-- First version made by Claude Opus 4.6 -->
 <template>
 
   <div ref="modalRef" class="modal-overlay animate-fade" v-if="submission" tabindex="-1"

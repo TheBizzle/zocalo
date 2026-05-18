@@ -1,3 +1,4 @@
+// First version made by Claude Opus 4.6
 import { createApp                      } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
 

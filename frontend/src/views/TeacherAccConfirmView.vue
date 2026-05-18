@@ -1,3 +1,4 @@
+<!-- First version made by Claude Opus 4.6 -->
 <template>
   <div class="page-wrapper auth-page">
     <div class="alert alert-danger animate-fade" v-if="errorMsg">{{ errorMsg }}</div>

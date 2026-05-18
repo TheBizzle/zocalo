@@ -1,3 +1,4 @@
+<!-- First version made by Claude Opus 4.6 -->
 <template>
   <span class="tooltip-wrapper" tabindex="0" :aria-label="ariaLabel">
     <slot />

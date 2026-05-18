@@ -1,3 +1,4 @@
+<!-- First version made by Claude Opus 4.6 -->
 <template>
   <div class="create-form card animate-fade">
     <button class="btn-back" @click.stop="cancelForm">
