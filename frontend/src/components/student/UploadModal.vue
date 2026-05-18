@@ -229,11 +229,10 @@
           const postData = new FormData();
           postData.append("data"    , uploadForm.value.uploadFile);
           postData.append("image"   , uploadForm.value. imageFile);
-          postData.append("nano-id" ,                      nanoID);
           postData.append("metadata",                    metadata);
           const options = { method: "POST", body: postData };
 
-          const url    = "/api/galleries/student/submission";
+          const url    = `/api/galleries/${nanoID}/student/submission`;
           const result = await authorizedFetch(url, options);
 
           if (result.ok) {

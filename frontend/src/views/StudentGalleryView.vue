@@ -90,7 +90,7 @@
 
       async function updateSubmissions(): Promise<void> {
         const galleryID = route.params["nanoid"];
-        const result    = await authorizedFetch(`/api/galleries/student/submissions/${galleryID}`);
+        const result    = await authorizedFetch(`/api/galleries/${galleryID}/student/submissions`);
         if (result.ok) {
           const subs        = AllSubmissionsSchema.parse(await result.json());
           isModerated.value = subs.isModerated;
