@@ -9,7 +9,7 @@ Common common
   Default-Language:   GHC2024
   Default-Extensions: OverloadedRecordDot, OverloadedStrings
   Build-Depends:
-    bizzlelude >= 4.20.2.0.1 && < 4.21.0,
+    bizzlelude >= 4.20.2.0.2 && < 4.21.0,
   GHC-Options:
     -Wall
     -Wcompat

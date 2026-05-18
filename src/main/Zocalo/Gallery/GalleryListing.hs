@@ -14,8 +14,8 @@ data GalleryListing
   , template      :: Text
   , description   :: Text
   , isPrescreened :: Bool
-  , numWaiting    :: Int
-  , numApproved   :: Int
+  , numWaiting    :: Word
+  , numApproved   :: Word
   , creationTime  :: Integer
   , lastSubTime   :: Integer
   } deriving (Generic, Show, ToJSON)

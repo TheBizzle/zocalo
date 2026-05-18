@@ -26,9 +26,9 @@ import Zocalo.Gallery.ActionResult(ActionError(Incorrect, InternalError, Malform
 import Zocalo.Gallery.Database(lookupTeacherRefreshToken, upsertTeacherRefreshToken)
 import Zocalo.Gallery.LowerText(lowText)
 
-import qualified Data.ByteString.Char8      as BS
-import qualified Data.ByteString.Lazy       as LazyBS
-import qualified Data.Text                  as Text
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy  as LazyBS
+import qualified Data.Text             as Text
 
 
 issueNewTeacherTokens :: AuthorizedTeacher -> Snap (ActionResult Text)

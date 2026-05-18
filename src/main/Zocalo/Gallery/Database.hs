@@ -24,7 +24,6 @@ import Data.NanoID(nanoID, NanoID, unNanoID)
 import Data.Ord(comparing)
 import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
-import Data.Type.Equality(type (~))
 
 import Database.Persist((<-.), (=.), (==.), (>=.), count, Entity(Entity, entityKey, entityVal), get, getBy, insert, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateWhere, upsert)
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
@@ -172,14 +171,14 @@ readGalleryListings teacher =
     \(teacherID, _) -> do
       rows     <- withDB $ selectList [GalleryDBOwnerID ==. teacherID] [Asc GalleryDBDateAdded]
       listings <- flip mapM rows $ \(Entity subID (GalleryDB _ name template _ _ isPre _ desc cDate)) -> withDB $ do
-        numWaiting <- count [SubmissionDBGalleryID ==. subID, SubmissionDBIsAwaitingModeration ==. True]
-        rows       <- selectList [ SubmissionDBGalleryID            ==. subID
-                                 , SubmissionDBIsAwaitingModeration ==. False
-                                 , SubmissionDBIsForbidden          ==. False
-                                 ] [Asc SubmissionDBDateAdded]
-        let sid         = fromIntegral $ fromSqlKey subID
+        waitingCount <- count [SubmissionDBGalleryID ==. subID, SubmissionDBIsAwaitingModeration ==. True]
+        rows         <- selectList [ SubmissionDBGalleryID            ==. subID
+                                   , SubmissionDBIsAwaitingModeration ==. False
+                                   , SubmissionDBIsForbidden          ==. False
+                                   ] [Asc SubmissionDBDateAdded]
         let uploads     = map entityVal rows
         let numApproved = length uploads
+        let numWaiting  = fromIntegral waitingCount
         let cTime       = asPOSIX cDate
         let lTime       = getMax cTime uploads
         return $ GalleryListing sid name template desc isPre numWaiting numApproved cTime lTime
@@ -394,7 +393,7 @@ confirmNewUser confirmationToken =
         Just (TeacherDB emailAddr _ _ _ _ _) ->
           if (tokenFromText cToken) == (Just confirmationToken) then do
             now          <- getCurrentTime
-            let deadline  = addUTCTime (60 * 10) (traceShowId dateAdded)
+            let deadline  = addUTCTime (60 * 10) dateAdded
             if now <= deadline && (not wasUsed) then withDB $ do
               update teacherID [TeacherDBIsConfirmed       =. True]
               update  cTokenID [ConfirmationTokenDBWasUsed =. True]

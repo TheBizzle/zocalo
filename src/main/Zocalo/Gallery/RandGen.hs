@@ -23,7 +23,7 @@ randomOneOf :: [a] -> IO a
 randomOneOf xs =
   do
     index <- randomRIO (0, (length xs) - 1)
-    return $ xs !! index
+    return $ xs !! (fromIntegral index)
 
 adjectives :: [Text]
 adjectives = format $(embedFile "adjectives.txt")
