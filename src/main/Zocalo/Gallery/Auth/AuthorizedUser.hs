@@ -16,7 +16,7 @@ class AuthorizedUser a where
 instance AuthorizedUser AuthorizedStudent where
   readUser text =
       case Read.decimal sid of
-        Right (n, "") -> Just $ AStudent n name
+        Right (n, "") -> Just $ AStudent n $ Text.tail name
         _             -> Nothing
     where
       (sid, name) = Text.breakOn "|" text
