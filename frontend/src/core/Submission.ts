@@ -2,8 +2,7 @@ import { z } from "zod";
 
 const CommentSchema =
   z.object(
-    { id:           z.number()
-    , comment:      z.string()
+    { comment:      z.string()
     , author:       z.string()
     , parentID:     z.number().nullable()
     , creationTime: z.coerce.date()

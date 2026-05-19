@@ -95,7 +95,8 @@
         <!-- Comment panel — slide in below iframe -->
         <div class="comment-panel" :class="{ open: commentPanelOpen }" v-if="selectedItem">
           <div class="comment-panel-inner">
-            <CommentThread :submissionID="selectedItem.id" :comments="selectedItem.comments" />
+            <CommentThread :comments="selectedItem.comments" :galleryID="galleryID"
+                           :submissionName="selectedItem.uploadName" />
           </div>
         </div>
       </main>
@@ -158,6 +159,7 @@
   export default defineComponent({
     name:       "SplitGalleryView"
   , components: { CommentThread }
+  , props:      { galleryID: { type: String, required: true } }
   , setup() {
 
       useRoute();
@@ -185,12 +187,7 @@
             , isOwner:      false
             , canModerate:  false
             , metadata:     "{ description: 'Oil pastel on paper.' }"
-            , comments: [
-                { id: 1, author: "Jamie", comment:      "I love the colours you chose!"
-                , parentID: null, creationTime: new Date("2025-04-02") }
-              , { id: 2, author:   "Sam", comment: "Really nice shading on the banana."
-                , parentID:    1, creationTime: new Date("2025-04-03") }
-            , ]
+            , comments:     []
             , creationTime: new Date("2025-04-01")
             }
           , { id:           2

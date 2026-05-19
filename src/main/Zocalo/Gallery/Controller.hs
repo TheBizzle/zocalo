@@ -10,7 +10,7 @@ import System.Directory(getDirectoryContents)
 
 import Zocalo.Common.SnapHelpers(
     allowingCORS, Arg(Arg), asBool, asNanoID, asToken, decodeText, encodeText, failWith, free
-  , getParamV, getParamVM, handle1, handle2, handle3, handle5, notEmpty, notifyBadParams, ok
+  , getParamV, getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok
   , succeed, withFileUploads
   )
 
@@ -50,28 +50,28 @@ import qualified Text.Read              as TRead
 
 
 routes :: [(ByteString, Snap ())]
-routes = [ ("echo/:param"                                    ,      ac POST   handleEchoData)
-         , ("api/version"                                    ,      ac GET    handleAPIVersion)
-         , ("api/auth/student/fresh-cookies"                 ,      ac POST   handleNewStudent)
-         , ("api/auth/student/logout"                        ,      ac POST   handleStudentLogout)
-         , ("api/auth/student/refresh"                       ,      ac POST   handleStudentTokenRefresh)
-         , ("api/auth/teacher/refresh"                       ,      ac POST   handleTeacherTokenRefresh)
-         , ("api/auth/teacher/register"                      ,      ac POST   handleRegister)
-         , ("api/auth/teacher/confirm/:token"                ,      ac GET    handleTeacherAuthConfirm)
-         , ("api/auth/teacher/request-otp"                   ,      ac POST   handleRequestOTP)
-         , ("api/auth/teacher/verify-otp"                    ,      ac POST   handleVerifyOTP)
-         , ("api/auth/teacher/is-logged-in/"                 ,      ac GET    handleTeacherIsLoggedIn)
-         , ("api/auth/teacher/logout"                        ,      ac POST   handleTeacherLogout)
-         , ("api/auth/teacher/verify-cookie"                 ,      ac POST   handleRegister)
-         , ("api/auth/teacher/who-am-i"                      , wc $ ac GET    handleWhoIsTeacher)
-         , ("api/galleries/public/:nano-id/:item-id/comments", wc $ ac GET    handleGetComments)
-         , ("api/galleries/public/:nano-id/starter-config"   , wc $ ac GET    handleGetStarterConfig)
-         , ("api/galleries/public/:nano-id/template-name"    ,      ac GET    handleGetTemplateName)
-         , ("api/galleries/teacher/new-session"              ,      ac POST   handleNewSessionWithParams)
-         , ("api/galleries/teacher/overview"                 , wc $ ac GET    handleListGalleries)
-         , ("api/galleries/:nano-id/student/comments"        ,      ac POST   handleSubmitComment)
-         , ("api/galleries/:nano-id/student/submission"      ,      ac POST   handleUploadFile)
-         , ("api/galleries/:nano-id/student/submissions"     , wc $ ac GET    handleListSession)
+routes = [ ("echo/:param"                                     ,      ac POST   handleEchoData)
+         , ("api/version"                                     ,      ac GET    handleAPIVersion)
+         , ("api/auth/student/fresh-cookies"                  ,      ac POST   handleNewStudent)
+         , ("api/auth/student/logout"                         ,      ac POST   handleStudentLogout)
+         , ("api/auth/student/refresh"                        ,      ac POST   handleStudentTokenRefresh)
+         , ("api/auth/teacher/refresh"                        ,      ac POST   handleTeacherTokenRefresh)
+         , ("api/auth/teacher/register"                       ,      ac POST   handleRegister)
+         , ("api/auth/teacher/confirm/:token"                 ,      ac GET    handleTeacherAuthConfirm)
+         , ("api/auth/teacher/request-otp"                    ,      ac POST   handleRequestOTP)
+         , ("api/auth/teacher/verify-otp"                     ,      ac POST   handleVerifyOTP)
+         , ("api/auth/teacher/is-logged-in/"                  ,      ac GET    handleTeacherIsLoggedIn)
+         , ("api/auth/teacher/logout"                         ,      ac POST   handleTeacherLogout)
+         , ("api/auth/teacher/verify-cookie"                  ,      ac POST   handleRegister)
+         , ("api/auth/teacher/who-am-i"                       , wc $ ac GET    handleWhoIsTeacher)
+         , ("api/galleries/public/:nano-id/starter-config"    , wc $ ac GET    handleGetStarterConfig)
+         , ("api/galleries/public/:nano-id/template-name"     ,      ac GET    handleGetTemplateName)
+         , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
+         , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
+         , ("api/galleries/:nano-id/:item-id/student/comment" ,      ac POST   handleSubmitComment)
+         , ("api/galleries/:nano-id/:item-id/student/comments", wc $ ac GET    handleGetComments)
+         , ("api/galleries/:nano-id/student/submission"       ,      ac POST   handleUploadFile)
+         , ("api/galleries/:nano-id/student/submissions"      , wc $ ac GET    handleListSession)
 
          , ("uploads/:session-id/:item-id"                                , wc $ ac GET    handleDownloadItem)
          , ("uploads/:session-id/:item-id"                                ,      ac DELETE handleSuppressItem)
@@ -239,21 +239,29 @@ handleUploadFile =
             Left     _ -> TextEncoding.decodeUtf8 $ Base64.encode result
 
 handleGetComments :: Snap ()
-handleGetComments = handle2 (Arg "nano-id" asNanoID, Arg "item-id" notEmpty) $
-  \(nanoID, uploadID) -> do
-    let uid = asLowerText uploadID
-    commentsResult <- liftIO $ readCommentsFor nanoID uid
-    whenSuccess commentsResult $ encodeText &> succeed "application/json"
+handleGetComments =
+  handle2 (Arg "nano-id" asNanoID, Arg "item-id" notEmpty) $
+    \(nanoID, uploadID) -> do
+      let uid = asLowerText uploadID
+      commentsResult <- liftIO $ readCommentsFor nanoID uid
+      whenSuccess commentsResult $ encodeText &> succeed "application/json"
 
 handleSubmitComment :: Snap ()
 handleSubmitComment =
-  handle5 ( Arg "nano-id" asNanoID, Arg "item-id" notEmpty, Arg "parent" free
-          , Arg "author" notEmpty, Arg "comment" notEmpty) $
-    \(nanoID, uploadID, parentID, author, comment) -> do
-      let uid   = asLowerText uploadID
-      let pidM  = (TRead.readMaybe $ asString parentID) :: Maybe Int64
-      result   <- liftIO $ writeComment nanoID uid pidM author comment
-      whenSuccess result $ const $ writeText ""
+  ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
+    nanoIDV     <- getParamVM fileMap $ Arg "nano-id" asNanoID
+    uploadIDV   <- getParamVM fileMap $ Arg "item-id" notEmpty
+    parentV     <- getParamVM fileMap $ Arg "parent"  free
+    commentV    <- getParamVM fileMap $ Arg "comment" notEmpty
+    let uidV     = map asLowerText uploadIDV
+    let tupleV   = (,,) <$> nanoIDV <*> uidV <*> commentV
+    let pidM     = validation (const Nothing) (asString &> TRead.readMaybe) parentV
+    bimapM_ notifyBadParams (helper student pidM) tupleV
+  where
+    helper student pidM (nid, uid, comment) =
+      do
+        result <- liftIO $ writeComment student nid uid pidM comment
+        whenSuccess result $ const $ writeText ""
 
 handleGetTemplateName :: Snap ()
 handleGetTemplateName =

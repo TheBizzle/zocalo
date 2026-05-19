@@ -26,7 +26,8 @@
         </div>
 
         <hr class="divider" />
-        <CommentThread :submissionID="submission.id" :comments="submission.comments" />
+        <CommentThread :comments="submission.comments" :galleryID="galleryID"
+                       :submissionName="submission.uploadName" />
 
       </div>
 
@@ -47,7 +48,9 @@
   export default defineComponent({
     name:       "SubmissionDetailModal"
   , components: { CommentThread }
-  , props:      { submission: { type: Object as PropType<Submission | null>, required: true } }
+  , props:      { galleryID:  { type: String                               , required: true }
+                , submission: { type: Object as PropType<Submission | null>, required: true }
+                }
   , emits:      ["unset-active-submission"]
   , setup(props, { emit }) {
 

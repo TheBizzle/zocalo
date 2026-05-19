@@ -17,6 +17,7 @@
     </div>
 
     <SubmissionDetailModal
+      :galleryID="galleryID"
       :submission="activeSubmission"
       @unset-active-submission="unsetActiveSubmission"
     />
@@ -50,8 +51,8 @@
 
   import { setTitle } from "@/composables/setTitle.ts";
 
-  import { authorizedFetch                       } from "@/core/StudentAuth.ts";
-  import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
+  import { authorizedFetch                                           } from "@/core/StudentAuth.ts";
+  import { AllSubmissionsSchema, CommentArraySchema, type Submission } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "StudentGalleryView"
@@ -69,6 +70,7 @@
       );
 
       const activeSubmission  = ref<Submission | null>(null);
+      const galleryID         = ref<string>(route.params["nanoid"] as string);
       const galleryName       = ref("");
       const isModerated       = ref(true);
       const isUploadModalOpen = ref(false);
@@ -80,8 +82,16 @@
         }
       }
 
-      function setActiveSubmission(sub: Submission): void {
-        activeSubmission.value = sub;
+      async function setActiveSubmission(sub: Submission): Promise<void> {
+        const url    = `/api/galleries/${galleryID.value}/${sub.uploadName}/student/comments`;
+        const result = await authorizedFetch(url, { method: "GET" });
+        if (result.ok) {
+          const comments = CommentArraySchema.parse(await result.json());
+          sub.comments   = comments.sort((x, y) => x.creationTime.getTime() - y.creationTime.getTime());
+          activeSubmission.value = sub;
+        } else {
+          throw new Error(await result.text());
+        }
       }
 
       function unsetActiveSubmission(): void {
@@ -89,8 +99,7 @@
       }
 
       async function updateSubmissions(): Promise<void> {
-        const galleryID = route.params["nanoid"];
-        const result    = await authorizedFetch(`/api/galleries/${galleryID}/student/submissions`);
+        const result = await authorizedFetch(`/api/galleries/${galleryID.value}/student/submissions`);
         if (result.ok) {
           const subs        = AllSubmissionsSchema.parse(await result.json());
           const asNum       = (s: Submission): number => s.creationTime.getTime();
@@ -105,7 +114,7 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addNewSubmission, galleryName, hasMounted, isUploadModalOpen
+      return { activeSubmission, addNewSubmission, galleryID, galleryName, hasMounted, isUploadModalOpen
              , setActiveSubmission, unsetActiveSubmission, submissions };
 
     }

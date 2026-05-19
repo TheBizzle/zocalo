@@ -35,7 +35,7 @@ import System.Random.MWC(createSystemRandom)
 import Zocalo.Common.DBCredentials(password, username)
 import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID), AuthorizedTeacher(ATeacher, teacherAddr))
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID, studentName), AuthorizedTeacher(ATeacher, teacherAddr))
 
 import Zocalo.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
 import Zocalo.Gallery.Comment(Comment(Comment, creationTime))
@@ -319,13 +319,13 @@ readCommentsFor nid uploadName =
       rows <- withDB $ selectList [CommentDBUploadID ==. uploadID] [Asc CommentDBTime]
       return $ Success $ rows |> (map dbToComment) &> (sortBy $ comparing creationTime)
 
-writeComment :: NanoID -> LowerText -> Maybe Int64 -> Text -> Text -> IO (ActionResult ())
-writeComment nid uploadName parentIDM author comment =
+writeComment :: AuthorizedStudent -> NanoID -> LowerText -> Maybe Int64 -> Text -> IO (ActionResult ())
+writeComment student nid uploadName parentIDM comment =
   withSubmission2 nid uploadName $
     \(uploadID, _) -> do
       timestamp       <- getCurrentTime
       let parentDBIDM  = map toSqlKey parentIDM
-      void $ withDB $ insert $ CommentDB comment author parentDBIDM uploadID timestamp
+      void $ withDB $ insert $ CommentDB comment student.studentName parentDBIDM uploadID timestamp
       return $ Success ()
 
 runMigrations :: IO ()

@@ -8,7 +8,7 @@
 
     <!-- Existing comments -->
     <div class="comment-thread" v-if="localComments.length > 0">
-      <div v-for="c in localComments" :key="c.id" class="comment-bubble animate-fade">
+      <div v-for="c in localComments" class="comment-bubble animate-fade">
         <div class="comment-author">{{ c.author }}</div>
         <div class="comment-text">{{ c.comment }}</div>
         <div class="comment-time">{{ formatTime(c.creationTime) }}</div>
@@ -20,22 +20,15 @@
 
     <!-- Add comment form -->
     <div class="add-comment-form">
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Your name <span class="required">*</span></label>
-          <input v-model="newName" class="form-input" type="text" placeholder="e.g. Jamie"
-                 maxlength="60" />
-        </div>
-      </div>
       <div class="form-group" style="margin-top: var(--space-3)">
-        <label class="form-label">Comment <span class="required">*</span></label>
+        <label class="form-label">Commenting as <strong>{{ selfName }}</strong></label>
         <textarea v-model="newText" class="form-textarea" placeholder="Write your comment…"
                   rows="3" maxlength="1000"></textarea>
       </div>
       <div class="add-comment-actions">
         <span class="form-hint">{{ newText.length }}/1000</span>
         <button class="btn btn-primary btn-sm" @click="postComment"
-                :disabled="posting || !newName.trim() || !newText.trim()">
+                :disabled="posting || !newText.trim()">
           <span v-if="posting">Posting…</span>
           <span v-else>Post comment</span>
         </button>
@@ -51,58 +44,61 @@
 
   import { defineComponent, type PropType, ref } from "vue";
 
-  import type { Comment } from "@/core/Submission.ts";
+  import { authorizedFetch, getStudentName } from "@/core/StudentAuth.ts";
+  import type { Comment                    } from "@/core/Submission.ts";
 
   export default defineComponent({
     name: "CommentThread"
   , props: {
-      submissionID: { type: Number, required: true }
-    , comments:     { type: Array as PropType<Array<Comment>>, default: () => [] }
+      comments:       { type: Array as PropType<Array<Comment>>, default: () => [] }
+    , galleryID:      { type: String, required: true }
+    , submissionName: { type: String, required: true }
     }
   , setup(props) {
 
       const localComments = ref<Array<Comment>>([...props.comments]);
-      const newName       = ref("");
+      const errorMsg      = ref("");
       const newText       = ref("");
       const posting       = ref(false);
-      const errorMsg      = ref("");
+      const selfName      = ref(getStudentName());
 
       function formatTime(d: Date): string {
         const dateFormat = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" } as const;
-        return d.toLocaleString("en-GB", dateFormat);
+        return d.toLocaleString("en-US", dateFormat);
       }
 
       async function postComment(): Promise<void> {
 
         errorMsg.value = "";
 
-        const author  = newName.value.trim();
         const comment = newText.value.trim();
 
-        if (newName.value.trim() === "" || newText.value.trim() === "")
+        if (newText.value.trim() === "")
           return;
 
         posting.value = true;
 
         try {
-          // TODO: API call
-          // await fetch(`/api/submissions/${props.submissionID}/comments`, {
-          //   method: 'POST',
-          //   headers: { 'Content-Type': 'application/json' },
-          //   body: JSON.stringify({ author: newName.value.trim(), text: newText.value.trim() })
-          // })
-          await new Promise(r => setTimeout(r, 400));
 
-          localComments.value.push(
-            { id:           17
-            , comment
-            , author
-            , parentID:     null
-            , creationTime: new Date()
-            }
-          );
+          const postData = new FormData();
+          postData.append("comment", comment);
+          const options = { method: "POST", body: postData };
 
-          newName.value = "";
+          const url = `/api/galleries/${props.galleryID}/${props.submissionName}/student/comment`;
+          const res = await authorizedFetch(url, options);
+
+          if (res.ok) {
+            localComments.value.push(
+              { comment
+              , author:       selfName.value
+              , parentID:     null
+              , creationTime: new Date()
+              }
+            );
+          } else {
+            errorMsg.value = await res.text();
+          }
+
           newText.value = "";
 
         } catch (err: unknown) {
@@ -117,7 +113,7 @@
       }
 
       return {
-        errorMsg, formatTime, localComments, newName, newText, postComment, posting
+        errorMsg, formatTime, localComments, newText, postComment, posting, selfName
       };
 
     }
