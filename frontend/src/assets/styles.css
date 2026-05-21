@@ -655,6 +655,10 @@ a:hover { color: var(--clr-primary-dk); }
   flex-shrink: 0;
 }
 
+strong {
+  font-weight: bold;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 680px) {
   .navbar { padding: 0 var(--space-4); }
