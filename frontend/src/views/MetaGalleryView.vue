@@ -90,15 +90,21 @@
     </div>
 
     <!-- ─── Clone modal ─── -->
-    <div class="modal-overlay animate-fade" v-if="cloneModal" @click.self="cloneModal = false">
+    <div ref="modalRef" class="modal-overlay animate-fade" v-if="cloneModal" tabindex="-1"
+         @click.self="cloneModal = false" @keyup.esc="handleEsc">
       <div class="modal-box animate-scale">
         <button class="btn-icon modal-close" @click="cloneModal = false">✕</button>
         <h2 style="margin-bottom: var(--space-5)">Make another copy</h2>
-        <p style="margin-bottom: var(--space-4); font-size: 0.9rem; color: var(--clr-ink-2)">
-          This will create another gallery with the same configuration as
-          <strong>{{ cloneSource?.name }}</strong>.  Uploads and comments will <strong>not</strong> be
-          copied over.
-        </p>
+        <div style="margin-bottom: var(--space-4); font-size: 0.9rem; color: var(--clr-ink-2)">
+          <p>
+            This will create another gallery with the same configuration as
+            <strong>{{ cloneSource?.name }}</strong>.
+          </p>
+          <br>
+          <p>
+            Uploads and comments will <strong>not</strong> be copied over.
+          </p>
+        </div>
 
         <div class="alert alert-danger" v-if="cloneError">{{ cloneError }}</div>
 
@@ -124,8 +130,8 @@
 
 <script lang="ts">
 
-  import { computed, defineComponent, onMounted, ref } from "vue";
-  import { useRouter                                 } from "vue-router";
+  import { computed, defineComponent, nextTick, onMounted, ref, watch } from "vue";
+  import { useRouter                                                  } from "vue-router";
 
   import CreateGalleryForm                    from "@/components/CreateGalleryForm.vue";
   import { uploadNewGallery                 } from "@/composables/uploadNewGallery.ts";
@@ -157,6 +163,18 @@
       const cloneName   = ref("");
       const cloneDesc   = ref("");
       const hasMounted  = ref(false);
+
+      const modalRef = ref<HTMLDivElement | null>(null);
+
+      watch(
+        cloneModal
+      , async (modalIsOpen) => {
+          if (modalIsOpen) {
+            await nextTick();
+            modalRef.value?.focus();
+          }
+        }
+      );
 
       const title = computed(() => activeTab.value === "create" ? "Create a Gallery" : "Galleries");
       setTitle(title);
@@ -301,10 +319,21 @@
         activeTab.value = "list";
       }
 
+      function handleEsc(e: KeyboardEvent): void {
+        console.log("In here");
+        const target  = e.target as HTMLElement;
+        const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+        if (!isInput) {
+          cloneModal.value = false;
+        } else {
+          modalRef.value?.focus();
+        }
+      }
+
       return {
         activeTab, cloneDesc, cloneError, cloneModal, cloneName, cloneSource, confirmClone, formatDate
-      , hasMounted, onGalleryCanceled, onGalleryCreated, openCloneModal, openCreateModal, sortedGalleries
-      , sortKey, viewAsStudent, viewAsTeacher
+      , handleEsc, hasMounted, modalRef, onGalleryCanceled, onGalleryCreated, openCloneModal
+      , openCreateModal, sortedGalleries, sortKey, viewAsStudent, viewAsTeacher
       };
 
     }
