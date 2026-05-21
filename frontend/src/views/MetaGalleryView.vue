@@ -443,12 +443,14 @@
     justify-content: flex-end;
     gap:             var(--space-3);
     margin-top:      var(--space-6);
+    padding-right:   var(--space-6);
   }
 
   .form-stack {
     display:        flex;
     flex-direction: column;
     gap:            var(--space-4);
+    padding-right:  var(--space-6);
   }
 
   .btn-main {
