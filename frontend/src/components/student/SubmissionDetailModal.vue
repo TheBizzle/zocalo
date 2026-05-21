@@ -6,7 +6,6 @@
     <div class="modal-box item-detail-modal animate-scale">
       <button class="btn-icon modal-close" @click="deactivate">✕</button>
       <h2 style="margin-bottom: var(--space-2)">{{ submission.uploadName }}</h2>
-      <hr style="margin-left: 0px; margin-right: 46px">
 
       <div class="scroll-pane">
 
