@@ -23,7 +23,9 @@
         </p>
 
         <div class="item-actions">
-          <button class="btn btn-ghost btn-sm" @click="download(submission)">↓ Download</button>
+          <a class="btn btn-ghost btn-sm"
+             :href="`/api/galleries/${galleryID}/student/${submission.uploadName}`"
+             :download="submission.uploadName">↓ Download</a>
         </div>
 
         <hr class="divider" />
@@ -85,10 +87,6 @@
           }
         );
 
-      function download(item: Submission): void {
-        alert(`Downloading: ${item.uploadName}`);
-      }
-
       function deactivate(): void {
         emit("unset-active-submission");
       }
@@ -103,7 +101,7 @@
         }
       }
 
-      return { description, download, deactivate, handleEsc, modalRef };
+      return { description, deactivate, handleEsc, modalRef };
 
     }
   });

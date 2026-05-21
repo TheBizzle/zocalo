@@ -71,8 +71,8 @@ routes = [ ("echo/:param"                                     ,      ac POST   h
          , ("api/galleries/:nano-id/:item-id/student/comment" ,      ac POST   handleSubmitComment)
          , ("api/galleries/:nano-id/student/submission"       ,      ac POST   handleUploadFile)
          , ("api/galleries/:nano-id/student/submissions"      , wc $ ac GET    handleListSession)
+         , ("api/galleries/:nano-id/student/:item-id"         , wc $ ac GET    handleDownloadItem)
 
-         , ("uploads/:session-id/:item-id"                                , wc $ ac GET    handleDownloadItem)
          , ("uploads/:session-id/:item-id"                                ,      ac DELETE handleSuppressItem)
          , ("uploads/:session-id/:item-id/:token/approve"                 ,      ac POST   handleApproveItem)
          , ("uploads/:session-id/:item-id/:token/reject"                  ,      ac POST   handleForbidItem)
