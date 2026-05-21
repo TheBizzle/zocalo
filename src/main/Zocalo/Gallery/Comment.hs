@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Zocalo.Gallery.Comment(Comment(..)) where
 
@@ -12,6 +13,4 @@ data Comment
     , author       :: Text
     , parentID     :: Maybe Int64
     , creationTime :: Integer
-    } deriving (Generic, Show)
-
-instance ToJSON Comment
+    } deriving (Generic, Show, ToJSON)

@@ -6,6 +6,8 @@ import Data.Aeson(ToJSON)
 
 import GHC.Generics(Generic)
 
+import Zocalo.Gallery.Comment(Comment)
+
 
 data AllSubmissions
   = AllSubmissions {
@@ -32,5 +34,6 @@ data SubmissionSendable
     , isOwner      :: Bool
     , canModerate  :: Bool
     , metadata     :: Maybe Text
+    , comments     :: [Comment]
     , creationTime :: Integer
     } deriving (Generic, Show, ToJSON)

@@ -51,8 +51,8 @@
 
   import { setTitle } from "@/composables/setTitle.ts";
 
-  import { authorizedFetch                                           } from "@/core/StudentAuth.ts";
-  import { AllSubmissionsSchema, CommentArraySchema, type Submission } from "@/core/Submission.ts";
+  import { authorizedFetch                       } from "@/core/StudentAuth.ts";
+  import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "StudentGalleryView"
@@ -83,15 +83,7 @@
       }
 
       async function setActiveSubmission(sub: Submission): Promise<void> {
-        const url    = `/api/galleries/${galleryID.value}/${sub.uploadName}/student/comments`;
-        const result = await authorizedFetch(url, { method: "GET" });
-        if (result.ok) {
-          const comments = CommentArraySchema.parse(await result.json());
-          sub.comments   = comments.sort((x, y) => x.creationTime.getTime() - y.creationTime.getTime());
-          activeSubmission.value = sub;
-        } else {
-          throw new Error(await result.text());
-        }
+        activeSubmission.value = sub;
       }
 
       function unsetActiveSubmission(): void {
@@ -99,16 +91,23 @@
       }
 
       async function updateSubmissions(): Promise<void> {
+
         const result = await authorizedFetch(`/api/galleries/${galleryID.value}/student/submissions`);
+
         if (result.ok) {
-          const subs        = AllSubmissionsSchema.parse(await result.json());
-          const asNum       = (s: Submission): number => s.creationTime.getTime();
+
+          const subs  = AllSubmissionsSchema.parse(await result.json());
+          const asNum = (x: { creationTime: Date }): number => x.creationTime.getTime();
+          subs.submissions.forEach((s) => s.comments.sort((x, y) => asNum(x) - asNum(y)));
+
           submissions.value = subs.submissions.sort((x, y) => asNum(y) - asNum(x));
           isModerated.value = subs.isModerated;
           galleryName.value = subs.galleryName;
+
         } else {
           alert(await result.text());
         }
+
       }
 
       const title = computed(() => `${galleryName.value} Gallery`);

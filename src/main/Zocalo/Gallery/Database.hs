@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken, setTeacherRefreshToken, storeOTP, suppressSubmission, uniqueGalleryName, validateOTP, writeComment, writeSubmission) where
+module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken, setTeacherRefreshToken, storeOTP, suppressSubmission, uniqueGalleryName, validateOTP, writeComment, writeSubmission) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -199,15 +199,18 @@ readSubmissionListings student nid =
                              ] [Asc SubmissionDBDateAdded]
       subs <- flip mapM entities $
         \entity -> do
-          let key    = fromIntegral $ fromSqlKey $ entityKey entity
-          let val    = entityVal entity
-          canDelete <- liftIO $ canDeleteSubmission Nothing (Just student) val
-          return $ case dbToSubmission key val of
+          let key       = entityKey entity
+          let subID     = fromIntegral $ fromSqlKey key
+          let val       = entityVal entity
+          canDelete    <- liftIO $ canDeleteSubmission Nothing (Just student) val
+          commentRows  <- liftIO $ withDB $ selectList [CommentDBUploadID ==. key] [Asc CommentDBTime]
+          let comments  = commentRows |> (map dbToComment) &> (sortBy $ comparing creationTime)
+          return $ case dbToSubmission subID val of
             (Submission xid name b64 sid meta time) ->
               let xidder = fromIntegral xid
                   isMine = student.studentID == sid
               in
-                SubmissionSendable xidder name b64 isMine canDelete meta time
+                SubmissionSendable xidder name b64 isMine canDelete meta comments time
       return $ Success $ AllSubmissions gname isPrescreened subs
 
 readSubmissionListingsForModeration :: AuthorizedTeacher -> LowerText -> IO (ActionResult [LowerText])
@@ -311,13 +314,6 @@ readStarterConfigFor nid =
   withGalleryNano nid $
     \(_, galleryDB) ->
       return $ Success $ extractStarterConfig galleryDB
-
-readCommentsFor :: NanoID -> LowerText -> IO (ActionResult [Comment])
-readCommentsFor nid uploadName =
-  withSubmission2 nid uploadName $
-    \(uploadID, _) -> do
-      rows <- withDB $ selectList [CommentDBUploadID ==. uploadID] [Asc CommentDBTime]
-      return $ Success $ rows |> (map dbToComment) &> (sortBy $ comparing creationTime)
 
 writeComment :: AuthorizedStudent -> NanoID -> LowerText -> Maybe Int64 -> Text -> IO (ActionResult ())
 writeComment student nid uploadName parentIDM comment =

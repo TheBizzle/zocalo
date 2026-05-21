@@ -30,7 +30,7 @@ import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
 
 import Zocalo.Gallery.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher
-  , readCommentsFor, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
+  , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
   , readSubmissionListings, readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery
   , readTemplateName, registerNewTeacher, runMigrations, storeOTP, suppressSubmission, validateOTP
   , writeComment, writeSubmission
@@ -69,7 +69,6 @@ routes = [ ("echo/:param"                                     ,      ac POST   h
          , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
          , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
          , ("api/galleries/:nano-id/:item-id/student/comment" ,      ac POST   handleSubmitComment)
-         , ("api/galleries/:nano-id/:item-id/student/comments", wc $ ac GET    handleGetComments)
          , ("api/galleries/:nano-id/student/submission"       ,      ac POST   handleUploadFile)
          , ("api/galleries/:nano-id/student/submissions"      , wc $ ac GET    handleListSession)
 
@@ -213,7 +212,7 @@ handleSubmissionsLite =
       let xidder  = fromIntegral xid
           studIDM = maybe False (studentID &> (== sid)) studM
       in
-        SubmissionSendable xidder name b64 studIDM canDelete meta time
+        SubmissionSendable xidder name b64 studIDM canDelete meta [] time
 
 handleUploadFile :: Snap ()
 handleUploadFile =
@@ -237,14 +236,6 @@ handleUploadFile =
           case TextEncoding.decodeUtf8' result of
             Right good -> good
             Left     _ -> TextEncoding.decodeUtf8 $ Base64.encode result
-
-handleGetComments :: Snap ()
-handleGetComments =
-  handle2 (Arg "nano-id" asNanoID, Arg "item-id" notEmpty) $
-    \(nanoID, uploadID) -> do
-      let uid = asLowerText uploadID
-      commentsResult <- liftIO $ readCommentsFor nanoID uid
-      whenSuccess commentsResult $ encodeText &> succeed "application/json"
 
 handleSubmitComment :: Snap ()
 handleSubmitComment =
