@@ -17,6 +17,7 @@ const SubmissionSchema =
     { id:           z.number()
     , data:         z.string().nullish()
     , uploadName:   z.string()
+    , uploader:     z.string()
     , image:        z.base64().transform((s) => `data:image/png;base64,${s}`)
     , isOwner:      z.boolean()
     , canModerate:  z.boolean()

@@ -5,7 +5,9 @@
        @click.self="deactivate" @keyup.esc="handleEsc">
     <div class="modal-box item-detail-modal animate-scale">
       <button class="btn-icon modal-close" @click="deactivate">✕</button>
-      <h2 style="margin-bottom: var(--space-2)">{{ submission.uploadName }}</h2>
+      <h2 style="margin-bottom: var(--space-2)">
+        [{{ submission.uploader }}] {{ submission.uploadName }}
+      </h2>
 
       <div class="scroll-pane">
 

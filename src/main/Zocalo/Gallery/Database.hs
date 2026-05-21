@@ -202,6 +202,8 @@ readSubmissionListings student nid =
           let key       = entityKey entity
           let subID     = fromIntegral $ fromSqlKey key
           let val       = entityVal entity
+          uploaderM    <- liftIO $ withDB $ get $ case val of (SubmissionDB _ _ _ _ uid _ _ _ _ _ _) -> uid
+          let uploader  = maybe "<unknown>" extractStudentName uploaderM
           canDelete    <- liftIO $ canDeleteSubmission Nothing (Just student) val
           commentRows  <- liftIO $ withDB $ selectList [CommentDBUploadID ==. key] [Asc CommentDBTime]
           let comments  = commentRows |> (map dbToComment) &> (sortBy $ comparing creationTime)
@@ -210,7 +212,7 @@ readSubmissionListings student nid =
               let xidder = fromIntegral xid
                   isMine = student.studentID == sid
               in
-                SubmissionSendable xidder name b64 isMine canDelete meta comments time
+                SubmissionSendable xidder name uploader b64 isMine canDelete meta comments time
       return $ Success $ AllSubmissions gname isPrescreened subs
 
 readSubmissionListingsForModeration :: AuthorizedTeacher -> LowerText -> IO (ActionResult [LowerText])
@@ -611,6 +613,9 @@ dbToSubmission subID (SubmissionDB _ _ uploadName image studentID _ _ _ metadata
 dbToComment :: (Entity CommentDB) -> Comment
 dbToComment (Entity cid (CommentDB comment author parentIDM _ time)) =
   Comment (fromSqlKey cid) comment author (map fromSqlKey parentIDM) $ asPOSIX time
+
+extractStudentName :: StudentRefreshTokenDB -> Text
+extractStudentName (StudentRefreshTokenDB name _ _ _) = name
 
 extractUploadName :: SubmissionDB -> LowerText
 extractUploadName (SubmissionDB _ un _ _ _ _ _ _ _ _ _) = un

@@ -18,7 +18,9 @@
           <div v-else class="no-thumb">📄</div>
         </div>
         <div class="gallery-item-info">
-          <div class="gallery-item-title">{{ item.uploadName }}</div>
+          <div class="gallery-item-title">
+            [{{ item.uploader }}] {{ item.uploadName }}
+          </div>
           <div class="gallery-item-meta">
             {{ item.comments.length }} comment{{ item.comments.length !== 1 ? 's' : '' }}
             · {{ formatDate(item.creationTime) }}

@@ -183,6 +183,7 @@
           [ { id:           1
             , data:         null
             , uploadName:   "Still Life — Fruit Bowl"
+            , uploader:     "Jarvis"
             , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
             , isOwner:      false
             , canModerate:  false
@@ -193,6 +194,7 @@
           , { id:           2
             , data:         null
             , uploadName:   "Portrait Study"
+            , uploader:     "Billy Bob"
             , image:        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
             , isOwner:      true
             , canModerate:  false
@@ -264,6 +266,7 @@
           const submission =
             { id:           response.id
             , uploadName:   response.name
+            , uploader:     "TODO"
             , data:         "TODO"
             , image:        "TODO"
             , isOwner:      true

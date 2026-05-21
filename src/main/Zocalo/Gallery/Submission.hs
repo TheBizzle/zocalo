@@ -30,6 +30,7 @@ data SubmissionSendable
   = SubmissionSendable {
       id           :: Int64
     , uploadName   :: Text
+    , uploader     :: Text
     , image        :: Text
     , isOwner      :: Bool
     , canModerate  :: Bool

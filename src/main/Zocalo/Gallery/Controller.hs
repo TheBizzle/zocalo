@@ -212,7 +212,7 @@ handleSubmissionsLite =
       let xidder  = fromIntegral xid
           studIDM = maybe False (studentID &> (== sid)) studM
       in
-        SubmissionSendable xidder name b64 studIDM canDelete meta [] time
+        SubmissionSendable xidder name b64 "<unfilled>" studIDM canDelete meta [] time
 
 handleUploadFile :: Snap ()
 handleUploadFile =
