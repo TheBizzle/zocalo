@@ -21,7 +21,7 @@
     <!-- Add comment form -->
     <div class="add-comment-form">
       <div class="form-group" style="margin-top: var(--space-3)">
-        <label class="form-label">Commenting as <strong>{{ selfName }}</strong></label>
+        <label class="form-label"><strong>{{ selfName }}:</strong></label>
         <textarea v-model="newText" class="form-textarea" placeholder="Write your comment…"
                   rows="3" maxlength="1000"></textarea>
       </div>

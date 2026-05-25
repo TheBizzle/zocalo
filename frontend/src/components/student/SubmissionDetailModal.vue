@@ -18,12 +18,12 @@
         </div>
 
         <p v-if="description"
-           style="color: var(--clr-ink-3); font-size: 0.9rem; margin-bottom: var(--space-4)">
-          {{ description }}
+           style="color: var(--clr-ink-3); font-size: 1rem; margin-bottom: var(--space-4)">
+          <strong>Description</strong>: {{ description }}
         </p>
 
         <div class="item-actions">
-          <a class="btn btn-ghost btn-sm"
+          <a class="btn btn-primary btn-lg dl-button"
              :href="`/api/galleries/${galleryID}/student/${submission.uploadName}`"
              :download="submission.uploadName">↓ Download</a>
         </div>
@@ -109,6 +109,12 @@
 </script>
 
 <style scoped>
+
+  .dl-button {
+    color:     white;
+    font-size: 1.1rem;
+    padding:   10px 20px;
+  }
 
   .item-actions {
     display:       flex;
