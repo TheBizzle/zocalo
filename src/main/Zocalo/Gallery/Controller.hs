@@ -65,12 +65,12 @@ routes = [ ("echo/:param"                                     ,      ac POST   h
          , ("api/auth/teacher/verify-cookie"                  ,      ac POST   handleRegister)
          , ("api/auth/teacher/who-am-i"                       , wc $ ac GET    handleWhoIsTeacher)
          , ("api/galleries/public/:nano-id/starter-config"    , wc $ ac GET    handleGetStarterConfig)
-         , ("api/galleries/public/:nano-id/template-name"     ,      ac GET    handleGetTemplateName)
          , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
          , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
          , ("api/galleries/:nano-id/student/:item-id/comment" ,      ac POST   handleSubmitComment)
          , ("api/galleries/:nano-id/student/submission"       ,      ac POST   handleUploadFile)
          , ("api/galleries/:nano-id/student/submissions"      , wc $ ac GET    handleListSession)
+         , ("api/galleries/:nano-id/student/template-name"    ,      ac GET    handleGetTemplateName)
          , ("api/galleries/:nano-id/student/:item-id"         , wc $ ac GET    handleDownloadItem)
 
          , ("uploads/:session-id/:item-id"                                ,      ac DELETE handleSuppressItem)
