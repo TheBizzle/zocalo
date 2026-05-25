@@ -159,11 +159,11 @@
   export default defineComponent({
     name:       "SplitGalleryView"
   , components: { CommentThread }
-  , props:      { galleryID: { type: String, required: true } }
   , setup() {
 
-      useRoute();
+      const route = useRoute();
 
+      const galleryID        = ref<string>(route.params["nanoid"] as string);
       const galleryName      = ref("Science Fair Posters");
       const selectedItem     = ref<Submission | null>(null);
       const iframeSrc        = ref("");
@@ -288,9 +288,9 @@
       }
 
       return {
-        commentPanelOpen, download, dragging, fileRef, formatDate, galleryName, iframeSrc, loadIntoIframe
-      , onDrop, onFile, selectedItem, selectItem, submissions, submitUpload, triggerInput, uploadForm
-      , uploading, uploadModalOpen
+        commentPanelOpen, download, dragging, fileRef, formatDate, galleryID, galleryName, iframeSrc
+      , loadIntoIframe, onDrop, onFile, selectedItem, selectItem, submissions, submitUpload, triggerInput
+      , uploadForm, uploading, uploadModalOpen
       };
 
     }
