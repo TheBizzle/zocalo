@@ -84,7 +84,7 @@
           postData.append("comment", comment);
           const options = { method: "POST", body: postData };
 
-          const url = `/api/galleries/${props.galleryID}/${props.submissionName}/student/comment`;
+          const url = `/api/galleries/${props.galleryID}/student/${props.submissionName}/comment`;
           const res = await authorizedFetch(url, options);
 
           if (res.ok) {
