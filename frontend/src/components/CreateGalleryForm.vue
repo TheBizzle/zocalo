@@ -27,7 +27,9 @@
         <label class="form-label">Template <span class="required">*</span></label>
         <select v-model="form.template" class="form-select">
           <option value="">— Select a template —</option>
-          <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+          <option v-for="t in templates" :key="t.id" :value="t.id" :disabled="t.isDisabled">
+            {{ t.name }}
+          </option>
         </select>
         <span class="form-hint" v-if="selectedTemplate">{{ selectedTemplate.description }}</span>
       </div>
@@ -136,7 +138,12 @@
   import InfoIndicator from "./InfoIndicator.vue";
   import Switcher      from "./Switcher.vue";
 
-  type Template = { id: string; name: string; description: string }
+  type Template =
+    { id:          string
+    , name:        string
+    , isDisabled:  boolean
+    , description: string
+    }
 
   export default defineComponent({
     name:  "CreateGalleryForm"
@@ -152,12 +159,12 @@
       const uploadedFileName = ref<string | null>(null);
 
       const templates: Array<Template> =
-        [ { id: "geogebra",      name: "GeoGebra",             description: "Students upload GeoGebra constructions" }
-        , { id: "netlogo-model", name: "NetLogo",              description: "Students upload NetLogo models" }
-        , { id: "netlogo-world", name: "NetLogo + world",      description: "Students upload NetLogo models and world states" }
-        , { id: "segregation",   name: "NetLogo: Segregation", description: "Students upload variations of NetLogo's Segregation model" }
-        , { id: "netsblox",      name: "NetsBlox",             description: "Students upload NetsBlox programs" }
-        , { id: "Demo",          name: "Demo",                 description: "Simple demo gallery with a grid of images and files" }
+        [ { id: "geogebra",      name: "GeoGebra",             isDisabled:  true, description: "Students upload GeoGebra constructions" }
+        , { id: "netlogo-model", name: "NetLogo",              isDisabled:  true, description: "Students upload NetLogo models" }
+        , { id: "netlogo-world", name: "NetLogo + world",      isDisabled:  true, description: "Students upload NetLogo models and world states" }
+        , { id: "segregation",   name: "NetLogo: Segregation", isDisabled:  true, description: "Students upload variations of NetLogo's Segregation model" }
+        , { id: "netsblox",      name: "NetsBlox",             isDisabled:  true, description: "Students upload NetsBlox programs" }
+        , { id: "Demo",          name: "Demo",                 isDisabled: false, description: "Simple demo gallery with a grid of images and files" }
         ];
 
       const form = reactive({

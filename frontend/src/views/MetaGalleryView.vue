@@ -247,8 +247,9 @@
         activeTab.value = "create";
       }
 
-      function viewAsTeacher(g: Gallery): void {
-        void router.push(`/moderate/${g.id}`);
+      function viewAsTeacher(_g: Gallery): void {
+        alert("Not yet implemented"); // TODO
+        // void router.push(`/moderate/${g.id}`);
       }
 
       function viewAsStudent(g: Gallery): void {
