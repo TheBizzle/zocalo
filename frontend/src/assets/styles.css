@@ -645,7 +645,7 @@ a:hover { color: var(--clr-primary-dk); }
   background: var(--clr-primary-lt);
   border-color: var(--clr-primary);
 }
-.split-iframe-toolbar {
+.split-frame-toolbar {
   padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--clr-border);
   background: var(--clr-surface-2);

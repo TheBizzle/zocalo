@@ -18,12 +18,14 @@
 
     <SubmissionDetailModal
       :galleryID="galleryID"
+      :isSplit="false"
       :submission="activeSubmission"
       @unset-active-submission="unsetActiveSubmission"
     />
 
     <UploadModal
       :isOpen="isUploadModalOpen"
+      :isText="false"
       @add-new-submission="addNewSubmission"
       @close-dialog="isUploadModalOpen = false"
     />

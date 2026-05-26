@@ -26,6 +26,9 @@
           <a class="btn btn-primary btn-lg dl-button"
              :href="`/api/galleries/${galleryID}/student/${submission.uploadName}`"
              :download="submission.uploadName">↓ Download</a>
+          <button class="btn btn-primary btn-lg" @click="loadInSplit">
+            <span class="dl-icon">👀</span> Load
+          </button>
         </div>
 
         <hr class="divider" />
@@ -52,9 +55,10 @@
     name:       "SubmissionDetailModal"
   , components: { CommentThread }
   , props:      { galleryID:  { type: String                               , required: true }
+                , isSplit:    { type: Boolean                              , required: true }
                 , submission: { type: Object as PropType<Submission | null>, required: true }
                 }
-  , emits:      ["unset-active-submission"]
+  , emits:      ["load-in-split", "unset-active-submission"]
   , setup(props, { emit }) {
 
       useRoute();
@@ -101,7 +105,12 @@
         }
       }
 
-      return { description, deactivate, handleEsc, modalRef };
+      function loadInSplit(): void {
+        emit("load-in-split", props.submission!);
+        emit("unset-active-submission");
+      }
+
+      return { description, deactivate, handleEsc, loadInSplit, modalRef };
 
     }
   });

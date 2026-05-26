@@ -14,14 +14,15 @@
         <div class="form-group">
           <label class="form-label">Your contribution<span class="required">*</span></label>
           <div
+            v-if="!isText"
             class="file-zone"
             :class="{ dragover: uploadDragging }"
-            @click="triggerUploadInput"
+            @click="triggerUploadFile"
             @dragover.prevent="uploadDragging = true"
             @dragleave="uploadDragging = false"
             @drop.prevent="onUploadDrop"
           >
-            <input ref="uploadInputRef" type="file" style="display: none" @change="onUploadFile" />
+            <input ref="uploadFileRef" type="file" style="display: none" @change="onUploadFile" />
             <div v-if="!uploadForm.uploadName">
               <p style="font-size: 1.5rem; margin-bottom: 8px">📎</p>
               <p style="font-size: 0.9rem; color: var(--clr-ink-2)">Click, or drag your file here</p>
@@ -31,6 +32,14 @@
                 ✓ {{ uploadForm.uploadName }}
               </p>
             </div>
+          </div>
+          <div v-else>
+            <button class="btn btn-primary btn-sm" style="margin-bottom: 8px;" @click="importClipboard">
+              Import from clipboard
+            </button>
+            <textarea class="form-textarea readonly" readonly>
+              {{ uploadedTextContent }}
+            </textarea>
           </div>
         </div>
         <div class="form-group">
@@ -82,12 +91,15 @@
   import { readFileAsBase64 } from "@/composables/readFileAsBase64.ts";
   import { readFileAsText   } from "@/composables/readFileAsText.ts";
 
+  import { sanitizeHTML    } from "@/core/sanitizeHTML.ts";
   import { authorizedFetch } from "@/core/StudentAuth.ts";
 
   export default defineComponent({
     name:       "UploadModal"
   , components: {}
-  , props:      { isOpen: { type: Boolean, required: true } }
+  , props:      { isOpen:  { type: Boolean, required: true }
+                , isText:  { type: Boolean, required: true }
+                }
   , emits:      ["add-new-submission", "close-dialog"]
   , setup(props, { emit }) {
 
@@ -99,8 +111,10 @@
       const imageDragging  = ref(false);
       const imageInputRef  = ref<HTMLInputElement | null>(null);
 
-      const uploadDragging  = ref(false);
-      const uploadInputRef  = ref<HTMLInputElement | null>(null);
+      const uploadDragging      = ref(false);
+      const uploadFileRef       = ref<HTMLInputElement | null>(null);
+      const uploadHTML          = ref<string           | null>(null);
+      const uploadedTextContent = ref<string           | null>(null);
 
       const uploadError     = ref("");
       const uploading       = ref(false);
@@ -131,7 +145,7 @@
 
       let isPresentingFileChooser = false;
 
-      [uploadInputRef, imageInputRef].forEach(
+      [uploadFileRef, imageInputRef].forEach(
         (inp) => {
           watch(inp, (input) => {
             input?.addEventListener("click", () => {
@@ -156,6 +170,23 @@
         } else {
           isPresentingFileChooser = false;
         }
+      }
+
+      async function importClipboard(): Promise<void> {
+
+        const [clippy] = await navigator.clipboard.read();
+
+        if (clippy !== undefined) {
+
+          const blob       = await clippy.getType("text/html");
+          const rawHTML    = await blob.text();
+          uploadHTML.value = sanitizeHTML(rawHTML);
+
+          uploadedTextContent.value =
+            new DOMParser().parseFromString(uploadHTML.value, "text/html").body.innerText;
+
+        }
+
       }
 
       function onImageDrop(e: DragEvent): void {
@@ -197,8 +228,8 @@
         }
       }
 
-      function triggerUploadInput(): void {
-        uploadInputRef.value?.click();
+      function triggerUploadFile(): void {
+        uploadFileRef.value?.click();
       }
 
       function setUploadFile(file: File): void {
@@ -210,13 +241,13 @@
 
         uploadError.value = "";
 
-        if (uploadForm.value.uploadFile === null) {
-          uploadError.value = "Please attach a file.";
+        if (uploadForm.value.uploadFile === null && uploadHTML.value === null) {
+          uploadError.value = "Please add upload data";
           return;
         }
 
         if (uploadForm.value.imageFile === null) {
-          uploadError.value = "Please attach an image.";
+          uploadError.value = "Please attach an image";
           return;
         }
 
@@ -226,8 +257,13 @@
 
           const metadata = JSON.stringify({ description: uploadForm.value.description });
 
+          const uploadData =
+            (!props.isText && uploadForm.value.uploadFile !== null)
+              ? uploadForm.value.uploadFile
+              : new File([uploadHTML.value ?? ""], "custom.html", { type: "text/plain" });
+
           const postData = new FormData();
-          postData.append("data"    , uploadForm.value.uploadFile);
+          postData.append("data"    ,                  uploadData);
           postData.append("image"   , uploadForm.value. imageFile);
           postData.append("metadata",                    metadata);
           const options = { method: "POST", body: postData };
@@ -238,7 +274,7 @@
           if (result.ok) {
 
             const response   = await result.json() as { id: number, name: string };
-            const data       = await readFileAsText(  uploadForm.value.uploadFile);
+            const data       = await readFileAsText(uploadData);
             const image      = await readFileAsBase64(uploadForm.value. imageFile);
 
             const submission =
@@ -255,6 +291,7 @@
 
             emit("add-new-submission", submission);
             uploadForm.value = { description: "", imageFile: null, imageName: "", uploadFile: null, uploadName: "" };
+            uploadHTML.value = null;
             close();
 
           } else {
@@ -273,9 +310,10 @@
 
       }
 
-      return { close, handleEsc, imageDragging, imageInputRef, modalRef, onImageDrop, onImageFile
-             , onUploadDrop, onUploadFile, setUploadFile, submitUpload, triggerImageInput
-             , triggerUploadInput, uploadDragging, uploadError, uploadForm, uploading, uploadInputRef };
+      return { close, handleEsc, imageDragging, imageInputRef, importClipboard, modalRef, onImageDrop
+             , onImageFile, onUploadDrop, onUploadFile, setUploadFile, submitUpload, triggerImageInput
+             , triggerUploadFile, uploadDragging, uploadError, uploadForm, uploading, uploadFileRef
+             , uploadedTextContent };
 
     }
   });
@@ -290,6 +328,13 @@
     gap:            var(--space-4);
     overflow-y:     auto;
     padding-right:  var(--space-6);
+  }
+
+  .form-textarea.readonly {
+    background-color: #f5f5f5;
+    color:            #555;
+    cursor:           default;
+    box-shadow:       none;
   }
 
   .modal-footer {
