@@ -88,11 +88,10 @@
   import { defineComponent, nextTick, ref, watch } from "vue";
   import { useRoute                              } from "vue-router";
 
-  import { readFileAsBase64 } from "@/composables/readFileAsBase64.ts";
-  import { readFileAsText   } from "@/composables/readFileAsText.ts";
-
-  import { sanitizeHTML    } from "@/core/sanitizeHTML.ts";
-  import { authorizedFetch } from "@/core/StudentAuth.ts";
+  import { readFileAsBase64 } from "@/core/readFileAsBase64.ts";
+  import { readFileAsText   } from "@/core/readFileAsText.ts";
+  import { sanitizeHTML     } from "@/core/sanitizeHTML.ts";
+  import { authorizedFetch  } from "@/core/StudentAuth.ts";
 
   export default defineComponent({
     name:       "UploadModal"

@@ -133,11 +133,12 @@
   import { computed, defineComponent, nextTick, onMounted, ref, watch } from "vue";
   import { useRouter                                                  } from "vue-router";
 
-  import CreateGalleryForm                    from "@/components/CreateGalleryForm.vue";
-  import { uploadNewGallery                 } from "@/composables/uploadNewGallery.ts";
-  import { setTitle                         } from "@/composables/setTitle.ts";
+  import CreateGalleryForm from "@/components/CreateGalleryForm.vue";
+
   import { type Gallery, GalleryArraySchema } from "@/core/Gallery.ts";
   import { authorizedFetch, getTeacherID    } from "@/core/TeacherAuth.ts";
+  import { uploadNewGallery                 } from "@/core/uploadNewGallery.ts";
+  import { setTitle                         } from "@/core/setTitle.ts";
 
   export default defineComponent({
     name:       "MetaGalleryView"

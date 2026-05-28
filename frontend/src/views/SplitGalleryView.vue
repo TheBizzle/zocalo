@@ -90,14 +90,12 @@
   import { computed, defineComponent, onMounted, ref } from "vue";
   import { useRoute                                  } from "vue-router";
 
-  import GoogleDocsRenderer from "./GoogleDocsRenderer.vue";
-
+  import GoogleDocsRenderer    from "@/components/GoogleDocsRenderer.vue";
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
 
-  import { setTitle }  from "@/composables/setTitle.ts";
-
   import { formatDate                            } from "@/core/formatDate.ts";
+  import { setTitle                              } from "@/core/setTitle.ts";
   import { authorizedFetch                       } from "@/core/StudentAuth.ts";
   import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
 

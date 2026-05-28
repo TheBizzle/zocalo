@@ -133,7 +133,7 @@
 
   import { defineComponent, reactive, ref, computed } from "vue";
 
-  import { uploadNewGallery } from "@/composables/uploadNewGallery.ts";
+  import { uploadNewGallery } from "@/core/uploadNewGallery.ts";
 
   import InfoIndicator from "./InfoIndicator.vue";
   import Switcher      from "./Switcher.vue";

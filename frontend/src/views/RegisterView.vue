@@ -74,7 +74,7 @@
   import { defineComponent, reactive, ref } from "vue";
   import { useRouter } from "vue-router";
 
-  import { setTitle } from "@/composables/setTitle.ts";
+  import { setTitle } from "@/core/setTitle.ts";
 
   export default defineComponent({
     name: "RegisterView"

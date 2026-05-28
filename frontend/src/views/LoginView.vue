@@ -92,7 +92,7 @@
   import { defineComponent, ref, onUnmounted } from "vue";
   import { useRouter                         } from "vue-router";
 
-  import { setTitle   } from "@/composables/setTitle.ts";
+  import { setTitle   } from "@/core/setTitle.ts";
   import { storeToken } from "@/core/TeacherAuth.ts";
 
   export default defineComponent({

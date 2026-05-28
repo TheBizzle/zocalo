@@ -137,7 +137,7 @@
   import { defineComponent, ref, computed } from "vue";
   import { useRoute } from "vue-router";
 
-  import { setTitle } from "@/composables/setTitle.ts";
+  import { setTitle } from "@/core/setTitle.ts";
 
   type SubmissionItem = {
     id:           string
