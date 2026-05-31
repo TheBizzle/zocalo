@@ -42,9 +42,18 @@
           </div>
         </div>
 
-        <button class="btn btn-primary btn-lg share-button" @click="isUploadModalOpen = true">
-          ✚ Share your own
-        </button>
+        <div class="controls-container">
+
+          <a v-if="docURL !== null" :href="docURL.href" class="btn btn-accent btn-lg doc-button"
+             target="_blank" rel="noopener noreferrer">
+            📑 Open starter sheet
+          </a>
+
+          <button class="btn btn-primary btn-lg share-button" @click="isUploadModalOpen = true">
+            ✚ Share your own
+          </button>
+
+        </div>
 
       </template>
 
@@ -64,13 +73,6 @@
           @add-new-submission="addNewSubmission"
           @close-dialog="isUploadModalOpen = false"
         />
-
-        <div class="split-frame-toolbar">
-          <a v-if="docURL !== null" :href="docURL.href" class="btn btn-primary btn-sm doc-button"
-             target="_blank" rel="noopener noreferrer">
-            📑 Open starter sheet
-          </a>
-        </div>
 
         <div v-if="loadedContent === null" class="frame-placeholder">
           <div class="placeholder-inner">
@@ -208,9 +210,21 @@
     margin:      0 auto;
   }
 
-  .doc-button {
-    color:     white;
-    font-size: 0.85rem;
+  .controls-container {
+
+    display:        flex;
+    flex-direction: column;
+    gap:            3px;
+
+    position:       absolute;
+    bottom:         10px;
+    left:           10px;
+    z-index:        10;
+
+  }
+
+  .doc-button:hover {
+    color: #ffffff;
   }
 
   .frame-placeholder {
@@ -255,13 +269,6 @@
 
   .placeholder-inner strong {
     color: var(--clr-ink-2);
-  }
-
-  .share-button {
-    position: absolute;
-    bottom:   10px;
-    left:     10px;
-    z-index:  10;
   }
 
   .sidebar-empty {
