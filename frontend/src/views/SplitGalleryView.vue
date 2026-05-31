@@ -38,7 +38,6 @@
           <div class="sidebar-thumb no-img" v-else>📄</div>
           <div class="sidebar-info">
             <div class="sidebar-title">[{{ item.uploader }}] {{ item.uploadName }}</div>
-            <div class="sidebar-meta">{{ formatDate(item.creationTime) }}</div>
           </div>
         </div>
 
@@ -97,7 +96,6 @@
   import UploadModal           from "@/components/student/UploadModal.vue";
   import VerticalSplit         from "@/components/VerticalSplit.vue";
 
-  import { formatDate                            } from "@/core/formatDate.ts";
   import { setTitle                              } from "@/core/setTitle.ts";
   import { authorizedFetch                       } from "@/core/StudentAuth.ts";
   import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
@@ -186,9 +184,9 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addNewSubmission, docURL, formatDate, galleryID, galleryName
-             , isUploadModalOpen, loadedContent, loadedTitle, loadInSplit, setActiveSubmission
-             , submissions, unsetActiveSubmission
+      return { activeSubmission, addNewSubmission, docURL, galleryID, galleryName, isUploadModalOpen
+             , loadedContent, loadedTitle, loadInSplit, setActiveSubmission, submissions
+             , unsetActiveSubmission
              };
 
     }
@@ -287,11 +285,6 @@
     white-space:   nowrap;
     overflow:      hidden;
     text-overflow: ellipsis;
-  }
-
-  .sidebar-meta  {
-    font-size: 0.75rem;
-    color:     var(--clr-muted);
   }
 
   .split-page {

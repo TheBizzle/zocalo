@@ -19,7 +19,8 @@
 
         <p v-if="description"
            style="color: var(--clr-ink-3); font-size: 1rem; margin-bottom: var(--space-4)">
-          <strong>Description</strong>: {{ description }}
+          <div class="timestamp">{{ formatDate(submission.creationTime) }}</div>
+          {{ description }}
         </p>
 
         <div class="item-actions">
@@ -47,6 +48,7 @@
   import { computed, defineComponent, nextTick, type PropType, ref, watch } from "vue";
   import { useRoute                                                       } from "vue-router";
 
+  import { formatDate      } from "@/core/formatDate.ts";
   import type { Submission } from "@/core/Submission.ts";
 
   import CommentThread  from "./CommentThread.vue";
@@ -110,7 +112,7 @@
         emit("unset-active-submission");
       }
 
-      return { description, deactivate, handleEsc, loadInSplit, modalRef };
+      return { description, deactivate, formatDate, handleEsc, loadInSplit, modalRef };
 
     }
   });
@@ -155,6 +157,11 @@
     max-height:    60vh;
     overflow-y:    auto;
     padding-right: var(--space-6);
+  }
+
+  .timestamp {
+    color:       var(--clr-accent);
+    font-weight: bold;
   }
 
 </style>
