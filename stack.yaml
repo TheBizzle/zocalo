@@ -1,4 +1,4 @@
 resolver: lts-24.20
 
 extra-deps:
-- bizzlelude-4.20.2.0.2@sha256:ca1f1db0254da9b3eeca58d4a4ffa3592c405d2cf5b086b1c26ec0b594dd2f59,7366
+- bizzlelude-4.20.2.0.3@sha256:fcb26f1b83cb80900013f17ed2819e19645ad338247b3762ebcd0aa650b2e9ed,7366

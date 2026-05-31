@@ -16,6 +16,7 @@ tags
 /.mailtrap_secret.txt
 /.projections.json
 /.stack-work/
+/*.cabal
 /db_migrations/
 /log/
 /stack.yaml.lock
