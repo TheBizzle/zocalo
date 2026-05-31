@@ -7,10 +7,6 @@
         <span class="brand-dot"></span>
         zócalo
       </span>
-      <div class="gallery-title-pill">{{ galleryName }}</div>
-      <div v-if="loadedTitle !== null" class="active-title">
-        {{ loadedTitle }}
-      </div>
     </div>
 
     <VerticalSplit>
@@ -18,7 +14,9 @@
       <template #aside>
 
         <h3 class="sidebar-heading">
-          Gallery
+          <div class="gallery-title" :title="galleryName">
+            {{ galleryName }}
+          </div>
         </h3>
 
         <div v-if="submissions.length === 0" class="sidebar-empty">
@@ -74,6 +72,14 @@
           @close-dialog="isUploadModalOpen = false"
         />
 
+        <div class="split-frame-toolbar filled-when-empty">
+          <h3 v-if="loadedAuthor !== null" class="active-title">
+            <span class="active-label">Shared by</span>
+            <span class="active-filler">: </span>
+            <span class="active-author">{{ loadedAuthor }}</span>
+          </h3>
+        </div>
+
         <div v-if="loadedContent === null" class="frame-placeholder">
           <div class="placeholder-inner">
             <p style="font-size: 3rem; margin-bottom: var(--space-4)">🖼️</p>
@@ -121,8 +127,8 @@
       const isModerated       = ref(true);
       const isUploadModalOpen = ref(false);
       const hasMounted        = ref(false);
+      const loadedAuthor      = ref<string | null>(null);
       const loadedContent     = ref<string | null>(null);
-      const loadedTitle       = ref<string | null>(null);
 
       const submissions = ref<Array<Submission>>([]);
       onMounted(
@@ -156,7 +162,7 @@
           alert(`Could not load item: ${message}`);
         } else {
           loadedContent.value = await res.text();
-          loadedTitle.value   = `[${submission.uploader}] ${submission.uploadName}`;
+          loadedAuthor.value  = submission.uploader;
         }
       }
 
@@ -192,7 +198,7 @@
       setTitle(title);
 
       return { activeSubmission, addNewSubmission, docURL, galleryID, galleryName, isUploadModalOpen
-             , loadedContent, loadedTitle, loadInSplit, setActiveSubmission, submissions
+             , loadedAuthor, loadedContent, loadInSplit, setActiveSubmission, submissions
              , unsetActiveSubmission
              };
 
@@ -204,10 +210,21 @@
 
 <style scoped>
 
+  .active-author {
+    font-weight: 700;
+  }
+
+  .active-filler {
+    font-weight: 100;
+  }
+
+  .active-label {
+    font-weight: 100;
+  }
+
   .active-title {
-    font-size:   1.3rem;
-    font-weight: bold;
-    margin:      0 auto;
+    font-size: 1.1rem;
+    margin:    4px auto;
   }
 
   .controls-container {
@@ -227,6 +244,11 @@
     color: #ffffff;
   }
 
+  .filled-when-empty:empty::before {
+    content: "\00a0"; /* NBSP */
+    margin:  2px 0;
+  }
+
   .frame-placeholder {
     flex:            1;
     display:         flex;
@@ -235,19 +257,13 @@
     background:      var(--clr-surface-2);
   }
 
-  .gallery-title-pill {
-    font-family:   var(--font-display);
-    font-size:     0.85rem;
-    font-weight:   600;
-    background:    var(--clr-surface-2);
-    border:        1px solid var(--clr-border);
-    border-radius: 999px;
-    padding:       3px 12px;
-    color:         var(--clr-ink-2);
-    max-width:     240px;
-    white-space:   nowrap;
+  .gallery-title {
+    font-size:     1.3rem;
+    font-weight:   bold;
+    margin:        2px auto;
     overflow:      hidden;
     text-overflow: ellipsis;
+    white-space:   nowrap;
   }
 
   .item-list {

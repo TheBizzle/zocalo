@@ -647,7 +647,7 @@ a:hover { color: var(--clr-primary-dk); }
 }
 .split-frame-toolbar {
   padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--clr-border);
+  border-bottom: 1px solid var(--clr-border-2);
   background: var(--clr-surface-2);
   display: flex;
   align-items: center;
