@@ -26,16 +26,16 @@
         <div v-else class="item-list">
           <div
             v-for="item in submissions" :key="item.id"
-            class="split-sidebar-item"
+            class="split-sidebar-item item"
             :class="{ selected: activeSubmission?.id === item.id }"
             @click="setActiveSubmission(item)"
           >
-            <div class="sidebar-thumb" v-if="item.image">
-              <img :src="item.image" :alt="item.uploadName" />
+            <div class="sidebar-thumb" v-if="item.image !== null">
+              <img :src="item.image" :alt="item.uploader" />
             </div>
             <div class="sidebar-thumb no-img" v-else>📄</div>
             <div class="sidebar-info">
-              <div class="sidebar-title">[{{ item.uploader }}] {{ item.uploadName }}</div>
+              <div class="sidebar-title">{{ item.uploader }}</div>
             </div>
           </div>
         </div>
@@ -236,7 +236,7 @@
     position:       absolute;
     bottom:         10px;
     left:           10px;
-    z-index:        10;
+    z-index:        60;
 
   }
 
@@ -266,11 +266,17 @@
     white-space:   nowrap;
   }
 
+  .item {
+    display:        flex;
+    flex-direction: column;
+  }
+
   .item-list {
     display:        flex;
     flex-direction: column;
     gap:            3px;
     padding:        5px;
+    overflow-y:     auto;
   }
 
   .placeholder-inner {
@@ -305,12 +311,12 @@
   }
 
   .sidebar-thumb {
-    width:         48px;
-    height:        36px;
-    flex-shrink:   0;
-    border-radius: var(--radius-sm);
-    overflow:      hidden;
     background:    var(--clr-surface-2);
+    border-radius: var(--radius-sm);
+    flex-shrink:   0;
+    object-fit:    contain;
+    overflow:      hidden;
+    width:         100%;
   }
 
   .sidebar-thumb img {
@@ -327,7 +333,7 @@
   }
 
   .sidebar-title {
-    font-size:     0.875rem;
+    font-size:     1.2rem;
     font-weight:   600;
     color:         var(--clr-ink);
     white-space:   nowrap;
