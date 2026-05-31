@@ -2,13 +2,6 @@
 <template>
   <div class="split-page">
 
-    <div class="split-topbar">
-      <span class="navbar-brand" style="pointer-events: none; font-size: 1.1rem">
-        <span class="brand-dot"></span>
-        zócalo
-      </span>
-    </div>
-
     <VerticalSplit>
 
       <template #aside>
@@ -344,7 +337,7 @@
   .split-page {
     display:        flex;
     flex-direction: column;
-    height:         100vh;
+    height:         93vh;
     overflow:       hidden;
   }
 

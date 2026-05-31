@@ -1,13 +1,6 @@
 <!-- First version made by Claude Opus 4.6 -->
 <template>
 
-  <nav class="student-nav">
-    <router-link to="/" class="navbar-brand">
-      <span class="brand-dot"></span>
-      zócalo
-    </router-link>
-  </nav>
-
   <div class="page-wrapper-wide">
 
     <div class="page-header animate-fade">
@@ -123,25 +116,8 @@
 </script>
 
 <style scoped>
-
   .page-header {
     font-family:   var(--font-fancy);
     margin-bottom: var(--space-6);
   }
-
-  .student-nav {
-    position:                sticky;
-    top:                     0;
-    z-index:                 100;
-    display:                 grid;
-    grid-template-columns:   1fr auto 1fr;
-    align-items:             center;
-    background:              rgba(253,246,238,0.92);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter:         blur(12px);
-    border-bottom:           1px solid var(--clr-border-2);
-    padding:                 0 var(--space-6);
-    height:                  60px;
-  }
-
 </style>

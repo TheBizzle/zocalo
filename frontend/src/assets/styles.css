@@ -353,7 +353,7 @@ a:hover { color: var(--clr-primary-dk); }
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--clr-border-2);
   padding: 0 var(--space-6);
-  height: 60px;
+  height: 7vh;
   display: flex;
   align-items: center;
   justify-content: space-between;

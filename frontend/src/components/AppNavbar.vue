@@ -1,13 +1,13 @@
 <!-- First version made by Claude Opus 4.6 -->
 <template>
-  <nav class="navbar" v-if="showNav">
+  <nav class="navbar">
     <router-link to="/" class="navbar-brand">
       <span class="brand-dot"></span>
       zócalo
     </router-link>
 
     <ul class="navbar-links">
-      <template v-if="isTeacherRoute">
+      <template v-if="isLoggedInAsTeacher">
         <li>
           <router-link to="/galleries/teacher/overview"
                        :class="{ active: $route.name === 'meta-gallery' }">
@@ -24,30 +24,32 @@
 
 <script lang="ts">
 
-  import { defineComponent, computed } from "vue";
-  import { useRoute, useRouter       } from "vue-router";
+  import { defineComponent, ref } from "vue";
+  import { useRoute, useRouter  } from "vue-router";
 
-  import { logout } from "@/core/TeacherAuth.ts";
+  import { amLoggedIn, logout } from "@/core/TeacherAuth.ts";
 
   export default defineComponent({
     name: "AppNavbar"
   , setup() {
 
-      const route  = useRoute();
+      useRoute();
       const router = useRouter();
 
-      const teacherRoutes = ["meta-gallery",       "moderation"];
-      const hideNavRoutes = ["student-gallery", "split-gallery"];
+      const isLoggedInAsTeacher = ref(false);
 
-      const isTeacherRoute = computed(() =>  teacherRoutes.includes(route.name as string));
-      const showNav        = computed(() => !hideNavRoutes.includes(route.name as string));
+      void amLoggedIn().then(
+        (result) => {
+          isLoggedInAsTeacher.value = result;
+        }
+      );
 
       async function logoutAndRedirect(): Promise<void> {
         await logout();
         await router.push("/login");
       }
 
-      return { isTeacherRoute, logoutAndRedirect, showNav };
+      return { isLoggedInAsTeacher, logoutAndRedirect };
 
     }
 
