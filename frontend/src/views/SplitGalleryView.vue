@@ -10,7 +10,7 @@
       <div class="gallery-title-pill">{{ galleryName }}</div>
       <div style="display: flex; gap: var(--space-3)">
         <button class="btn btn-primary btn-sm" @click="isUploadModalOpen = true">
-          ↑ Upload
+          Share your own
         </button>
       </div>
       <div v-if="loadedTitle !== null" class="active-title">

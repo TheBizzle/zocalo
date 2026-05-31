@@ -4,7 +4,7 @@
   <div v-if="hasMounted && submissions.length > 0">
 
     <button class="btn btn-primary btn-main" @click="openUploadDialog">
-      Upload your own
+      Share your own
     </button>
 
     <div class="gallery-grid stagger animate-fade">
