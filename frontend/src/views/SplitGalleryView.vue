@@ -17,22 +17,28 @@
 
       <template #aside>
 
+        <h3 class="sidebar-heading">
+          Gallery
+        </h3>
+
         <div v-if="submissions.length === 0" class="sidebar-empty">
           <p>No submissions yet.</p>
         </div>
 
-        <div
-          v-for="item in submissions" :key="item.id"
-          class="split-sidebar-item"
-          :class="{ selected: activeSubmission?.id === item.id }"
-          @click="setActiveSubmission(item)"
-        >
-          <div class="sidebar-thumb" v-if="item.image">
-            <img :src="item.image" :alt="item.uploadName" />
-          </div>
-          <div class="sidebar-thumb no-img" v-else>📄</div>
-          <div class="sidebar-info">
-            <div class="sidebar-title">[{{ item.uploader }}] {{ item.uploadName }}</div>
+        <div v-else class="item-list">
+          <div
+            v-for="item in submissions" :key="item.id"
+            class="split-sidebar-item"
+            :class="{ selected: activeSubmission?.id === item.id }"
+            @click="setActiveSubmission(item)"
+          >
+            <div class="sidebar-thumb" v-if="item.image">
+              <img :src="item.image" :alt="item.uploadName" />
+            </div>
+            <div class="sidebar-thumb no-img" v-else>📄</div>
+            <div class="sidebar-info">
+              <div class="sidebar-title">[{{ item.uploader }}] {{ item.uploadName }}</div>
+            </div>
           </div>
         </div>
 
@@ -230,6 +236,13 @@
     text-overflow: ellipsis;
   }
 
+  .item-list {
+    display:        flex;
+    flex-direction: column;
+    gap:            3px;
+    padding:        5px;
+  }
+
   .placeholder-inner {
     text-align: center;
     color:      var(--clr-muted);
@@ -256,6 +269,12 @@
     color:      var(--clr-muted);
     padding:    var(--space-3);
     text-align: center;
+  }
+
+  .sidebar-heading {
+    border-bottom: 1px solid var(--clr-border-2);
+    padding:       12px;
+    text-align:    center;
   }
 
   .sidebar-info {
