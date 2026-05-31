@@ -1,13 +1,11 @@
 <!-- First version made by Claude Opus 4.6 -->
 <template>
-  <div id="app">
-    <AppNavbar />
-    <router-view v-slot="{ Component }">
-      <transition name="page" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </router-view>
-  </div>
+  <AppNavbar />
+  <router-view v-slot="{ Component }">
+    <transition name="page" mode="out-in">
+      <component :is="Component" />
+    </transition>
+  </router-view>
 </template>
 
 <script lang="ts">
