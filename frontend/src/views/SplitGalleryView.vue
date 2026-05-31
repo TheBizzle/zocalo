@@ -18,9 +18,9 @@
       </div>
     </div>
 
-    <div class="split-layout">
+    <VerticalSplit>
 
-      <aside class="split-sidebar">
+      <template #aside>
 
         <div v-if="submissions.length === 0" class="sidebar-empty">
           <p>No submissions yet.</p>
@@ -41,9 +41,10 @@
             <div class="sidebar-meta">{{ formatDate(item.creationTime) }}</div>
           </div>
         </div>
-      </aside>
 
-      <main class="split-main">
+      </template>
+
+      <template #main>
 
         <SubmissionDetailModal
           :galleryID="galleryID"
@@ -79,9 +80,10 @@
         </div>
         <GoogleDocsRenderer :loadedContent="loadedContent ?? ''" />
 
-      </main>
+      </template>
 
-    </div>
+    </VerticalSplit>
+
   </div>
 </template>
 
@@ -93,6 +95,7 @@
   import GoogleDocsRenderer    from "@/components/GoogleDocsRenderer.vue";
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
+  import VerticalSplit         from "@/components/VerticalSplit.vue";
 
   import { formatDate                            } from "@/core/formatDate.ts";
   import { setTitle                              } from "@/core/setTitle.ts";
@@ -101,7 +104,7 @@
 
   export default defineComponent({
     name:       "SplitGalleryView"
-  , components: { GoogleDocsRenderer, SubmissionDetailModal, UploadModal }
+  , components: { GoogleDocsRenderer, SubmissionDetailModal, UploadModal, VerticalSplit }
   , setup() {
 
       const route = useRoute();
@@ -289,12 +292,6 @@
   .sidebar-meta  {
     font-size: 0.75rem;
     color:     var(--clr-muted);
-  }
-
-  /* Override global split-layout for scoped full-height */
-  .split-layout {
-    flex:     1;
-    overflow: hidden;
   }
 
   .split-page {
