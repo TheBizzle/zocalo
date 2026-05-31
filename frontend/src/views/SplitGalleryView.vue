@@ -8,11 +8,6 @@
         zócalo
       </span>
       <div class="gallery-title-pill">{{ galleryName }}</div>
-      <div style="display: flex; gap: var(--space-3)">
-        <button class="btn btn-primary btn-sm" @click="isUploadModalOpen = true">
-          Share your own
-        </button>
-      </div>
       <div v-if="loadedTitle !== null" class="active-title">
         {{ loadedTitle }}
       </div>
@@ -40,6 +35,10 @@
             <div class="sidebar-title">[{{ item.uploader }}] {{ item.uploadName }}</div>
           </div>
         </div>
+
+        <button class="btn btn-primary btn-lg share-button" @click="isUploadModalOpen = true">
+          ✚ Share your own
+        </button>
 
       </template>
 
@@ -243,6 +242,13 @@
 
   .placeholder-inner strong {
     color: var(--clr-ink-2);
+  }
+
+  .share-button {
+    position: absolute;
+    bottom:   10px;
+    left:     10px;
+    z-index:  10;
   }
 
   .sidebar-empty {
