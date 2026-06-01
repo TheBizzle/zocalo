@@ -7,9 +7,7 @@ import GHC.Generics(Generic)
 
 
 data StudentUploadResponse
-  = StudentUploadResponse {
-      id   :: Int64
-    , name :: Text
-    } deriving (Generic, Show)
+  = StudentUploadResponse { id :: Word64 }
+  deriving (Generic, Show)
 
 instance ToJSON StudentUploadResponse

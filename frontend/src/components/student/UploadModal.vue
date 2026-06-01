@@ -278,7 +278,6 @@
 
             const submission =
               { id:           response.id
-              , uploadName:   response.name
               , data
               , image
               , isOwner:      true

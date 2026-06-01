@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
-module Zocalo.Gallery.Submission(AllSubmissions(..), Submission(..), SubmissionSendable(..)) where
+module Zocalo.Gallery.Submission(
+    AllSubmissions(..), Submission(..), SubmissionID(SubID, subIDNum), SubmissionSendable(..)
+  ) where
 
 import Data.Aeson(ToJSON)
 
@@ -8,6 +10,8 @@ import GHC.Generics(Generic)
 
 import Zocalo.Gallery.Comment(Comment)
 
+
+newtype SubmissionID = SubID { subIDNum :: Word64 }
 
 data AllSubmissions
   = AllSubmissions {
@@ -19,7 +23,6 @@ data AllSubmissions
 data Submission
   = Submission {
       id'           :: Word64
-    , uploadName'   :: Text
     , base64Image'  :: Text
     , studentID'    :: Word64
     , metadata'     :: Maybe Text
@@ -29,7 +32,6 @@ data Submission
 data SubmissionSendable
   = SubmissionSendable {
       id           :: Int64
-    , uploadName   :: Text
     , uploader     :: Text
     , image        :: Text
     , isOwner      :: Bool

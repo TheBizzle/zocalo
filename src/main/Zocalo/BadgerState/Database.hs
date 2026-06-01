@@ -69,10 +69,10 @@ readDataFor groupID bucketID refTime = withDB $
     rows <- selectList [DataDBGroupID ==. (Text.toLower groupID), DataDBBucketID ==. (UUID.toText bucketID)] [Desc DataDBDateAdded]
     return $ rows >>= (entityVal &> (\(DataDB _ _ dataT time) -> if time `isNewerThan` refTime then [(dataT, time)] else []))
 
-readNDataFor :: Text -> UUID -> Int -> IO [(Text, UTCTime)]
+readNDataFor :: Text -> UUID -> Word64 -> IO [(Text, UTCTime)]
 readNDataFor groupID bucketID n = withDB $
   do
-    rows <- selectList [DataDBGroupID ==. (Text.toLower groupID), DataDBBucketID ==. (UUID.toText bucketID)] [Desc DataDBDateAdded, LimitTo n]
+    rows <- selectList [DataDBGroupID ==. (Text.toLower groupID), DataDBBucketID ==. (UUID.toText bucketID)] [Desc DataDBDateAdded, LimitTo $ fromIntegral n]
     return $ map (entityVal &> (\(DataDB _ _ dataT time) -> (dataT, time))) rows
 
 readGroup :: Text -> IO [UUID]

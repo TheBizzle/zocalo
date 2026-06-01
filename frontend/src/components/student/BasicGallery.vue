@@ -14,12 +14,12 @@
         @click="openItem(item)"
       >
         <div class="gallery-item-thumb">
-          <img v-if="item.image" :src="item.image" :alt="item.uploadName" />
+          <img v-if="item.image" :src="item.image" :alt="item.uploader" />
           <div v-else class="no-thumb">📄</div>
         </div>
         <div class="gallery-item-info">
           <div class="gallery-item-title">
-            [{{ item.uploader }}] {{ item.uploadName }}
+            [{{ item.uploader }}] {{ item.uploader }}
           </div>
           <div class="gallery-item-meta">
             {{ item.comments.length }} comment{{ item.comments.length !== 1 ? 's' : '' }}

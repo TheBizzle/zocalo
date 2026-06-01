@@ -8,7 +8,7 @@ import qualified Data.UUID as UUID
 import Snap.Core(Method(GET, POST), Snap, writeText)
 import Snap.Util.GZip(withCompression)
 
-import Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asNonNegInt, asUUID, encodeText, failWith, handle1, handle2, handle3, notEmpty, succeed)
+import Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asNonNeg, asUUID, encodeText, failWith, handle1, handle2, handle3, notEmpty, succeed)
 
 import Zocalo.BadgerState.Database(joinGroup, readDataFor, readGroup, readNDataFor, readSignalFor, writeData, writeSignal)
 import Zocalo.BadgerState.Datum(Datum(Datum))
@@ -40,12 +40,12 @@ handlePostData =
 
 handleFetchData :: Snap ()
 handleFetchData =
-  handle3 (Arg "group-id" notEmpty, Arg "bucket-id" asUUID, Arg "ts" asNonNegInt) $
-    (\(g, b, t) -> readDataFor g b $ intToTime t) &> liftIO &>= ((map mkDatum) &> encodeText &> (succeed "application/json"))
+  handle3 (Arg "group-id" notEmpty, Arg "bucket-id" asUUID, Arg "ts" asNonNeg) $
+    (\(g, b, t) -> readDataFor g b $ wordToTime t) &> liftIO &>= ((map mkDatum) &> encodeText &> (succeed "application/json"))
 
 handleFetchNData :: Snap ()
 handleFetchNData =
-  handle3 (Arg "group-id" notEmpty, Arg "bucket-id" asUUID, Arg "n" asNonNegInt) $
+  handle3 (Arg "group-id" notEmpty, Arg "bucket-id" asUUID, Arg "n" asNonNeg) $
     (uncurry3 readNDataFor) &> liftIO &>= ((map mkDatum) &> encodeText &> (succeed "application/json"))
 
 handlePostSignal :: Snap ()
@@ -70,5 +70,5 @@ timeToText = timeToInteger &> showText
 timeToInteger :: UTCTime -> Integer
 timeToInteger = utcTimeToPOSIXSeconds &> (* 1e6) &> floor
 
-intToTime :: Int -> UTCTime
-intToTime = fromIntegral &> (* 1e-6) &> posixSecondsToUTCTime
+wordToTime :: Word64 -> UTCTime
+wordToTime = fromIntegral &> (* 1e-6) &> posixSecondsToUTCTime

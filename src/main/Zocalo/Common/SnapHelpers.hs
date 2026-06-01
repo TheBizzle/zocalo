@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asBytes, asInt, asNanoID, asNonNegInt, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, withFileUploads) where
+module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asBytes, asInt, asNanoID, asNonNeg, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, withFileUploads) where
 
 import Codec.Compression.Zlib.Internal(decompressST, defaultDecompressParams, foldDecompressStreamWithInput, gzipFormat)
 
@@ -154,8 +154,8 @@ asNanoID = Constraint $ buildConstraint $
   where
     allowed = asText $ BSChar.unpack $ unAlphabet defaultAlphabet
 
-asNonNegInt :: Constraint Int
-asNonNegInt = Constraint $ buildConstraint $ \x -> (readMaybe (asString x) :: Maybe Int) |>
+asNonNeg :: Constraint Word64
+asNonNeg = Constraint $ buildConstraint $ \x -> (readMaybe (asString x) :: Maybe Word64) |>
   (>>= (\n -> if n < 0 then Nothing else Just n))
 
 asInt :: Constraint Int

@@ -149,7 +149,7 @@
       }
 
       async function loadInSplit(submission: Submission): Promise<void> {
-        const res = await fetch(`/api/galleries/${galleryID.value}/student/${submission.uploadName}`);
+        const res = await fetch(`/api/galleries/${galleryID.value}/student/${submission.id}`);
         if (!res.ok) {
           const message = await res.text();
           alert(`Could not load item: ${message}`);

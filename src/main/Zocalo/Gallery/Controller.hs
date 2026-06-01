@@ -9,9 +9,8 @@ import Snap.Util.GZip(withCompression)
 import System.Directory(getDirectoryContents)
 
 import Zocalo.Common.SnapHelpers(
-    allowingCORS, Arg(Arg), asBool, asNanoID, asToken, decodeText, encodeText, failWith, free
-  , getParamV, getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok
-  , succeed, withFileUploads
+    allowingCORS, Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV
+  , getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
   )
 
 import Zocalo.Gallery.Auth.FancyAuth(
@@ -19,7 +18,7 @@ import Zocalo.Gallery.Auth.FancyAuth(
   , validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken
   )
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher)
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher)
 
 import Zocalo.Gallery.ActionResult(
     ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
@@ -30,15 +29,14 @@ import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
 
 import Zocalo.Gallery.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher
-  , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionsLite
-  , readSubmissionListings, readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery
-  , readTemplateName, registerNewTeacher, runMigrations, storeOTP, suppressSubmission, validateOTP
-  , writeComment, writeSubmission
+  , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionListings
+  , readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery, readTemplateName
+  , registerNewTeacher, runMigrations, storeOTP, suppressSubmission, validateOTP, writeComment
+  , writeSubmission
   )
 
-import Zocalo.Gallery.LowerText(asLowerText, lowText)
-
-import Zocalo.Gallery.Submission(Submission(Submission), SubmissionSendable(SubmissionSendable))
+import Zocalo.Gallery.LowerText(asLowerText)
+import Zocalo.Gallery.Submission(SubmissionID(SubID, subIDNum))
 
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.List              as List
@@ -77,7 +75,6 @@ routes = [ ("echo/:param"                                     ,      ac POST   h
          , ("uploads/:session-id/:item-id/:token/approve"                 ,      ac POST   handleApproveItem)
          , ("uploads/:session-id/:item-id/:token/reject"                  ,      ac POST   handleForbidItem)
          , ("mod-listings/:session-id/:token"                             , wc $ ac GET    handleListSessionForModeration)
-         , ("data-lite"                                                   , wc $ ac POST   handleSubmissionsLite)
          , ("uploader-token"                                              ,      ac GET    handleGetUploaderToken)
          , ("gallery-types"                                               ,      ac GET    handleGetGalleryTypes)
 
@@ -140,7 +137,7 @@ handleListSessionForModeration =
       \sessionID ->
         do
           listingsResult <- liftIO $ readSubmissionListingsForModeration teacher $ asLowerText sessionID
-          whenSuccess listingsResult $ (map lowText) &> encodeText &> succeed "application/json"
+          whenSuccess listingsResult $ (map subIDNum) &> encodeText &> succeed "application/json"
 
 handleWhoIsTeacher :: Snap ()
 handleWhoIsTeacher =
@@ -151,43 +148,38 @@ handleWhoIsTeacher =
 
 handleDownloadItem :: Snap ()
 handleDownloadItem =
-  handle2 (Arg "nano-id" asNanoID, Arg "item-id" notEmpty) $
-    \(nanoID, uploadID) ->
-      withAuthorizations $ \teacherM studM -> do
-        let uid   = asLowerText uploadID
-        dlResult <- liftIO $ readSubmissionData teacherM studM nanoID uid
-        whenSuccess dlResult $ succeed "text/plain"
+  withAuthorizations $ \teacherM studM ->
+    handle1 (Arg "item-id" asNonNeg) $
+      \uploadID ->
+        do
+          dlResult <- liftIO $ readSubmissionData teacherM studM $ SubID uploadID
+          whenSuccess dlResult $ succeed "text/plain"
 
 handleSuppressItem :: Snap ()
 handleSuppressItem =
-  handle2 (Arg "nano-id" asNanoID, Arg "item-id" notEmpty) $
-    \(nanoID, uploadID) ->
-      withAuthorizations $ \teacherM studM -> do
+  withAuthorizations $ \teacherM studM ->
+    handle1 (Arg "item-id" asNonNeg) $
+      \uploadID ->
         do
-          let uid = asLowerText uploadID
-          result <- liftIO $ suppressSubmission teacherM studM nanoID uid
+          result <- liftIO $ suppressSubmission teacherM studM $ SubID uploadID
           whenSuccess result $ const $ succeed "text/plain" "Submission successfully suppressed"
 
 handleApproveItem :: Snap ()
 handleApproveItem =
   ifAuthorizedTeacher $ \teacher ->
-    handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
-      \(sessionID, uploadID) ->
+    handle1 (Arg "item-id" asNonNeg) $
+      \uploadID ->
         do
-          let sid = asLowerText sessionID
-          let uid = asLowerText uploadID
-          result <- liftIO $ approveSubmission teacher sid uid
+          result <- liftIO $ approveSubmission teacher $ SubID uploadID
           whenSuccess result $ const $ succeed "text/plain" "Submission approved"
 
 handleForbidItem :: Snap ()
 handleForbidItem =
   ifAuthorizedTeacher $ \teacher ->
-    handle2 (Arg "session-id" notEmpty, Arg "item-id" notEmpty) $
-      \(sessionID, uploadID) ->
+    handle1 (Arg "item-id" asNonNeg) $
+      \uploadID ->
         do
-          let sid = asLowerText sessionID
-          let uid = asLowerText uploadID
-          result <- liftIO $ forbidSubmission teacher sid uid
+          result <- liftIO $ forbidSubmission teacher $ SubID uploadID
           whenSuccess result $ const $ succeed "text/plain" "Submission successfully forbidden"
 
 handleGetUploaderToken :: Snap ()
@@ -195,24 +187,6 @@ handleGetUploaderToken = genToken |> liftIO &>= (succeed "text/plain")
 
 genToken :: IO Text
 genToken = UUIDGen.nextRandom <&> UUID.toText
-
-handleSubmissionsLite :: Snap ()
-handleSubmissionsLite =
-  handle2 (Arg "nano-id" asNanoID, Arg "names" free) $
-    \(nanoID, namesText) ->
-      withAuthorizations $ \teacherM studM -> do
-        let namesM = decodeText namesText :: Maybe [Text]
-        case namesM of
-          Nothing      -> failWith 422 $ writeText $ "Parameter 'names' is invalid JSON: " <> namesText
-          (Just names) -> do
-            pairsResult <- liftIO $ readSubmissionsLite teacherM studM nanoID names
-            whenSuccess pairsResult $ (map $ convert studM) &> encodeText &> succeed "application/json"
-  where
-    convert studM (Submission xid name b64 sid meta time, canDelete) =
-      let xidder  = fromIntegral xid
-          studIDM = maybe False (studentID &> (== sid)) studM
-      in
-        SubmissionSendable xidder name b64 "<unfilled>" studIDM canDelete meta [] time
 
 handleUploadFile :: Snap ()
 handleUploadFile =
@@ -226,8 +200,8 @@ handleUploadFile =
     case tupleV of
       Failure es    -> notifyBadParams es
       Success tuple -> do
-        uploadNameResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
-        whenSuccess uploadNameResult $ encodeText &> succeed "text/plain"
+        uploadIDResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
+        whenSuccess uploadIDResult $ encodeText &> succeed "text/plain"
   where
     lookupParam param fileMap =
       case Map.lookup param fileMap of
@@ -240,18 +214,16 @@ handleUploadFile =
 handleSubmitComment :: Snap ()
 handleSubmitComment =
   ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
-    nanoIDV     <- getParamVM fileMap $ Arg "nano-id" asNanoID
-    uploadIDV   <- getParamVM fileMap $ Arg "item-id" notEmpty
+    uploadIDV   <- getParamVM fileMap $ Arg "item-id" asNonNeg
     parentV     <- getParamVM fileMap $ Arg "parent"  free
     commentV    <- getParamVM fileMap $ Arg "comment" notEmpty
-    let uidV     = map asLowerText uploadIDV
-    let tupleV   = (,,) <$> nanoIDV <*> uidV <*> commentV
+    let tupleV   = (,) <$> uploadIDV <*> commentV
     let pidM     = validation (const Nothing) (asString &> TRead.readMaybe) parentV
     bimapM_ notifyBadParams (helper student pidM) tupleV
   where
-    helper student pidM (nid, uid, comment) =
+    helper student pidM (uid, comment) =
       do
-        result <- liftIO $ writeComment student nid uid pidM comment
+        result <- liftIO $ writeComment student uid pidM comment
         whenSuccess result $ const $ writeText ""
 
 handleGetTemplateName :: Snap ()

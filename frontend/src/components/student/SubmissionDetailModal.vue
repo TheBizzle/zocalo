@@ -6,14 +6,14 @@
     <div class="modal-box item-detail-modal animate-scale">
       <button class="btn-icon modal-close" @click="deactivate">✕</button>
       <h2 style="margin-bottom: var(--space-2)">
-        [{{ submission.uploader }}] {{ submission.uploadName }}
+        {{ submission.uploader }}
       </h2>
 
       <div class="scroll-pane">
 
         <div class="item-preview">
           <img v-if="submission?.image" :src="submission?.image"
-               :alt="submission?.uploadName" style="max-width: 100%; border-radius: var(--radius-md)" />
+               :alt="submission?.uploader" style="max-width: 100%; border-radius: var(--radius-md)" />
           <div v-else class="no-thumb-large">📄</div>
         </div>
 
@@ -25,8 +25,8 @@
 
         <div class="item-actions">
           <a class="btn btn-primary btn-lg dl-button"
-             :href="`/api/galleries/${galleryID}/student/${submission.uploadName}`"
-             :download="submission.uploadName">↓ Download</a>
+             :href="`/api/galleries/${galleryID}/student/${submission.id}`"
+             :download="submission.uploader">↓ Download</a>
           <button class="btn btn-primary btn-lg" @click="loadInSplit">
             <span class="dl-icon">👀</span> Load
           </button>
@@ -34,7 +34,7 @@
 
         <hr class="divider" />
         <CommentThread :comments="submission.comments" :galleryID="galleryID"
-                       :submissionName="submission.uploadName" />
+                       :submissionName="submission.uploader" />
 
       </div>
 
