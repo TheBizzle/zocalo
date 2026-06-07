@@ -19,7 +19,7 @@
         </div>
         <div class="gallery-item-info">
           <div class="gallery-item-title">
-            [{{ item.uploader }}] {{ item.uploader }}
+            {{ item.uploader }}
           </div>
           <div class="gallery-item-meta">
             {{ item.comments.length }} comment{{ item.comments.length !== 1 ? 's' : '' }}
