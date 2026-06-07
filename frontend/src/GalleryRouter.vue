@@ -1,6 +1,6 @@
 <template>
-  <SplitGalleryView   v-if="isSplit" />
-  <StudentGalleryView v-else         />
+  <SplitGalleryView   v-if="activity.isSplit" :activity="activity" />
+  <StudentGalleryView v-else                  :activity="activity" />
 </template>
 
 <script lang="ts" setup>
@@ -11,9 +11,16 @@
   import SplitGalleryView   from "./views/SplitGalleryView.vue";
   import StudentGalleryView from "./views/StudentGalleryView.vue";
 
+  import type { Activity } from "@/core/Activity.ts";
+
   const route = useRoute();
 
-  const isSplit = ref<boolean | null>(null);
+  const nonActivity =
+    { isSplit: false
+    , name:    "fake activity"
+    };
+
+  const activity = ref<Activity>(nonActivity);
 
   watch(
     () => route.params["nanoid"],
@@ -22,10 +29,19 @@
       if (!res.ok) {
         const message = await res.text();
         console.warn("Unknown gallery", message);
-        isSplit.value = false;
       } else {
         const result = await res.text();
-        isSplit.value = result.toLowerCase() !== "demo";
+        const name   = result.toLowerCase();
+        switch (name) {
+          case "demo":
+            activity.value = { isSplit: false, name };
+            break;
+          case "google-docs":
+            activity.value = { isSplit: true, name };
+            break;
+          default:
+            throw new Error(`Unknown gallery type: ${name}`);
+        }
       }
     },
     { immediate: true }

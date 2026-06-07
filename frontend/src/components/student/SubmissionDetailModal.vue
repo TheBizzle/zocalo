@@ -48,6 +48,7 @@
   import { computed, defineComponent, nextTick, type PropType, ref, watch } from "vue";
   import { useRoute                                                       } from "vue-router";
 
+  import type { Activity   } from "@/core/Activity.ts";
   import { formatDate      } from "@/core/formatDate.ts";
   import type { Submission } from "@/core/Submission.ts";
 
@@ -56,7 +57,8 @@
   export default defineComponent({
     name:       "SubmissionDetailModal"
   , components: { CommentThread }
-  , props:      { galleryID:  { type: String                               , required: true }
+  , props:      {  activity:  { type: Object as PropType<Activity>         , required: true }
+                , galleryID:  { type: String                               , required: true }
                 , isSplit:    { type: Boolean                              , required: true }
                 , submission: { type: Object as PropType<Submission | null>, required: true }
                 }

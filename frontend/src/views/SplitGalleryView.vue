@@ -51,6 +51,7 @@
       <template #main>
 
         <SubmissionDetailModal
+          :activity="activity"
           :galleryID="galleryID"
           :isSplit="true"
           :submission="activeSubmission"
@@ -94,14 +95,15 @@
 
 <script lang="ts">
 
-  import { computed, defineComponent, onMounted, ref } from "vue";
-  import { useRoute                                  } from "vue-router";
+  import { computed, defineComponent, onMounted, type PropType, ref } from "vue";
+  import { useRoute                                                 } from "vue-router";
 
   import GoogleDocsRenderer    from "@/components/GoogleDocsRenderer.vue";
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
   import VerticalSplit         from "@/components/VerticalSplit.vue";
 
+  import type { Activity                         } from "@/core/Activity.ts";
   import { setTitle                              } from "@/core/setTitle.ts";
   import { authorizedFetch                       } from "@/core/StudentAuth.ts";
   import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
@@ -109,6 +111,7 @@
   export default defineComponent({
     name:       "SplitGalleryView"
   , components: { GoogleDocsRenderer, SubmissionDetailModal, UploadModal, VerticalSplit }
+  , props:      { activity:  { type: Object as PropType<Activity>, required: true } }
   , setup() {
 
       const route = useRoute();
