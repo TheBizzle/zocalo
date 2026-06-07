@@ -35,12 +35,12 @@
 
         <div class="controls-container">
 
-          <a v-if="docURL !== null" :href="docURL.href" class="btn btn-accent btn-lg doc-button"
+          <a v-if="docURL !== null" :href="docURL.href" class="btn btn-accent btn-lg doc-button floaty"
              target="_blank" rel="noopener noreferrer">
             📑 Open starter sheet
           </a>
 
-          <button class="btn btn-primary btn-lg share-button" @click="isUploadModalOpen = true">
+          <button class="btn btn-primary btn-lg floaty share-button" @click="isUploadModalOpen = true">
             ✚ Share your own
           </button>
 
@@ -224,7 +224,7 @@
 
     display:        flex;
     flex-direction: column;
-    gap:            3px;
+    gap:            5px;
 
     position:       absolute;
     bottom:         10px;
@@ -240,6 +240,10 @@
   .filled-when-empty:empty::before {
     content: "\00a0"; /* NBSP */
     margin:  2px 0;
+  }
+
+  .floaty {
+    filter: drop-shadow(4px 4px 1px rgba(0, 0, 0, 0.5));
   }
 
   .frame-placeholder {
