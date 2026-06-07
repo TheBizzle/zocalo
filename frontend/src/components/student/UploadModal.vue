@@ -273,9 +273,9 @@
 
           if (result.ok) {
 
-            const response   = await result.json() as { id: number, name: string };
-            const data       = await readFileAsText(uploadData);
-            const image      = await readFileAsBase64(uploadForm.value. imageFile);
+            const response = await result.json() as { id: number, name: string };
+            const data     = await readFileAsText(uploadData);
+            const image    = await readFileAsBase64(uploadForm.value. imageFile);
 
             const submission: Submission =
               { id:           response.id
