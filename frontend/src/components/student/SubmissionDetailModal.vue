@@ -27,7 +27,7 @@
           <a class="btn btn-primary btn-lg dl-button"
              :href="`/api/galleries/${galleryID}/student/${submission.id}`"
              :download="submission.uploader">↓ Download</a>
-          <button class="btn btn-primary btn-lg" @click="loadInSplit">
+          <button v-if="activity.hasLoadableWork" class="btn btn-primary btn-lg" @click="loadInSplit">
             <span class="dl-icon">👀</span> Load
           </button>
         </div>

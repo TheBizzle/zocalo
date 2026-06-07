@@ -16,8 +16,9 @@
   const route = useRoute();
 
   const nonActivity =
-    { isSplit: false
-    , name:    "fake activity"
+    { hasLoadableWork: false
+    , isSplit:         false
+    , name:            "fake activity"
     };
 
   const activity = ref<Activity>(nonActivity);
@@ -34,10 +35,10 @@
         const name   = result.toLowerCase();
         switch (name) {
           case "demo":
-            activity.value = { isSplit: false, name };
+            activity.value = { hasLoadableWork: false, isSplit: false, name };
             break;
           case "google-docs":
-            activity.value = { isSplit: true, name };
+            activity.value = { hasLoadableWork: true, isSplit: true, name };
             break;
           default:
             throw new Error(`Unknown gallery type: ${name}`);

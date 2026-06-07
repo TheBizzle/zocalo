@@ -1,6 +1,7 @@
 type Activity =
-  { readonly isSplit: boolean
-  , readonly name:    string
+  { readonly hasLoadableWork: boolean
+  , readonly isSplit:         boolean
+  , readonly name:            string
   }
 
 export type { Activity };
