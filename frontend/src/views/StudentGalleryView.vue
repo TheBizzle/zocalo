@@ -54,7 +54,7 @@
   export default defineComponent({
     name:       "StudentGalleryView"
   , components: { BasicGallery, SubmissionDetailModal, UploadModal }
-  , props:      { activity:  { type: Object as PropType<Activity>, required: true } }
+  , props:      { activity: { type: Object as PropType<Activity>, required: true } }
   , setup() {
 
       const route = useRoute();

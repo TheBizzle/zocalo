@@ -52,12 +52,12 @@
   import { formatDate      } from "@/core/formatDate.ts";
   import type { Submission } from "@/core/Submission.ts";
 
-  import CommentThread  from "./CommentThread.vue";
+  import CommentThread from "./CommentThread.vue";
 
   export default defineComponent({
     name:       "SubmissionDetailModal"
   , components: { CommentThread }
-  , props:      {  activity:  { type: Object as PropType<Activity>         , required: true }
+  , props:      { activity:   { type: Object as PropType<Activity>         , required: true }
                 , galleryID:  { type: String                               , required: true }
                 , isSplit:    { type: Boolean                              , required: true }
                 , submission: { type: Object as PropType<Submission | null>, required: true }
