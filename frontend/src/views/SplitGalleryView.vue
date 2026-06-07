@@ -55,6 +55,7 @@
           :galleryID="galleryID"
           :isSplit="true"
           :submission="activeSubmission"
+          @add-comment="addComment"
           @load-in-split="loadInSplit"
           @unset-active-submission="unsetActiveSubmission"
         />
@@ -103,10 +104,10 @@
   import UploadModal           from "@/components/student/UploadModal.vue";
   import VerticalSplit         from "@/components/VerticalSplit.vue";
 
-  import type { Activity                         } from "@/core/Activity.ts";
-  import { setTitle                              } from "@/core/setTitle.ts";
-  import { authorizedFetch                       } from "@/core/StudentAuth.ts";
-  import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
+  import type { Activity                                       } from "@/core/Activity.ts";
+  import { setTitle                                            } from "@/core/setTitle.ts";
+  import { authorizedFetch                                     } from "@/core/StudentAuth.ts";
+  import { AllSubmissionsSchema, type Comment, type Submission } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "SplitGalleryView"
@@ -134,6 +135,12 @@
           hasMounted.value = true;
         }
       );
+
+      function addComment(comment: Comment): void {
+        if (activeSubmission.value !== null) {
+          activeSubmission.value.comments.push(comment);
+        }
+      }
 
       function addNewSubmission(sub: Submission): void {
         if (!isModerated.value) {
@@ -193,9 +200,9 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addNewSubmission, docURL, galleryID, galleryName, isUploadModalOpen
-             , loadedAuthor, loadedContent, loadInSplit, setActiveSubmission, submissions
-             , unsetActiveSubmission
+      return { activeSubmission, addComment, addNewSubmission, docURL, galleryID, galleryName
+             , isUploadModalOpen, loadedAuthor, loadedContent, loadInSplit, setActiveSubmission
+             , submissions, unsetActiveSubmission
              };
 
     }

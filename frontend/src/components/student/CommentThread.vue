@@ -54,7 +54,8 @@
     , galleryID:    { type: String, required: true }
     , submissionID: { type: Number, required: true }
     }
-  , setup(props) {
+  , emits: ["add-comment"]
+  , setup(props, { emit }) {
 
       const localComments = ref<Array<Comment>>([...props.comments]);
       const errorMsg      = ref("");
@@ -95,6 +96,7 @@
               , creationTime: new Date()
               };
             localComments.value.push(newComment);
+            emit("add-comment", newComment);
           } else {
             errorMsg.value = await res.text();
           }

@@ -34,7 +34,7 @@
 
         <hr class="divider" />
         <CommentThread :comments="submission.comments" :galleryID="galleryID"
-                       :submissionID="submission.id" />
+                       :submissionID="submission.id" @add-comment="addComment" />
 
       </div>
 
@@ -62,7 +62,7 @@
                 , isSplit:    { type: Boolean                              , required: true }
                 , submission: { type: Object as PropType<Submission | null>, required: true }
                 }
-  , emits:      ["load-in-split", "unset-active-submission"]
+  , emits:      ["load-in-split", "unset-active-submission", "add-comment"]
   , setup(props, { emit }) {
 
       useRoute();
@@ -95,6 +95,10 @@
           }
         );
 
+      function addComment(comment: Comment): void {
+        emit("add-comment", comment);
+      }
+
       function deactivate(): void {
         emit("unset-active-submission");
       }
@@ -114,7 +118,7 @@
         emit("unset-active-submission");
       }
 
-      return { description, deactivate, formatDate, handleEsc, loadInSplit, modalRef };
+      return { addComment, description, deactivate, formatDate, handleEsc, loadInSplit, modalRef };
 
     }
   });

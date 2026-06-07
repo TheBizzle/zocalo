@@ -14,6 +14,7 @@
       :galleryID="galleryID"
       :isSplit="false"
       :submission="activeSubmission"
+      @add-comment="addComment"
       @unset-active-submission="unsetActiveSubmission"
     />
 
@@ -45,10 +46,10 @@
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
 
-  import type { Activity                         } from "@/core/Activity.ts";
-  import { setTitle                              } from "@/core/setTitle.ts";
-  import { authorizedFetch                       } from "@/core/StudentAuth.ts";
-  import { AllSubmissionsSchema, type Submission } from "@/core/Submission.ts";
+  import type { Activity                                       } from "@/core/Activity.ts";
+  import { setTitle                                            } from "@/core/setTitle.ts";
+  import { authorizedFetch                                     } from "@/core/StudentAuth.ts";
+  import { AllSubmissionsSchema, type Comment, type Submission } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "StudentGalleryView"
@@ -72,6 +73,12 @@
       const isModerated       = ref(true);
       const isUploadModalOpen = ref(false);
       const hasMounted        = ref(false);
+
+      function addComment(comment: Comment): void {
+        if (activeSubmission.value !== null) {
+          activeSubmission.value.comments.push(comment);
+        }
+      }
 
       function addNewSubmission(sub: Submission): void {
         if (!isModerated.value) {
@@ -110,8 +117,8 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addNewSubmission, galleryID, galleryName, hasMounted, isUploadModalOpen
-             , setActiveSubmission, unsetActiveSubmission, submissions };
+      return { activeSubmission, addComment, addNewSubmission, galleryID, galleryName, hasMounted
+             , isUploadModalOpen, setActiveSubmission, unsetActiveSubmission, submissions };
 
     }
   });
