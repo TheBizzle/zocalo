@@ -65,16 +65,14 @@
 
           <div class="card-footer">
             <div class="footer-actions-left">
-              <button class="btn btn-primary" @click="viewAsStudent(gallery)">
+              <a :href="`/gallery/${gallery.id}`" class="btn btn-primary link" target="_blank"
+                 rel="noopener noreferrer">
                 Student view
-              </button>
-              <button
-                v-if="gallery.isPrescreened"
-                class="btn btn-accent"
-                @click="viewAsTeacher(gallery)"
-              >
+              </a>
+              <a v-if="gallery.isPrescreened" :href="`/`" class="btn btn-accent link" target="_blank"
+                 rel="noopener noreferrer" @click="viewAsTeacher(gallery)">
                 Moderation view
-              </button>
+              </a>
             </div>
             <button class="btn-text" @click="openCloneModal(gallery)">
               Make another
@@ -146,7 +144,7 @@
 
   , setup() {
 
-      const router = useRouter();
+      useRouter();
 
       const galleries = ref<Array<Gallery>>([]);
       onMounted(
@@ -250,11 +248,6 @@
 
       function viewAsTeacher(_g: Gallery): void {
         alert("Not yet implemented"); // TODO
-        // void router.push(`/moderate/${g.id}`);
-      }
-
-      function viewAsStudent(g: Gallery): void {
-        void router.push(`/gallery/${g.id}`);
       }
 
       function resetCloneModal(): void {
@@ -335,7 +328,7 @@
       return {
         activeTab, cloneDesc, cloneError, cloneModal, cloneName, cloneSource, confirmClone, formatDate
       , handleEsc, hasMounted, modalRef, onGalleryCanceled, onGalleryCreated, openCloneModal
-      , openCreateModal, sortedGalleries, sortKey, viewAsStudent, viewAsTeacher
+      , openCreateModal, sortedGalleries, sortKey, viewAsTeacher
       };
 
     }
@@ -487,6 +480,10 @@
   .btn-main {
     font-size: var(--space-5);
     padding:   var(--space-4) var(--space-5);
+  }
+
+  .link {
+    color: rgb(255, 255, 255);
   }
 
 </style>
