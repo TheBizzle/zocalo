@@ -13,7 +13,7 @@
 
         <div class="item-preview">
           <img v-if="submission?.image" :src="submission?.image"
-               :alt="submission?.uploader" style="max-width: 100%; border-radius: var(--radius-md)" />
+               :alt="submission?.uploader" style="max-width: 100%; border-radius: var(--radius-md);" />
           <div v-else class="no-thumb-large">📄</div>
         </div>
 

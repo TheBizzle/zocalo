@@ -22,7 +22,7 @@
             @dragleave="uploadDragging = false"
             @drop.prevent="onUploadDrop"
           >
-            <input ref="uploadFileRef" type="file" style="display: none" @change="onUploadFile" />
+            <input ref="uploadFileRef" type="file" style="display: none;" @change="onUploadFile" />
             <div v-if="!uploadForm.uploadName">
               <p style="font-size: 1.5rem; margin-bottom: 8px">📎</p>
               <p style="font-size: 0.9rem; color: var(--clr-ink-2)">Click, or drag your file here</p>
