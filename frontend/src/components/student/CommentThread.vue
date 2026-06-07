@@ -88,13 +88,13 @@
           const res = await authorizedFetch(url, options);
 
           if (res.ok) {
-            localComments.value.push(
+            const newComment: Comment =
               { comment
               , author:       selfName.value
               , parentID:     null
               , creationTime: new Date()
-              }
-            );
+              };
+            localComments.value.push(newComment);
           } else {
             errorMsg.value = await res.text();
           }
