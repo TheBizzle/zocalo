@@ -1,6 +1,7 @@
 module Zocalo.Gallery.Controller(routes, runMigrations) where
 
 import Data.CaseInsensitive(CI)
+import Data.NanoID(unNanoID)
 
 import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Snap, writeBS, writeText)
 import Snap.Util.FileServe(serveDirectory)
@@ -112,7 +113,7 @@ handleNewSessionWithParams =
     _handleNewSessionWithParams teacher (template, name, getsPrescreened, config, desc) =
       do
         result <- liftIO $ registerNewGallery teacher template name getsPrescreened config desc
-        whenSuccess result $ encodeText &> succeed "text/plain"
+        whenSuccess result $ unNanoID &> TextEncoding.decodeUtf8 &> succeed "text/plain"
 
 handleListGalleries :: Snap ()
 handleListGalleries =
