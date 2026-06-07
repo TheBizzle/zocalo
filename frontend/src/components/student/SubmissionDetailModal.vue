@@ -34,7 +34,7 @@
 
         <hr class="divider" />
         <CommentThread :comments="submission.comments" :galleryID="galleryID"
-                       :submissionName="submission.uploader" />
+                       :submissionID="submission.id" />
 
       </div>
 

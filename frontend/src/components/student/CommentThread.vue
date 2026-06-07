@@ -50,9 +50,9 @@
   export default defineComponent({
     name: "CommentThread"
   , props: {
-      comments:       { type: Array as PropType<Array<Comment>>, default: () => [] }
-    , galleryID:      { type: String, required: true }
-    , submissionName: { type: String, required: true }
+      comments:     { type: Array as PropType<Array<Comment>>, default: () => [] }
+    , galleryID:    { type: String, required: true }
+    , submissionID: { type: Number, required: true }
     }
   , setup(props) {
 
@@ -84,7 +84,7 @@
           postData.append("comment", comment);
           const options = { method: "POST", body: postData };
 
-          const url = `/api/galleries/${props.galleryID}/student/${props.submissionName}/comment`;
+          const url = `/api/galleries/${props.galleryID}/student/${props.submissionID}/comment`;
           const res = await authorizedFetch(url, options);
 
           if (res.ok) {
