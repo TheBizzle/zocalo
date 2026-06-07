@@ -148,7 +148,7 @@ asNanoID :: Constraint NanoID
 asNanoID = Constraint $ buildConstraint $
   \x ->
     if Text.length x == 21 && Text.all (`Text.elem` allowed) x then
-      Just (NanoID (encodeUtf8 x))
+      Just $ NanoID $ encodeUtf8 x
     else
       Nothing
   where
