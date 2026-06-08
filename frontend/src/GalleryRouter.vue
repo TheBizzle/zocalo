@@ -15,13 +15,18 @@
 
   const route = useRoute();
 
-  const nonActivity =
+  const nonActivity: Activity =
     { hasLoadableWork: false
     , isSplit:         false
     , name:            "fake activity"
     };
 
   const activity = ref<Activity>(nonActivity);
+
+  const activities: Record<string, Activity>  =
+    { "demo":        { hasLoadableWork: false, isSplit: false, name:        "demo" }
+    , "google-docs": { hasLoadableWork:  true, isSplit:  true, name: "google-docs" }
+    };
 
   watch(
     () => route.params["nanoid"],
@@ -33,15 +38,11 @@
       } else {
         const result = await res.text();
         const name   = result.toLowerCase();
-        switch (name) {
-          case "demo":
-            activity.value = { hasLoadableWork: false, isSplit: false, name };
-            break;
-          case "google-docs":
-            activity.value = { hasLoadableWork: true, isSplit: true, name };
-            break;
-          default:
-            throw new Error(`Unknown gallery type: ${name}`);
+        const activ  = activities[name];
+        if (activ === undefined) {
+          throw new Error(`Unknown gallery type: ${name}`);
+        } else {
+          activity.value = activ;
         }
       }
     },
