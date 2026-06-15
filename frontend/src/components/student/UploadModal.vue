@@ -12,9 +12,12 @@
 
       <div class="form-stack">
         <div class="form-group">
-          <label class="form-label">Your contribution<span class="required">*</span></label>
+          <label v-if="activity.sharingStyle !== 'export'" class="form-label">
+            Your contribution<span class="required">*</span>
+          </label>
+
           <div
-            v-if="!isText"
+            v-if="activity.sharingStyle === 'file-picker'"
             class="file-zone"
             :class="{ dragover: uploadDragging }"
             @click="triggerUploadFile"
@@ -22,7 +25,9 @@
             @dragleave="uploadDragging = false"
             @drop.prevent="onUploadDrop"
           >
+
             <input ref="uploadFileRef" type="file" style="display: none;" @change="onUploadFile" />
+
             <div v-if="!uploadForm.uploadName">
               <p style="font-size: 1.5rem; margin-bottom: 8px">📎</p>
               <p style="font-size: 0.9rem; color: var(--clr-ink-2)">Click, or drag your file here</p>
@@ -33,7 +38,8 @@
               </p>
             </div>
           </div>
-          <div v-else>
+
+          <div v-else-if="activity.sharingStyle === 'clipboard'">
             <button class="btn btn-primary btn-sm" style="margin-bottom: 8px;" @click="importClipboard">
               Import from clipboard
             </button>
@@ -41,10 +47,14 @@
               {{ uploadedTextContent }}
             </textarea>
           </div>
+
         </div>
+
         <div class="form-group">
           <label class="form-label">Preview image<span class="required">*</span></label>
+
           <div
+            v-if="activity.sharingStyle !== 'export'"
             class="file-zone"
             :class="{ dragover: imageDragging }"
             @click="triggerImageInput"
@@ -63,7 +73,11 @@
               </p>
             </div>
           </div>
+
+          <img v-else-if="activity.sharingStyle === 'export'" :src="imageSource" alt="Preview image" />
+
         </div>
+
         <div class="form-group">
           <label class="form-label">Description</label>
           <textarea v-model="uploadForm.description" class="form-textarea"
@@ -85,9 +99,11 @@
 
 <script lang="ts">
 
-  import { defineComponent, nextTick, ref, watch } from "vue";
-  import { useRoute                              } from "vue-router";
+  import { defineComponent, nextTick, type PropType, ref, watch } from "vue";
+  import { useRoute                                             } from "vue-router";
 
+  import type { Activity                   } from "@/core/Activity.ts";
+  import type { ExportData                 } from "@/core/ExportData.ts";
   import { readFileAsBase64                } from "@/core/readFileAsBase64.ts";
   import { readFileAsText                  } from "@/core/readFileAsText.ts";
   import { sanitizeHTML                    } from "@/core/sanitizeHTML.ts";
@@ -97,10 +113,20 @@
   export default defineComponent({
     name:       "UploadModal"
   , components: {}
-  , props:      { isOpen:  { type: Boolean, required: true }
-                , isText:  { type: Boolean, required: true }
+  , props:      { activity:   { type: Object as PropType<         Activity>, required: true }
+                , exportData: { type: Object as PropType<ExportData | null>, required: true, default: null }
+                , isOpen:     { type:                               Boolean, required: true }
                 }
   , emits:      ["add-new-submission", "close-dialog"]
+  , computed: {
+      imageSource() {
+        if (this.mimeBase64Pair !== null) {
+          return `data:${this.mimeBase64Pair[0]};base64,${this.mimeBase64Pair[1]}`;
+        } else {
+          return "";
+        }
+      }
+  }
   , setup(props, { emit }) {
 
       const route  = useRoute();
@@ -111,9 +137,11 @@
       const imageDragging  = ref(false);
       const imageInputRef  = ref<HTMLInputElement | null>(null);
 
+      const mimeBase64Pair = ref<[string, string] | null>(null);
+
       const uploadDragging      = ref(false);
       const uploadFileRef       = ref<HTMLInputElement | null>(null);
-      const uploadHTML          = ref<string           | null>(null);
+      const uploadData          = ref<string           | null>(null);
       const uploadedTextContent = ref<string           | null>(null);
 
       const uploadError     = ref("");
@@ -135,6 +163,17 @@
           if (isOpen) {
             await nextTick();
             modalRef.value?.focus();
+          }
+        }
+      );
+
+      watch(
+        () => props.exportData
+      , async (exportData: ExportData | null) => {
+          if (exportData !== null) {
+            const { imageBase64, mimeType, data } = exportData;
+            uploadData.value     = data;
+            mimeBase64Pair.value = [mimeType, imageBase64];
           }
         }
       );
@@ -180,10 +219,10 @@
 
           const blob       = await clippy.getType("text/html");
           const rawHTML    = await blob.text();
-          uploadHTML.value = sanitizeHTML(rawHTML);
+          uploadData.value = sanitizeHTML(rawHTML);
 
           uploadedTextContent.value =
-            new DOMParser().parseFromString(uploadHTML.value, "text/html").body.innerText;
+            new DOMParser().parseFromString(uploadData.value, "text/html").body.innerText;
 
         }
 
@@ -237,16 +276,31 @@
         uploadForm.value.uploadFile = file;
       }
 
+      function base64ToFile([mimeType, base64]: [string, string]): File {
+
+        const binaryStr = atob(base64);
+        const bytes       = new Array(binaryStr.length);
+
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+
+        const byteArray = new Uint8Array(bytes);
+
+        return new File([byteArray], "custom.png", { type: mimeType });
+
+      }
+
       async function submitUpload(): Promise<void> {
 
         uploadError.value = "";
 
-        if (uploadForm.value.uploadFile === null && uploadHTML.value === null) {
+        if (uploadForm.value.uploadFile === null && uploadData.value === null) {
           uploadError.value = "Please add upload data";
           return;
         }
 
-        if (uploadForm.value.imageFile === null) {
+        if (uploadForm.value.imageFile === null && mimeBase64Pair.value === null) {
           uploadError.value = "Please attach an image";
           return;
         }
@@ -257,15 +311,17 @@
 
           const metadata = JSON.stringify({ description: uploadForm.value.description });
 
-          const uploadData =
-            (!props.isText && uploadForm.value.uploadFile !== null)
+          const uploadableFile =
+            (props.activity.sharingStyle !== "file-picker" && uploadForm.value.uploadFile !== null)
               ? uploadForm.value.uploadFile
-              : new File([uploadHTML.value ?? ""], "custom.html", { type: "text/plain" });
+              : new File([uploadData.value ?? ""], "custom.html", { type: "text/plain" });
+
+          const imageFile = uploadForm.value.imageFile ?? base64ToFile(mimeBase64Pair.value!);
 
           const postData = new FormData();
-          postData.append("data"    ,                  uploadData);
-          postData.append("image"   , uploadForm.value. imageFile);
-          postData.append("metadata",                    metadata);
+          postData.append("data"    , uploadableFile);
+          postData.append("image"   , imageFile);
+          postData.append("metadata", metadata);
           const options = { method: "POST", body: postData };
 
           const url    = `/api/galleries/${nanoID}/student/submission`;
@@ -274,8 +330,8 @@
           if (result.ok) {
 
             const response = await result.json() as { id: number, name: string };
-            const data     = await readFileAsText(uploadData);
-            const image    = await readFileAsBase64(uploadForm.value. imageFile);
+            const data     = await readFileAsText(uploadableFile);
+            const image    = await readFileAsBase64(imageFile);
 
             const submission: Submission =
               { id:           response.id
@@ -291,7 +347,7 @@
 
             emit("add-new-submission", submission);
             uploadForm.value = { description: "", imageFile: null, imageName: "", uploadFile: null, uploadName: "" };
-            uploadHTML.value = null;
+            uploadData.value = null;
             close();
 
           } else {
@@ -310,10 +366,10 @@
 
       }
 
-      return { close, handleEsc, imageDragging, imageInputRef, importClipboard, modalRef, onImageDrop
-             , onImageFile, onUploadDrop, onUploadFile, setUploadFile, submitUpload, triggerImageInput
-             , triggerUploadFile, uploadDragging, uploadError, uploadForm, uploading, uploadFileRef
-             , uploadedTextContent };
+      return { close, handleEsc, imageDragging, imageInputRef, importClipboard, mimeBase64Pair, modalRef
+             , onImageDrop, onImageFile, onUploadDrop, onUploadFile, setUploadFile, submitUpload
+             , triggerImageInput, triggerUploadFile, uploadDragging, uploadError, uploadForm, uploading
+             , uploadFileRef, uploadedTextContent };
 
     }
   });

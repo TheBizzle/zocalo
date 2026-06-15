@@ -159,7 +159,7 @@
       const uploadedFileName = ref<string | null>(null);
 
       const templates: Array<Template> =
-        [ { id: "geogebra",      name: "GeoGebra",             isDisabled:  true, description: "Students upload GeoGebra constructions" }
+        [ { id: "geogebra",      name: "GeoGebra",             isDisabled: false, description: "Students upload GeoGebra constructions" }
         , { id: "google-docs",   name: "Google Docs",          isDisabled: false, description: "Students upload content from a seed Google Doc" }
         , { id: "netlogo-model", name: "NetLogo",              isDisabled:  true, description: "Students upload NetLogo models" }
         , { id: "netlogo-world", name: "NetLogo + world",      isDisabled:  true, description: "Students upload NetLogo models and world states" }

@@ -16,16 +16,19 @@
   const route = useRoute();
 
   const nonActivity: Activity =
-    { hasLoadableWork: false
-    , isSplit:         false
-    , name:            "fake activity"
+    { hasExternalStarter: false
+    , hasLoadableWork:    false
+    , isSplit:            false
+    , name:               "fake activity"
+    , sharingStyle:       "file-picker"
     };
 
   const activity = ref<Activity>(nonActivity);
 
   const activities: Record<string, Activity>  =
-    { "demo":        { hasLoadableWork: false, isSplit: false, name:        "demo" }
-    , "google-docs": { hasLoadableWork:  true, isSplit:  true, name: "google-docs" }
+    { "demo":        { hasExternalStarter: false, hasLoadableWork: false, isSplit: false, name:        "demo", sharingStyle: "file-picker" }
+    , "geogebra":    { hasExternalStarter: false, hasLoadableWork:  true, isSplit:  true, name:    "geogebra", sharingStyle:      "export" }
+    , "google-docs": { hasExternalStarter:  true, hasLoadableWork:  true, isSplit:  true, name: "google-docs", sharingStyle:   "clipboard" }
     };
 
   watch(

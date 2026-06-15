@@ -26,7 +26,6 @@
       watch(
         () => props.loadedContent
       , async (content) => {
-          console.log(content);
           sanitizedContent.value = sanitizeHTML(content);
         }
       );

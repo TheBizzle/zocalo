@@ -19,8 +19,9 @@
     />
 
     <UploadModal
+      :activity="activity"
+      :exportData="exportedData"
       :isOpen="isUploadModalOpen"
-      :isText="false"
       @add-new-submission="addNewSubmission"
       @close-dialog="isUploadModalOpen = false"
     />
@@ -47,6 +48,7 @@
   import UploadModal           from "@/components/student/UploadModal.vue";
 
   import type { Activity                                       } from "@/core/Activity.ts";
+  import type { ExportData                                     } from "@/core/ExportData.ts";
   import { setTitle                                            } from "@/core/setTitle.ts";
   import { authorizedFetch                                     } from "@/core/StudentAuth.ts";
   import { AllSubmissionsSchema, type Comment, type Submission } from "@/core/Submission.ts";
@@ -68,6 +70,7 @@
       );
 
       const activeSubmission  = ref<Submission | null>(null);
+      const exportedData      = ref<ExportData | null>(null);
       const galleryID         = ref<string>(route.params["nanoid"] as string);
       const galleryName       = ref("");
       const isModerated       = ref(true);
@@ -117,8 +120,8 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addComment, addNewSubmission, galleryID, galleryName, hasMounted
-             , isUploadModalOpen, setActiveSubmission, unsetActiveSubmission, submissions };
+      return { activeSubmission, addComment, addNewSubmission, exportedData, galleryID, galleryName
+             , hasMounted, isUploadModalOpen, setActiveSubmission, unsetActiveSubmission, submissions };
 
     }
   });

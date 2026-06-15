@@ -35,8 +35,8 @@
 
         <div class="controls-container">
 
-          <a v-if="docURL !== null" :href="docURL.href" class="btn btn-accent btn-lg doc-button floaty"
-             target="_blank" rel="noopener noreferrer">
+          <a v-if="docURL !== null && activity.hasExternalStarter" :href="docURL.href"
+             class="btn btn-accent btn-lg doc-button floaty" target="_blank" rel="noopener noreferrer">
             📑 Open starter sheet
           </a>
 
@@ -61,8 +61,9 @@
         />
 
         <UploadModal
+          :activity="activity"
+          :exportData="exportedData"
           :isOpen="isUploadModalOpen"
-          :isText="true"
           @add-new-submission="addNewSubmission"
           @close-dialog="isUploadModalOpen = false"
         />
@@ -75,7 +76,7 @@
           </h3>
         </div>
 
-        <div v-if="loadedContent === null" class="frame-placeholder">
+        <div v-if="loadedContent === null && isShowingFiller" class="frame-placeholder">
           <div class="placeholder-inner">
             <p style="font-size: 3rem; margin-bottom: var(--space-4)">🖼️</p>
             <h3>View submitted work</h3>
@@ -85,7 +86,13 @@
             </p>
           </div>
         </div>
-        <GoogleDocsRenderer :loadedContent="loadedContent ?? ''" />
+
+        <Geogebra v-if="activity.name === 'geogebra'" @export-data="storeData" @hide-filler="hideFiller"
+                  :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                  :shouldExport="isUploadModalOpen" />
+
+        <GoogleDocsRenderer v-else-if="activity.name === 'google-docs'"
+                            :loadedContent="loadedContent ?? ''" />
 
       </template>
 
@@ -99,29 +106,33 @@
   import { computed, defineComponent, onMounted, type PropType, ref } from "vue";
   import { useRoute                                                 } from "vue-router";
 
+  import Geogebra              from "@/components/Geogebra.vue";
   import GoogleDocsRenderer    from "@/components/GoogleDocsRenderer.vue";
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
   import VerticalSplit         from "@/components/VerticalSplit.vue";
 
   import type { Activity                                       } from "@/core/Activity.ts";
+  import type { ExportData                                     } from "@/core/ExportData.ts";
   import { setTitle                                            } from "@/core/setTitle.ts";
   import { authorizedFetch                                     } from "@/core/StudentAuth.ts";
   import { AllSubmissionsSchema, type Comment, type Submission } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "SplitGalleryView"
-  , components: { GoogleDocsRenderer, SubmissionDetailModal, UploadModal, VerticalSplit }
-  , props:      { activity:  { type: Object as PropType<Activity>, required: true } }
+  , components: { Geogebra, GoogleDocsRenderer, SubmissionDetailModal, UploadModal, VerticalSplit }
+  , props:      { activity: { type: Object as PropType<Activity>, required: true } }
   , setup() {
 
       const route = useRoute();
 
       const activeSubmission  = ref<Submission | null>(null);
       const docURL            = ref<URL | null>(null);
+      const exportedData      = ref<ExportData | null>(null);
       const galleryID         = ref<string>(route.params["nanoid"] as string);
       const galleryName       = ref("");
       const isModerated       = ref(true);
+      const isShowingFiller   = ref(true);
       const isUploadModalOpen = ref(false);
       const hasMounted        = ref(false);
       const loadedAuthor      = ref<string | null>(null);
@@ -158,6 +169,10 @@
         }
       }
 
+      function hideFiller(): void {
+        isShowingFiller.value = false;
+      }
+
       async function loadInSplit(submission: Submission): Promise<void> {
         const res = await fetch(`/api/galleries/${galleryID.value}/student/${submission.id}`);
         if (!res.ok) {
@@ -167,6 +182,10 @@
           loadedContent.value = await res.text();
           loadedAuthor.value  = submission.uploader;
         }
+      }
+
+      function storeData(data: ExportData): void {
+        exportedData.value = data;
       }
 
       function setActiveSubmission(sub: Submission): void {
@@ -200,9 +219,9 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addComment, addNewSubmission, docURL, galleryID, galleryName
-             , isUploadModalOpen, loadedAuthor, loadedContent, loadInSplit, setActiveSubmission
-             , submissions, unsetActiveSubmission
+      return { activeSubmission, addComment, addNewSubmission, docURL, exportedData, galleryID
+             , galleryName, hideFiller, isShowingFiller, isUploadModalOpen, loadedAuthor, loadedContent
+             , loadInSplit, setActiveSubmission, storeData, submissions, unsetActiveSubmission
              };
 
     }
