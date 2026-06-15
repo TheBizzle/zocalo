@@ -75,7 +75,7 @@ const bizzleRules =
   , "key-spacing":                                                     ["error", { mode: "minimum" }]
   , "keyword-spacing":                                                 "error"
   , "linebreak-style":                                                 ["error", "unix"]
-  , "max-len":                                                         ["error", { code: 105, ignoreComments: true, ignoreRegExpLiterals: true, ignoreStrings: true, ignoreTemplateLiterals: true, tabWidth: 2 }]
+  , "max-len":                                                         ["error", { code: 110, ignoreComments: true, ignoreRegExpLiterals: true, ignoreStrings: true, ignoreTemplateLiterals: true, tabWidth: 2 }]
   , "max-statements-per-line":                                         ["error", { max: 10 }]
   , "no-tabs":                                                         "error"
   , "no-trailing-spaces":                                              "error"
