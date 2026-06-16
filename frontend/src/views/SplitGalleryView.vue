@@ -35,7 +35,7 @@
 
         <div class="controls-container">
 
-          <a v-if="docURL !== null && activity.hasExternalStarter" :href="docURL.href"
+          <a v-if="docURL !== null && activity.starterMode === 'external'" :href="docURL.href"
              class="btn btn-accent btn-lg doc-button floaty" target="_blank" rel="noopener noreferrer">
             📑 Open starter sheet
           </a>
@@ -122,7 +122,7 @@
     name:       "SplitGalleryView"
   , components: { Geogebra, GoogleDocsRenderer, SubmissionDetailModal, UploadModal, VerticalSplit }
   , props:      { activity: { type: Object as PropType<Activity>, required: true } }
-  , setup() {
+  , setup(props) {
 
       const route = useRoute();
 
@@ -160,12 +160,14 @@
       }
 
       async function fetchStarterURL(): Promise<void> {
-        const res = await fetch(`/api/galleries/${galleryID.value}/student/starter-config`);
-        if (!res.ok) {
-          const message = await res.text();
-          alert(`Could not fetch starter: ${message}`);
-        } else {
-          docURL.value = new URL(await res.text());
+        if (props.activity.starterMode === "external") {
+          const res = await fetch(`/api/galleries/${galleryID.value}/student/starter-config`);
+          if (!res.ok) {
+            const message = await res.text();
+            alert(`Could not fetch starter: ${message}`);
+          } else {
+            docURL.value = new URL(await res.text());
+          }
         }
       }
 

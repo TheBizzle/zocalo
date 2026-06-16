@@ -11,25 +11,19 @@
   import SplitGalleryView   from "./views/SplitGalleryView.vue";
   import StudentGalleryView from "./views/StudentGalleryView.vue";
 
-  import type { Activity } from "@/core/Activity.ts";
+  import { activities, type Activity } from "@/core/Activity.ts";
 
   const route = useRoute();
 
   const nonActivity: Activity =
-    { hasExternalStarter: false
-    , hasLoadableWork:    false
+    { hasLoadableWork:    false
     , isSplit:            false
     , name:               "fake activity"
     , sharingStyle:       "file-picker"
+    , starterMode:        "none"
     };
 
   const activity = ref<Activity>(nonActivity);
-
-  const activities: Record<string, Activity>  =
-    { "demo":        { hasExternalStarter: false, hasLoadableWork: false, isSplit: false, name:        "demo", sharingStyle: "file-picker" }
-    , "geogebra":    { hasExternalStarter: false, hasLoadableWork:  true, isSplit:  true, name:    "geogebra", sharingStyle:      "export" }
-    , "google-docs": { hasExternalStarter:  true, hasLoadableWork:  true, isSplit:  true, name: "google-docs", sharingStyle:   "clipboard" }
-    };
 
   watch(
     () => route.params["nanoid"],

@@ -56,7 +56,7 @@
       </div>
 
       <!-- Starter data -->
-      <div class="form-group span-2">
+      <div v-if="hasStarter" class="form-group span-2">
         <label class="form-label">
           Starter data
           <span class="text-muted" style="font-weight: 400">(optional)</span>
@@ -131,8 +131,9 @@
 
 <script lang="ts">
 
-  import { defineComponent, reactive, ref, computed } from "vue";
+  import { computed, defineComponent, reactive, ref } from "vue";
 
+  import { activities       } from "@/core/Activity.ts";
   import { uploadNewGallery } from "@/core/uploadNewGallery.ts";
 
   import InfoIndicator from "./InfoIndicator.vue";
@@ -146,9 +147,9 @@
     }
 
   export default defineComponent({
-    name:  "CreateGalleryForm"
+    name:       "CreateGalleryForm"
   , components: { InfoIndicator, Switcher }
-  , emits: ["canceled", "created"]
+  , emits:      ["canceled", "created"]
   , setup(_, { emit }) {
 
       const isDragging       = ref(false);
@@ -178,6 +179,14 @@
       });
 
       const selectedTemplate = computed(() => templates.find(t => t.id === form.template) ?? null);
+
+      const hasStarter = computed<boolean>(
+        () => {
+          const name = (selectedTemplate.value?.id ?? "Demo").toLowerCase();
+          const mode = activities[name]?.starterMode ?? "none";
+          return mode !== "none";
+        }
+      );
 
       function triggerFileInput (): void {
         fileInput.value?.click();
@@ -322,8 +331,8 @@
       }
 
       return {
-        cancelForm, clearFile, detectedType, errorMsg, fileInput, form, isDragging, isLoading, onDrop
-      , onFileChange, resetForm, selectedTemplate, submit, successMsg, templates, triggerFileInput
+        cancelForm, clearFile, detectedType, errorMsg, fileInput, form, hasStarter, isDragging, isLoading
+      , onFileChange , onDrop, resetForm, selectedTemplate, submit, successMsg, templates, triggerFileInput
       , uploadedFileName
       };
 

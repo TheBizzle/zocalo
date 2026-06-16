@@ -1,4 +1,3 @@
-// hasExternalStarter: Creates a button that links to starter
 // hasLoadableWork:    Creates a button in the detail modal for loading in primary frame
 // isSplit:            Creates separate gallery and primary frames
 // name:               Identifier; differentiator
@@ -6,13 +5,23 @@
 //   * file-picker: User chooses a file to upload from disk
 //   * export:      Content is automatically pulled from primary frame
 //   * clipboard:   User gets a button for pasting clipboard contents
+// starterMode:
+//   * none:     Teacher gets no field for providing a starter
+//   * internal: Starter is automatically loaded when the page loads
+//   * external: User gets a button that links to starter
 
 type Activity =
-  { readonly hasExternalStarter: boolean
-  , readonly hasLoadableWork:    boolean
+  { readonly hasLoadableWork:    boolean
   , readonly isSplit:            boolean
-  , readonly name:               "demo" | "fake activity" | "geogebra" | "google-docs"
+  , readonly name:               "demo" | "fake activity" | "geogebra" | "google-docs" | "segregation"
   , readonly sharingStyle:       "clipboard" | "export" | "file-picker"
+  , readonly starterMode:        "none" | "internal" | "external"
   }
 
-export type { Activity };
+const activities: Record<string, Activity>  =
+  { "demo":        { hasLoadableWork: false, isSplit: false, name:        "demo", sharingStyle: "file-picker", starterMode:     "none" }
+  , "geogebra":    { hasLoadableWork:  true, isSplit:  true, name:    "geogebra", sharingStyle:      "export", starterMode: "internal" }
+  , "google-docs": { hasLoadableWork:  true, isSplit:  true, name: "google-docs", sharingStyle:   "clipboard", starterMode: "external" }
+  };
+
+export { activities, type Activity };
