@@ -9,7 +9,8 @@
   import { defineComponent, ref, watch } from "vue";
   import { useRoute                    } from "vue-router";
 
-  import type { ExportData } from "@/core/ExportData.ts";
+  import type { ExportData             } from "@/core/ExportData.ts";
+  import { sendAMessage, sendForAReply } from "@/core/frameMessaging.ts";
 
   export default defineComponent({
     name:  "Segregation"
@@ -26,6 +27,17 @@
 
       const nlwFrame = ref<HTMLIFrameElement | null>(null);
 
+      const sendMessage =
+        sendAMessage(
+          ()            =>   nlwFrame.value !== null
+        , (msg: object) => { nlwFrame.value!.contentWindow?.postMessage(msg, "*"); }
+        );
+
+      const sendForReply = sendForAReply(
+        ()                               =>   nlwFrame.value !== null
+      , (msg: object, port: MessagePort) => { nlwFrame.value!.contentWindow?.postMessage(msg, "*", [port]); }
+      );
+
       watch(
         () => props.shouldExport
       , async (shouldExport: boolean) => {
@@ -35,61 +47,16 @@
         }
       );
 
-      let waitingData: string | null = null;
-      const peskyLoop = // Load the waiting data, once the frame is loaded
-        setInterval(
-          () => {
-            if (nlwFrame.value !== null) {
-              clearInterval(peskyLoop);
-              if (waitingData !== null) {
-                const msg = { code: waitingData, type: "import-code" };
-                nlwFrame.value.contentWindow?.postMessage(msg, "*");
-              }
-            }
-          }
-        , 50
-        );
-
       watch(
         () => props.loadedContent
       , async (content) => {
-          if (nlwFrame.value !== null) {
-            const msg = { code: content, type: "import-code" };
-            nlwFrame.value.contentWindow?.postMessage(msg, "*");
-          } else {
-            waitingData = content;
-          }
+          await sendMessage({ code: content, type: "import-code" });
         }
       );
 
-      async function walkieTalkie(message: object): Promise<object> {
-        return new Promise(
-          (resolve, reject) => {
-
-            const channel = new MessageChannel();
-
-            channel.port1.onmessage = (response: MessageEvent<object>): void => {
-              resolve(response.data);
-              channel.port1.close();
-            };
-
-            nlwFrame.value?.contentWindow?.postMessage(message, "*", [channel.port2]);
-
-            setTimeout(
-              () => {
-                reject(new Error("Walkie talkie timed out"));
-                channel.port1.close();
-              }
-            , 5000
-            );
-
-          }
-        );
-      }
-
       async function exportData(): Promise<ExportData | undefined> {
         if (nlwFrame.value !== null) {
-          const d           = await walkieTalkie({ type: "export-data" }) as { code: string, image: string };
+          const d           = await sendForReply({ type: "export-data" }) as { code: string, image: string };
           const imageBase64 = d.image.slice(d.image.indexOf(",") + 1);
           return { data: d.code, mimeType: "image/png", imageBase64 };
         } else {
