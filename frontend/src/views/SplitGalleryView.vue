@@ -94,6 +94,11 @@
         <GoogleDocsRenderer v-else-if="activity.name === 'google-docs'"
                             :loadedContent="loadedContent ?? ''" />
 
+        <Segregation v-else-if="activity.name === 'segregation'"
+                  @export-data="storeData" @hide-filler="hideFiller"
+                  :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                  :shouldExport="isUploadModalOpen" />
+
       </template>
 
     </VerticalSplit>
@@ -110,6 +115,7 @@
   import GoogleDocsRenderer    from "@/components/GoogleDocsRenderer.vue";
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
+  import Segregation           from "@/components/Segregation.vue";
   import VerticalSplit         from "@/components/VerticalSplit.vue";
 
   import type { Activity                                       } from "@/core/Activity.ts";
@@ -120,7 +126,8 @@
 
   export default defineComponent({
     name:       "SplitGalleryView"
-  , components: { Geogebra, GoogleDocsRenderer, SubmissionDetailModal, UploadModal, VerticalSplit }
+  , components: { Geogebra, GoogleDocsRenderer, Segregation, SubmissionDetailModal, UploadModal
+                , VerticalSplit }
   , props:      { activity: { type: Object as PropType<Activity>, required: true } }
   , setup(props) {
 
