@@ -22,6 +22,7 @@ const activities: Record<string, Activity>  =
   { "demo":        { hasLoadableWork: false, isSplit: false, name:        "demo", sharingStyle: "file-picker", starterMode:     "none" }
   , "geogebra":    { hasLoadableWork:  true, isSplit:  true, name:    "geogebra", sharingStyle:      "export", starterMode: "internal" }
   , "google-docs": { hasLoadableWork:  true, isSplit:  true, name: "google-docs", sharingStyle:   "clipboard", starterMode: "external" }
+  , "segregation": { hasLoadableWork:  true, isSplit:  true, name: "segregation", sharingStyle:      "export", starterMode:     "none" }
   };
 
 export { activities, type Activity };
