@@ -15,7 +15,7 @@
               , "node": "~24.13.1"
               }
 
-, "dependencies": { "dompurify":  "~3.4.5"
+, "dependencies": { "dompurify":  "~3.4.9"
                   , "vue":        "~3.3.0"
                   , "vue-router": "~4.2.0"
                   , "zod":        "~4.3.0"
