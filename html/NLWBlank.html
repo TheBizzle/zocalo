@@ -111770,6 +111770,10 @@ try {
           if (!hasNotified) {
             reply(e)({ type: "nlw-model-loaded" });
             hasNotified = true;
+            if (e.ports[0] !== undefined) {
+              e.ports[0].postMessage({});
+              e.ports[0].close();
+            }
           }
         };
         listeners.push({ "session-loop-started": onStart });
@@ -111829,6 +111833,10 @@ try {
       }
       case "nlw-import-world": {
         workspace.importExportPrims.importWorldRaw(e.data.world);
+        if (e.ports[0] !== undefined) {
+          e.ports[0].postMessage({});
+          e.ports[0].close();
+        }
         break;
       }
       case "nlw-export-code": {
