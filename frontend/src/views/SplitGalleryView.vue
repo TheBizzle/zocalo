@@ -109,6 +109,11 @@
                   :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
                   :shouldExport="isUploadModalOpen" />
 
+        <SweepingArea v-else-if="activity.name === 'sweeping-area'"
+                      @export-data="storeData" @hide-filler="hideFiller"
+                      :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                      :shouldExport="isUploadModalOpen" />
+
       </template>
 
     </VerticalSplit>
@@ -121,14 +126,16 @@
   import { computed, defineComponent, onMounted, type PropType, ref } from "vue";
   import { useRoute                                                 } from "vue-router";
 
-  import Geogebra              from "@/components/Geogebra.vue";
-  import GoogleDocsRenderer    from "@/components/GoogleDocsRenderer.vue";
-  import NetLogo               from "@/components/NetLogo.vue";
-  import NetLogoWithWorld      from "@/components/NetLogoWithWorld.vue";
+  import Geogebra           from "@/components/Geogebra.vue";
+  import GoogleDocsRenderer from "@/components/GoogleDocsRenderer.vue";
+  import NetLogo            from "@/components/NetLogo.vue";
+  import NetLogoWithWorld   from "@/components/NetLogoWithWorld.vue";
+  import Segregation        from "@/components/Segregation.vue";
+  import SweepingArea       from "@/components/SweepingArea.vue";
+  import VerticalSplit      from "@/components/VerticalSplit.vue";
+
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
-  import Segregation           from "@/components/Segregation.vue";
-  import VerticalSplit         from "@/components/VerticalSplit.vue";
 
   import type { Activity                                       } from "@/core/Activity.ts";
   import type { ExportData                                     } from "@/core/ExportData.ts";
@@ -138,8 +145,8 @@
 
   export default defineComponent({
     name:       "SplitGalleryView"
-  , components: { Geogebra, GoogleDocsRenderer, NetLogo, NetLogoWithWorld, Segregation, SubmissionDetailModal
-                , UploadModal, VerticalSplit }
+  , components: { Geogebra, GoogleDocsRenderer, NetLogo, NetLogoWithWorld, Segregation, SweepingArea
+                , SubmissionDetailModal, UploadModal, VerticalSplit }
   , props:      { activity: { type: Object as PropType<Activity>, required: true } }
   , setup(props) {
 
@@ -181,10 +188,7 @@
       async function fetchStarterURL(): Promise<void> {
         if (props.activity.starterMode === "external") {
           const res = await fetch(`/api/galleries/${galleryID.value}/student/starter-config`);
-          if (!res.ok) {
-            const message = await res.text();
-            alert(`Could not fetch starter: ${message}`);
-          } else {
+          if (res.ok) {
             docURL.value = new URL(await res.text());
           }
         }

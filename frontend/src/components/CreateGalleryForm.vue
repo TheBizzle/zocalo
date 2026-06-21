@@ -127,6 +127,7 @@
         , { id: "netlogo-world", name: "NetLogo + world",      isDisabled: false, description: "Students upload NetLogo models and world states" }
         , { id:   "segregation", name: "NetLogo: Segregation", isDisabled: false, description: "Students upload variations of NetLogo's Segregation model" }
         , { id:      "netsblox", name: "NetsBlox",             isDisabled:  true, description: "Students upload NetsBlox programs" }
+        , { id: "sweeping-area", name: "Sweeping Area",        isDisabled: false, description: "Students upload geometric figures to explore how area is calculated" }
         , { id:          "demo", name: "Demo",                 isDisabled: false, description: "Simple demo gallery with a grid of images and files" }
         ];
 

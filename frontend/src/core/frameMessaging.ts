@@ -70,4 +70,30 @@ function sendForAReply( cond: () => boolean
 
 }
 
-export { sendAMessage, sendForAReply };
+function makeCommsChannel(): [MessagePort, (m: object, willWait: boolean) => Promise<object>] {
+
+  const { port1: myPort, port2: theirPort } = new MessageChannel();
+
+  const sender =
+    async (message: object, willWait: boolean): Promise<object> => {
+      return new Promise(
+        (resolve, reject) => {
+          myPort.onmessage = (response: MessageEvent<object>): void => {
+            resolve(response.data);
+          };
+          myPort.postMessage(message);
+          if (willWait) {
+            setTimeout(
+              () => { reject(new Error("Comms channel timed out")); }
+            , 5000
+            );
+          }
+        }
+      );
+    };
+
+  return [theirPort, sender];
+
+}
+
+export { makeCommsChannel, sendAMessage, sendForAReply };
