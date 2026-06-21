@@ -16,12 +16,12 @@
   const route = useRoute();
 
   const nonActivity: Activity =
-    { hasLoadableWork:    false
-    , isSplit:            false
-    , name:               "fake activity"
-    , sharingStyle:       "file-picker"
-    , starterKeys:        []
-    , starterMode:        "none"
+    { hasLoadableWork: false
+    , isSplit:         false
+    , name:            "fake activity"
+    , sharingStyle:    "file-picker"
+    , starterKeys:     []
+    , starterMode:     "none"
     };
 
   const activity = ref<Activity>(nonActivity);
