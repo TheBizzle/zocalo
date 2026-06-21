@@ -56,67 +56,27 @@
       </div>
 
       <!-- Starter data -->
-      <div v-if="hasStarter" class="form-group span-2">
+      <div v-if="starterKeys.length > 0" class="form-group span-2">
+
         <label class="form-label">
           Starter data
           <span class="text-muted" style="font-weight: 400">(optional)</span>
         </label>
 
-        <div class="starter-data-box">
-
-          <div class="starter-type-row">
-            <label style="font-size: 0.85rem; font-weight: 500; color: var(--clr-ink-2)">
-              Data encoding:
-            </label>
-            <fieldset class="starter-option-row toggle-group" :disabled="uploadedFileName !== null">
-              <div class="toggle-option" style="min-width: 90px">
-                <input id="dtype-auto" type="radio" v-model="form.encoding" value="auto" />
-                <label for="dtype-auto" style="padding: 6px 12px; font-size: 0.8rem">Auto-detect</label>
-              </div>
-              <div class="toggle-option" style="min-width: 90px">
-                <input id="dtype-text" type="radio" v-model="form.encoding" value="text" />
-                <label for="dtype-text" style="padding: 6px 12px; font-size: 0.8rem">Plain text</label>
-              </div>
-              <div class="toggle-option" style="min-width: 90px">
-                <input id="dtype-b64" type="radio" v-model="form.encoding" value="base64" />
-                <label for="dtype-b64" style="padding: 6px 12px; font-size: 0.8rem">Base64</label>
-              </div>
-            </fieldset>
+        <div class="starter-tabs-wrapper">
+          <div class="tab-headers">
+            <button v-for="(tab, index) in starterKeys" :key="index"
+                    :class="['tab-button', { active: starterIndex === index }]" @click="starterIndex = index">
+              {{ tab }}
+            </button>
           </div>
-
-          <!-- File upload zone -->
-          <div class="file-zone" :class="{ dragover: isDragging }" @click="triggerFileInput"
-               @dragover.prevent="isDragging = true" @dragleave="isDragging = false"
-               @drop.prevent="onDrop">
-            <input ref="fileInput" type="file" style="display: none" @change="onFileChange" />
-            <div v-if="!uploadedFileName">
-              <p style="font-size: 1.5rem; margin-bottom: 8px">📄</p>
-              <p style="font-size: 0.9rem; color: var(--clr-ink-2)">
-                Click or drag a file here to populate the box below
-              </p>
-            </div>
-            <div v-else>
-              <p style="font-size: 0.9rem; font-weight: 600; color: var(--clr-accent)">
-                ✓ {{ uploadedFileName }}
-              </p>
-              <p v-if="detectedType" class="form-hint noticeable">
-                Auto-detected as: <strong>{{ detectedType }}</strong>
-              </p>
-              <button class="btn-link" style="font-size: 0.8rem" @click.stop="clearFile">Remove</button>
-            </div>
+          <div v-for="(key, index) in starterKeys" class="form-group span-2" v-show="starterIndex === index">
+            <StarterUploadForm :key="key" :ref="(elem) => setStarterRef(elem, index)"/>
           </div>
-
-          <!-- Text area -->
-          <textarea
-            v-model="form.starterData"
-            class="form-textarea"
-            placeholder="Or type / paste your starter data here..."
-            rows="5"
-            style="margin-top: var(--space-3); font-family: monospace; font-size: 0.82rem"
-          ></textarea>
-
         </div>
+
       </div>
+
     </div>
 
     <div class="form-actions">
@@ -126,6 +86,7 @@
         <span v-else>Create gallery →</span>
       </button>
     </div>
+
   </div>
 </template>
 
@@ -136,8 +97,9 @@
   import { activities       } from "@/core/Activity.ts";
   import { uploadNewGallery } from "@/core/uploadNewGallery.ts";
 
-  import InfoIndicator from "./InfoIndicator.vue";
-  import Switcher      from "./Switcher.vue";
+  import InfoIndicator     from "./InfoIndicator.vue";
+  import StarterUploadForm from "./StarterUploadForm.vue";
+  import Switcher          from "./Switcher.vue";
 
   type Template =
     { id:          string
@@ -148,16 +110,15 @@
 
   export default defineComponent({
     name:       "CreateGalleryForm"
-  , components: { InfoIndicator, Switcher }
+  , components: { InfoIndicator, StarterUploadForm, Switcher }
   , emits:      ["canceled", "created"]
   , setup(_, { emit }) {
 
-      const isDragging       = ref(false);
-      const errorMsg         = ref<string | null>(null);
-      const fileInput        = ref<HTMLInputElement | null>(null);
-      const isLoading        = ref(false);
-      const successMsg       = ref<string | null>(null);
-      const uploadedFileName = ref<string | null>(null);
+      const errorMsg     = ref<string | null>(null);
+      const isLoading    = ref(false);
+      const starterIndex = ref(0);
+      const starterRefs  = ref<Array<InstanceType<typeof StarterUploadForm>>>([]);
+      const successMsg   = ref<string | null>(null);
 
       const templates: Array<Template> =
         [ { id:      "geogebra", name: "GeoGebra",             isDisabled: false, description: "Students upload GeoGebra constructions" }
@@ -174,115 +135,38 @@
       , template:    ""
       , isModerated: false
       , description: ""
-      , encoding:    "auto"
-      , starterData: ""
       });
 
       const selectedTemplate = computed(() => templates.find(t => t.id === form.template) ?? null);
 
-      const hasStarter = computed<boolean>(
+      const starterKeys = computed<Array<string>>(
         () => {
           const name = (selectedTemplate.value?.id ?? "Demo").toLowerCase();
-          const mode = activities[name]?.starterMode ?? "none";
-          return mode !== "none";
+          return activities[name]?.starterKeys ?? [];
         }
       );
 
-      function triggerFileInput (): void {
-        fileInput.value?.click();
-      }
-
-      const detectedType = ref<string | null>(null);
-
-      const trueReader = new FileReader();
-      trueReader.onloadend = (event: ProgressEvent): void => {
-        form.starterData = (event.target as FileReader).result as string;
-      };
-
-      function readFileAuto(file: File): void {
-
-        const reader = new FileReader();
-        reader.onloadend = (e: ProgressEvent): void => {
-
-          const arr   = new Uint8Array((e.target as FileReader).result as ArrayBuffer);
-          let isASCII = true;
-
-          for (const byte of arr) {
-            // Checking for values <= 127 didn't suffice;
-            // The en-dash, for example, is in Extended ASCII at 377 AKA 0x226
-            if (byte === 0) {
-              isASCII = false;
-              break;
-            }
-          }
-
-          if (isASCII) {
-            trueReader.readAsText(file);
-            detectedType.value = "Plain text";
-          } else {
-            trueReader.readAsDataURL(file);
-            detectedType.value = "Base64";
-          }
-
-        };
-
-        reader.readAsArrayBuffer(file);
-
-      }
-
-      function readFile(file: File): void {
-        uploadedFileName.value = file.name;
-        const mode             = form.encoding;
-        switch (mode) {
-          case "text":
-            trueReader.readAsText(file);
-            break;
-          case "base64":
-            trueReader.readAsDataURL(file);
-            break;
-          case "auto":
-            readFileAuto(file);
-            break;
-          default:
-            console.warn(`Unknown reading mode: ${mode}`);
-        }
-      }
-
-      function onFileChange(e: Event): void {
-        const file = (e.target as HTMLInputElement).files![0]!;
-        readFile(file);
-      }
-
-      function onDrop(e: DragEvent): void {
-        isDragging.value = false;
-        const file       = e.dataTransfer!.files[0]!;
-        readFile(file);
-      }
-
-      function clearFile(): void {
-        uploadedFileName.value = null;
-        form.starterData       = "";
-        detectedType.value     = null;
-        if (fileInput.value !== null) {
-          fileInput.value.value = "";
-        }
-      }
-
       function resetForm(): void {
+
         form.name        = "";
         form.template    = "";
-        form.isModerated   = false;
+        form.isModerated = false;
         form.description = "";
-        form.encoding    = "auto";
-        form.starterData = "";
         errorMsg.value   = null;
         successMsg.value = null;
-        clearFile();
+
+        starterRefs.value.forEach((comp) => { comp.reset(); }); // eslint-disable-line
+
       }
 
       function cancelForm(): void {
         resetForm();
         emit("canceled");
+      }
+
+      function setStarterRef(component: unknown, index: number): void {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        starterRefs.value[index] = component as InstanceType<typeof StarterUploadForm>;
       }
 
       async function submit(): Promise<void> {
@@ -304,9 +188,22 @@
 
         try {
 
+          let starterData = "";
+          if (starterRefs.value.length < 2) {
+            // eslint-disable-next-line
+            starterRefs.value.forEach((comp) => { starterData = comp.getData() ?? ""; });
+          } else {
+            const starters: Record<string, string> = {};
+            starterKeys.value.forEach(
+              (key: string, i: number) => {
+                starters[key] = starterRefs.value[i]?.getData() ?? ""; // eslint-disable-line
+              }
+            );
+            starterData = JSON.stringify(starters);
+          }
+
           const newGalleryR =
-            await uploadNewGallery( form.name, form.template, form.isModerated
-                                  , form.description, form.starterData);
+            await uploadNewGallery(form.name, form.template, form.isModerated, form.description, starterData);
 
           newGalleryR.fold(
             (error  ) => { errorMsg.value = error.message; }
@@ -331,9 +228,8 @@
       }
 
       return {
-        cancelForm, clearFile, detectedType, errorMsg, fileInput, form, hasStarter, isDragging, isLoading
-      , onFileChange , onDrop, resetForm, selectedTemplate, submit, successMsg, templates, triggerFileInput
-      , uploadedFileName
+        cancelForm, errorMsg, form, isLoading, resetForm, selectedTemplate, setStarterRef, starterIndex
+      , starterKeys, starterRefs, submit, successMsg, templates
       };
 
     }
@@ -357,31 +253,6 @@
 
   .span-2 {
     grid-column: span 2;
-  }
-
-  .starter-data-box {
-    border:         1px solid var(--clr-border);
-    border-radius:  var(--radius-lg);
-    padding:        var(--space-4);
-    background:     var(--clr-surface-2);
-    display:        flex;
-    flex-direction: column;
-    gap:            var(--space-3);
-  }
-
-  .starter-type-row {
-    display:     flex;
-    align-items: center;
-    gap:         var(--space-3);
-    flex-wrap:   wrap;
-  }
-
-  .starter-option-row {
-    display:        flex;
-    flex-direction: row;
-    flex-grow:      1;
-    border:         none;
-    user-select:    none;
   }
 
   .form-actions {
@@ -424,6 +295,47 @@
 
   .noticeable {
     color: black;
+  }
+
+  .starter-tabs-wrapper {
+    border:        1.5px solid var(--clr-border);
+    border-radius: var(--radius-md);
+  }
+
+  .tab-headers {
+    display:       flex;
+    gap:           0;
+    background:    var(--clr-surface-2);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-bottom: 1.5px solid var(--clr-border);
+    padding:       var(--space-2) var(--space-2) 0;
+  }
+
+  .tab-button {
+    background-color: transparent;
+    border:           1.5px solid var(--clr-border);
+    border-bottom:    none;
+    border-radius:    var(--radius-sm) var(--radius-sm) 0 0;
+    color:            var(--clr-ink-3);
+    cursor:           pointer;
+    font-family:      var(--font-body);
+    font-size:        0.8rem;
+    font-weight:      500;
+    margin-bottom:    -1.5px;
+    padding:          6px 16px;
+    transition:       all var(--transition);
+  }
+
+  .tab-button:hover {
+    color:            var(--clr-ink);
+    background-color: var(--clr-surface);
+  }
+
+  .tab-button.active {
+    background-color:    var(--clr-surface);
+    border-color:        var(--clr-border);
+    border-bottom-color: var(--clr-surface);
+    color:               var(--clr-primary-dk);
   }
 
   @media (max-width: 560px) {

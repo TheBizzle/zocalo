@@ -20,6 +20,7 @@
     , isSplit:            false
     , name:               "fake activity"
     , sharingStyle:       "file-picker"
+    , starterKeys:        []
     , starterMode:        "none"
     };
 
