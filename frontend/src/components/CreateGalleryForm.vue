@@ -13,7 +13,7 @@
     <div class="alert alert-danger" v-if="errorMsg">{{ errorMsg }}</div>
     <div class="alert alert-success" v-if="successMsg">{{ successMsg }}</div>
 
-    <div class="form-grid">
+    <div class="form-flex">
 
       <!-- Name -->
       <div class="form-group span-2">
@@ -348,11 +348,11 @@
     padding:   var(--space-5) var(--space-7) var(--space-7);
   }
 
-  .form-grid {
-    display:               grid;
-    grid-template-columns: 1fr 1fr;
-    gap:                   var(--space-5);
-    margin-bottom:         var(--space-6);
+  .form-flex {
+    display:        flex;
+    flex-direction: column;
+    gap:            var(--space-5);
+    margin-bottom:  var(--space-6);
   }
 
   .span-2 {
