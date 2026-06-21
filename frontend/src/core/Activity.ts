@@ -29,6 +29,7 @@ const activities: Record<string, Activity>  =
   , "geogebra":      { hasLoadableWork:  true, isSplit:  true, name:      "geogebra", sharingStyle:      "export", starterKeys: [           ".ggb"], starterMode: "internal" }
   , "google-docs":   { hasLoadableWork:  true, isSplit:  true, name:   "google-docs", sharingStyle:   "clipboard", starterKeys: [            "URL"], starterMode: "external" }
   , "netlogo":       { hasLoadableWork:  true, isSplit:  true, name:       "netlogo", sharingStyle:      "export", starterKeys: [        ".nlogox"], starterMode: "internal" }
+  , "netlogo-world": { hasLoadableWork:  true, isSplit:  true, name: "netlogo-world", sharingStyle:      "export", starterKeys: [".nlogox", ".csv"], starterMode: "internal" }
   , "segregation":   { hasLoadableWork:  true, isSplit:  true, name:   "segregation", sharingStyle:      "export", starterKeys:                  [], starterMode:     "none" }
   };
 

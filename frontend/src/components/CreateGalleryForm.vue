@@ -124,7 +124,7 @@
         [ { id:      "geogebra", name: "GeoGebra",             isDisabled: false, description: "Students upload GeoGebra constructions" }
         , { id:   "google-docs", name: "Google Docs",          isDisabled: false, description: "Students upload content from a seed Google Doc" }
         , { id:       "netlogo", name: "NetLogo",              isDisabled: false, description: "Students upload NetLogo models" }
-        , { id: "netlogo-world", name: "NetLogo + world",      isDisabled:  true, description: "Students upload NetLogo models and world states" }
+        , { id: "netlogo-world", name: "NetLogo + world",      isDisabled: false, description: "Students upload NetLogo models and world states" }
         , { id:   "segregation", name: "NetLogo: Segregation", isDisabled: false, description: "Students upload variations of NetLogo's Segregation model" }
         , { id:      "netsblox", name: "NetsBlox",             isDisabled:  true, description: "Students upload NetsBlox programs" }
         , { id:          "demo", name: "Demo",                 isDisabled: false, description: "Simple demo gallery with a grid of images and files" }
