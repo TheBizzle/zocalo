@@ -1,4 +1,4 @@
-resolver: lts-24.20
+snapshot: lts-24.46
 
 extra-deps:
 - bizzlelude-4.20.2.0.3@sha256:fcb26f1b83cb80900013f17ed2819e19645ad338247b3762ebcd0aa650b2e9ed,7366
