@@ -32,7 +32,7 @@
           const text = await res.text();
 
           if (res.ok) {
-            storeToken(await res.text());
+            storeToken(text);
             void router.push("/galleries/teacher/overview");
           } else {
             throw new Error(text);
