@@ -33,7 +33,7 @@
 
           if (res.ok) {
             storeToken(text);
-            void router.push("/galleries/teacher/overview");
+            void router.replace("/galleries/teacher/overview");
           } else {
             throw new Error(text);
           }
