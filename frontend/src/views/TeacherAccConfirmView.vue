@@ -28,7 +28,7 @@
           const route = useRoute();
           const token = route.params["token"];
 
-          const res  = await fetch(`/api/auth/teacher/confirm/${token}`, { method: "GET" });
+          const res  = await fetch(`/api/auth/teacher/confirm/${token}`, { method: "POST" });
           const text = await res.text();
 
           if (res.ok) {

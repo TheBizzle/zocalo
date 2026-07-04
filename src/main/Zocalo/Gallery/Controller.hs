@@ -56,7 +56,7 @@ routes = [ ("echo/:param"                                     ,      ac POST   h
          , ("api/auth/student/refresh"                        ,      ac POST   handleStudentTokenRefresh)
          , ("api/auth/teacher/refresh"                        ,      ac POST   handleTeacherTokenRefresh)
          , ("api/auth/teacher/register"                       ,      ac POST   handleRegister)
-         , ("api/auth/teacher/confirm/:token"                 ,      ac GET    handleTeacherAuthConfirm)
+         , ("api/auth/teacher/confirm/:token"                 ,      ac POST   handleTeacherAuthConfirm)
          , ("api/auth/teacher/request-otp"                    ,      ac POST   handleRequestOTP)
          , ("api/auth/teacher/verify-otp"                     ,      ac POST   handleVerifyOTP)
          , ("api/auth/teacher/is-logged-in/"                  ,      ac GET    handleTeacherIsLoggedIn)
