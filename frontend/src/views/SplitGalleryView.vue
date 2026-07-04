@@ -35,7 +35,7 @@
 
         <div class="controls-container">
 
-          <a v-if="docURL !== null && activity.starterMode === 'external'" :href="docURL.href"
+          <a v-if="extStartURL !== null && activity.starterMode === 'external'" :href="extStartURL.href"
              class="btn btn-accent btn-lg doc-button floaty" target="_blank" rel="noopener noreferrer">
             📑 Open starter sheet
           </a>
@@ -92,7 +92,8 @@
                   :shouldExport="isUploadModalOpen" />
 
         <GoogleDocsRenderer v-else-if="activity.name === 'google-docs'"
-                            :loadedContent="loadedContent ?? ''" />
+                            @external-starter-url="onExternalStarter"
+                            :galleryID="galleryID" :loadedContent="loadedContent ?? ''" />
 
         <NetLogo v-else-if="activity.name === 'netlogo'"
                  @export-data="storeData" @hide-filler="hideFiller"
@@ -148,12 +149,12 @@
   , components: { Geogebra, GoogleDocsRenderer, NetLogo, NetLogoWithWorld, Segregation, SweepingArea
                 , SubmissionDetailModal, UploadModal, VerticalSplit }
   , props:      { activity: { type: Object as PropType<Activity>, required: true } }
-  , setup(props) {
+  , setup() {
 
       const route = useRoute();
 
       const activeSubmission  = ref<Submission | null>(null);
-      const docURL            = ref<URL | null>(null);
+      const extStartURL       = ref<URL | null>(null);
       const exportedData      = ref<ExportData | null>(null);
       const galleryID         = ref<string>(route.params["nanoid"] as string);
       const galleryName       = ref("");
@@ -168,7 +169,6 @@
       onMounted(
         async () => {
           await updateSubmissions();
-          await fetchStarterURL();
           hasMounted.value = true;
         }
       );
@@ -185,13 +185,8 @@
         }
       }
 
-      async function fetchStarterURL(): Promise<void> {
-        if (props.activity.starterMode === "external") {
-          const res = await fetch(`/api/galleries/${galleryID.value}/student/starter-config`);
-          if (res.ok) {
-            docURL.value = new URL(await res.text());
-          }
-        }
+      function onExternalStarter(url: string): void {
+        extStartURL.value = new URL(url);
       }
 
       function hideFiller(): void {
@@ -244,9 +239,10 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addComment, addNewSubmission, docURL, exportedData, galleryID
+      return { activeSubmission, addComment, addNewSubmission, exportedData, extStartURL, galleryID
              , galleryName, hideFiller, isShowingFiller, isUploadModalOpen, loadedAuthor, loadedContent
-             , loadInSplit, setActiveSubmission, storeData, submissions, unsetActiveSubmission
+             , loadInSplit, onExternalStarter, setActiveSubmission, storeData, submissions
+             , unsetActiveSubmission
              };
 
     }

@@ -5,31 +5,46 @@
 
 <script lang="ts">
 
-  import { defineComponent, ref, watch } from "vue";
-  import { useRoute                    } from "vue-router";
+  import { defineComponent, onMounted, ref, watch } from "vue";
+  import { useRoute                               } from "vue-router";
 
   import { sanitizeHTML } from "@/core/sanitizeHTML.ts";
 
   export default defineComponent({
-
     name:  "GoogleDocsRenderer"
-  , props: { loadedContent: { type: String, required: true } }
+  , props: { galleryID:     { type: String, required: true }
+           , loadedContent: { type: String, required: true }
+           }
   , computed: {
       dynamicallyHide() {
         return { "hiding": this.loadedContent === "" };
       }
     }
 
-  , setup(props) {
+  , setup(props, { emit }) {
+
       useRoute();
+
       const sanitizedContent = ref("");
+
       watch(
         () => props.loadedContent
       , async (content) => {
           sanitizedContent.value = sanitizeHTML(content);
         }
       );
+
+      onMounted(
+        async () => {
+          const res = await fetch(`/api/galleries/${props.galleryID}/student/starter-config`);
+          if (res.ok) {
+            emit("external-starter-url", await res.text());
+          }
+        }
+      );
+
       return { sanitizedContent };
+
     }
 
   });
