@@ -101,14 +101,14 @@
                  :shouldExport="isUploadModalOpen" />
 
         <NetLogoWithWorld v-else-if="activity.name === 'netlogo-world'"
-                 @export-data="storeData" @hide-filler="hideFiller"
-                 :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
-                 :shouldExport="isUploadModalOpen" />
+                          @export-data="storeData" @hide-filler="hideFiller"
+                          :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                          :shouldExport="isUploadModalOpen" />
 
         <Segregation v-else-if="activity.name === 'segregation'"
-                  @export-data="storeData" @hide-filler="hideFiller"
-                  :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
-                  :shouldExport="isUploadModalOpen" />
+                     @export-data="storeData" @hide-filler="hideFiller"
+                     :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                     :shouldExport="isUploadModalOpen" />
 
         <SweepingArea v-else-if="activity.name === 'sweeping-area'"
                       @export-data="storeData" @hide-filler="hideFiller"
