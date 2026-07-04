@@ -27,7 +27,7 @@
   import { defineComponent, ref } from "vue";
   import { useRoute, useRouter  } from "vue-router";
 
-  import { amLoggedIn, logout } from "@/core/TeacherAuth.ts";
+  import { amLoggedInSimple, logout, onAuthChange } from "@/core/TeacherAuth.ts";
 
   export default defineComponent({
     name: "AppNavbar"
@@ -36,13 +36,8 @@
       useRoute();
       const router = useRouter();
 
-      const isLoggedInAsTeacher = ref(false);
-
-      void amLoggedIn().then(
-        (result) => {
-          isLoggedInAsTeacher.value = result;
-        }
-      );
+      const isLoggedInAsTeacher = ref(amLoggedInSimple());
+      onAuthChange(() => { isLoggedInAsTeacher.value = amLoggedInSimple(); });
 
       async function logoutAndRedirect(): Promise<void> {
         await logout();

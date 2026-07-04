@@ -5,7 +5,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import App           from "./App.vue";
 import GalleryRouter from "./GalleryRouter.vue";
 
-import { amLoggedIn } from "./core/TeacherAuth.ts";
+import { amLoggedIn, amLoggedInSimple } from "./core/TeacherAuth.ts";
 
 import LoginView             from "./views/LoginView.vue";
 import MetaGalleryView       from "./views/MetaGalleryView.vue";
@@ -42,9 +42,9 @@ const router =
 
 router.beforeEach(
   async (to, _from, next) => {
-    if ((to.meta.requiresTeacher!) && !(await amLoggedIn())) {
+    if (to.meta.requiresTeacher! && !(await amLoggedIn())) {
       next({ path: "/login", query: { redirect: to.fullPath } });
-    } else if ((to.meta.disallowsTeacher!) && await amLoggedIn()) {
+    } else if (to.meta.disallowsTeacher! && amLoggedInSimple()) {
       next({ path: "/galleries/teacher/overview" });
     } else {
       next();

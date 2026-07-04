@@ -1,3 +1,5 @@
+import { ref, watch } from "vue";
+
 type JWTPayload = { readonly aud: string, readonly exp: number, readonly sub: string }
 
 type Auth =
@@ -6,11 +8,11 @@ type Auth =
   , readonly rawToken:  string
   };
 
-let authM:        Auth | null = null;
-let teacherIDM: number | null = null;
+const authM                    = ref<Auth | null>(null);
+let teacherIDM: number | null  = null;
 
 function amLoggedInSimple(): boolean {
-  return Date.now() < (authM?.expiry ?? -1); // TODO?
+  return Date.now() < (authM.value?.expiry ?? -1); // TODO?
 }
 
 async function amLoggedIn(): Promise<boolean> {
@@ -29,21 +31,25 @@ async function authorizedFetch(url: string, options: RequestInit = {}): Promise<
 }
 
 function clearAuth(): void {
-  authM      = null;
-  teacherIDM = null;
+  authM.value = null;
+  teacherIDM  = null;
 }
 
 async function getAuthToken(): Promise<string | null> {
   if (!amLoggedInSimple()) {
     await refreshAuth();
   }
-  return (authM !== null) ? authM.rawToken : null;
+  return (authM.value !== null) ? authM.value.rawToken : null;
 }
 
 async function logout():  Promise<void> {
   await fetch("/api/auth/teacher/logout", { method: "POST" , credentials: "include" });
   clearAuth();
 }
+
+function onAuthChange(f: () => void): void {
+  watch(authM, f);
+};
 
 async function refreshAuth(): Promise<boolean> {
 
@@ -78,7 +84,7 @@ async function refreshAuth(): Promise<boolean> {
 
 function storeToken(compactToken: string): void {
   const [emailAddr, expiry] = decodeJWT(compactToken);
-  authM = { emailAddr, expiry, rawToken: compactToken };
+  authM.value = { emailAddr, expiry, rawToken: compactToken };
 }
 
 function decodeJWT(compactToken: string): [string, number] {
@@ -114,4 +120,5 @@ function getTeacherID(): number {
   }
 }
 
-export { amLoggedIn, authorizedFetch, getAuthToken, getTeacherID, logout, refreshAuth, storeToken };
+export { amLoggedIn, amLoggedInSimple, authorizedFetch, getAuthToken, getTeacherID, logout, onAuthChange
+       , refreshAuth, storeToken };
