@@ -76,7 +76,7 @@ async function refreshAuth(): Promise<boolean> {
   }
 
   clearAuth();
-  console.error("Auth refresh failed", reason);
+  console.error("Auth refresh failed:", reason);
 
   return false;
 

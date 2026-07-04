@@ -83,7 +83,7 @@ async function getFreshToken(isNameRequired: boolean): Promise<boolean> {
     } else {
       const reason = await res.text();
       clearAuth();
-      console.error("Complete auth refresh failed", reason);
+      console.error("Complete auth refresh failed:", reason);
       return false;
     }
 
@@ -105,7 +105,7 @@ async function refreshAuth(): Promise<boolean> {
   }
 
   clearAuth();
-  console.error("Auth refresh failed", reason);
+  console.error("Auth refresh failed:", reason);
 
   return false;
 
