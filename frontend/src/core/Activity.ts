@@ -18,7 +18,7 @@
 type Activity =
   { readonly hasLoadableWork: boolean
   , readonly isSplit:         boolean
-  , readonly name:            "demo" | "fake activity" | "geogebra" | "google-docs" | "netlogo" | "netlogo-world" | "segregation" | "sweeping-area"
+  , readonly name:            "demo" | "fake activity" | "geogebra" | "google-docs" | "netsblox" | "netlogo" | "netlogo-world" | "segregation" | "sweeping-area"
   , readonly sharingStyle:    "clipboard" | "export" | "file-picker"
   , readonly starterKeys:     Array<string>
   , readonly starterMode:     "none" | "internal" | "external"
@@ -29,6 +29,7 @@ const activities: Record<string, Activity>  =
   , "geogebra":      { hasLoadableWork:  true, isSplit:  true, name:      "geogebra", sharingStyle:      "export", starterKeys: [           ".ggb"], starterMode: "internal" }
   , "google-docs":   { hasLoadableWork:  true, isSplit:  true, name:   "google-docs", sharingStyle:   "clipboard", starterKeys: [            "URL"], starterMode: "external" }
   , "netlogo":       { hasLoadableWork:  true, isSplit:  true, name:       "netlogo", sharingStyle:      "export", starterKeys: [        ".nlogox"], starterMode: "internal" }
+  , "netsblox":      { hasLoadableWork:  true, isSplit:  true, name:      "netsblox", sharingStyle:      "export", starterKeys: [           ".xml"], starterMode: "internal" }
   , "netlogo-world": { hasLoadableWork:  true, isSplit:  true, name: "netlogo-world", sharingStyle:      "export", starterKeys: [".nlogox", ".csv"], starterMode: "internal" }
   , "segregation":   { hasLoadableWork:  true, isSplit:  true, name:   "segregation", sharingStyle:      "export", starterKeys:                  [], starterMode:     "none" }
   , "sweeping-area": { hasLoadableWork:  true, isSplit:  true, name: "sweeping-area", sharingStyle:      "export", starterKeys:           [".json"], starterMode: "external" }

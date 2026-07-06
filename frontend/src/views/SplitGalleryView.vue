@@ -105,6 +105,11 @@
                           :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
                           :shouldExport="isUploadModalOpen" />
 
+        <NetsBlox v-else-if="activity.name === 'netsblox'"
+                  @export-data="storeData" @hide-filler="hideFiller"
+                  :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                  :shouldExport="isUploadModalOpen" />
+
         <Segregation v-else-if="activity.name === 'segregation'"
                      @export-data="storeData" @hide-filler="hideFiller"
                      :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
@@ -131,6 +136,7 @@
   import GoogleDocsRenderer from "@/components/GoogleDocsRenderer.vue";
   import NetLogo            from "@/components/NetLogo.vue";
   import NetLogoWithWorld   from "@/components/NetLogoWithWorld.vue";
+  import NetsBlox           from "@/components/NetsBlox.vue";
   import Segregation        from "@/components/Segregation.vue";
   import SweepingArea       from "@/components/SweepingArea.vue";
   import VerticalSplit      from "@/components/VerticalSplit.vue";
@@ -146,7 +152,7 @@
 
   export default defineComponent({
     name:       "SplitGalleryView"
-  , components: { Geogebra, GoogleDocsRenderer, NetLogo, NetLogoWithWorld, Segregation, SweepingArea
+  , components: { Geogebra, GoogleDocsRenderer, NetLogo, NetLogoWithWorld, NetsBlox, Segregation, SweepingArea
                 , SubmissionDetailModal, UploadModal, VerticalSplit }
   , props:      { activity: { type: Object as PropType<Activity>, required: true } }
   , setup() {
