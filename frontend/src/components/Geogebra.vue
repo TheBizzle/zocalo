@@ -57,6 +57,7 @@
               clearInterval(peskyLoop);
               if (waitingData !== null) {
                 ggbApplet.setBase64(waitingData);
+                waitingData = null;
               }
             }
           }
