@@ -7,7 +7,8 @@ type Auth =
   , readonly rawToken: string
   };
 
-let authM: Auth | null = null;
+let authM:      Auth | null = null;
+let username: string | null = null;
 
 function amLoggedInSimple(): boolean {
   return Date.now() < (authM?.expiry ?? -1); // TODO?
@@ -67,15 +68,9 @@ async function getFreshToken(isNameRequired: boolean): Promise<boolean> {
 
   } else {
 
-    let username = prompt("Please enter your name.");
-    while ((username?.trim().length ?? 0) < 1) {
-      username = prompt("Please enter your name.");
-    }
-    username = username ?? "Anonymous and impossible";
-
-    const params = new URLSearchParams({ username });
-    const url    = `/api/auth/student/fresh-cookies?${params}`;
-    const res    = await fetch(url, { method: "POST" , credentials: "include" });
+    const params   = new URLSearchParams({ username: initUsername(null) });
+    const url      = `/api/auth/student/fresh-cookies?${params}`;
+    const res      = await fetch(url, { method: "POST" , credentials: "include" });
 
     if (res.ok) {
       storeToken(await res.text());
@@ -112,8 +107,8 @@ async function refreshAuth(): Promise<boolean> {
 }
 
 function storeToken(compactToken: string): void {
-  const [idNum, username, expiry] = decodeJWT(compactToken);
-  authM = { idNum, username, expiry, rawToken: compactToken };
+  const [idNum, name, expiry] = decodeJWT(compactToken);
+  authM = { idNum, username: name, expiry, rawToken: compactToken };
 }
 
 function decodeJWT(compactToken: string): [number, string, number] {
@@ -158,5 +153,20 @@ function getStudentName(): string {
   }
 }
 
-export { amLoggedIn, authorizedFetch, getAuthToken, getStudentID, getStudentName, logout, refreshAuth
-       , storeToken };
+function initUsername(externalName: string | null): string {
+  if (username !== null) {
+    username = username;
+  } else if (externalName !== null) {
+    username = externalName;
+  } else {
+    let name = prompt("Please enter your name.");
+    while ((name?.trim().length ?? 0) < 1) {
+      name = prompt("Please enter your name.");
+    }
+    username = name ?? "Anonymous and impossible";
+  }
+  return username;
+}
+
+export { amLoggedIn, authorizedFetch, getAuthToken, getStudentID, getStudentName, initUsername, logout
+       , refreshAuth, storeToken };
