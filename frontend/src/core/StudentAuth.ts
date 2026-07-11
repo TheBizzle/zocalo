@@ -46,11 +46,8 @@ async function logout():  Promise<void> {
 }
 
 async function getAuthorized(): Promise<boolean> {
-  if (authM === null) {
-    return getFreshToken(false);
-  } else {
-    return refreshAuth();
-  }
+  const hadRefreshCookie = await refreshAuth();
+  return hadRefreshCookie ? hadRefreshCookie : getFreshToken(false);
 }
 
 async function getFreshToken(isNameRequired: boolean): Promise<boolean> {
