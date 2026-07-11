@@ -339,7 +339,7 @@
               , uploader:     getStudentName()
               , image
               , isOwner:      true
-              , canModerate:  false
+              , canModerate:  true
               , metadata
               , comments:     []
               , creationTime: new Date()
