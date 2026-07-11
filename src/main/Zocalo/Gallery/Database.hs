@@ -322,7 +322,9 @@ canDeleteSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> Sub
 canDeleteSubmission teacherM studentM submission =
   do
     (Just (GalleryDB galleryName _ _ _ _ _ _ _ _)) <- withDB $ get submission.submissionDBGalleryID
-    (teacherM `ownsOneNamed` galleryName) <|> (belongsToThisStudent studentM)
+    isOwningTeacher <- teacherM `ownsOneNamed` galleryName
+    isOwningStudent <- belongsToThisStudent studentM
+    return $ isOwningTeacher || isOwningStudent
   where
     belongsToThisStudent Nothing                    = return False
     belongsToThisStudent (Just (AStudent studID _)) = return $ submission |> extractStudentID &> (== studID)
