@@ -24,6 +24,16 @@
             @click="setActiveSubmission(item)"
           >
             <div class="sidebar-thumb" v-if="item.image !== null">
+              <button v-if="item.canModerate" class="deleter" @click.stop="deleteSubmission(item)">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                     stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
+                  <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
+                  <line x1="10" y1="11" x2="10" y2="17"/>
+                  <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+              </button>
               <img :src="item.image" :alt="item.uploader" />
             </div>
             <div class="sidebar-thumb no-img" v-else>📄</div>
@@ -222,6 +232,21 @@
         activeSubmission.value = null;
       }
 
+      async function deleteSubmission(sub: Submission): Promise<void> {
+        if (confirm("Are you sure you want to delete your work?")) {
+
+          const opts   = { method: "DELETE" };
+          const result = await authorizedFetch(`/api/galleries/${galleryID.value}/student/${sub.id}`, opts);
+
+          if (result.ok) {
+            submissions.value = submissions.value.filter((x) => x !== sub);
+          } else {
+            alert(await result.text());
+          }
+
+        }
+      }
+
       async function updateSubmissions(): Promise<void> {
 
         const result = await authorizedFetch(`/api/galleries/${galleryID.value}/student/submissions`);
@@ -245,9 +270,9 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addComment, addNewSubmission, exportedData, extStartURL, galleryID
-             , galleryName, hideFiller, isShowingFiller, isUploadModalOpen, loadedAuthor, loadedContent
-             , loadInSplit, onExternalStarter, setActiveSubmission, storeData, submissions
+      return { activeSubmission, addComment, addNewSubmission, deleteSubmission, exportedData, extStartURL
+             , galleryID, galleryName, hideFiller, isShowingFiller, isUploadModalOpen, loadedAuthor
+             , loadedContent, loadInSplit, onExternalStarter, setActiveSubmission, storeData, submissions
              , unsetActiveSubmission
              };
 
@@ -287,6 +312,52 @@
     left:           10px;
     z-index:        60;
 
+  }
+
+  .deleter {
+
+    position: absolute;
+    top:      0;
+    right:    0;
+
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+
+    width:   2rem;
+    height:  2rem;
+    padding: 0;
+
+    border:        1px solid #ddd;
+    border-radius: var(--radius-sm);
+    box-shadow:    0 1px 3px rgba(0, 0, 0, 0.2);
+
+    background: #c62828;
+    color:      white;
+
+    font-size:   1.5rem;
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition: background-color 0.15s, color 0.15s, transform 0.1s;
+
+    z-index: 10;
+
+  }
+
+  .deleter:hover {
+    background: #b71c1c;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  .deleter:active {
+    transform: scale(0.92);
+  }
+
+  .deleter:focus-visible {
+    outline:        2px solid #c62828;
+    outline-offset: 2px;
   }
 
   .doc-button:hover {
@@ -369,6 +440,7 @@
     flex-shrink:   0;
     object-fit:    contain;
     overflow:      hidden;
+    position:      relative;
     width:         100%;
   }
 

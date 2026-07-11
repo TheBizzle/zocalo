@@ -160,6 +160,7 @@ readGalleryListings teacher =
         rows         <- selectList [ SubmissionDBGalleryID            ==. subID
                                    , SubmissionDBIsAwaitingModeration ==. False
                                    , SubmissionDBIsForbidden          ==. False
+                                   , SubmissionDBIsSuppressed         ==. False
                                    ] [Asc SubmissionDBDateAdded]
         let uploads     = map entityVal rows
         let numApproved = length uploads
@@ -180,6 +181,7 @@ readSubmissionListings student nid =
       entities <- selectList [ SubmissionDBGalleryID            ==. gID
                              , SubmissionDBIsAwaitingModeration ==. False
                              , SubmissionDBIsForbidden          ==. False
+                             , SubmissionDBIsSuppressed         ==. False
                              ] [Asc SubmissionDBDateAdded]
       subs <- flip mapM entities $
         \entity -> do
