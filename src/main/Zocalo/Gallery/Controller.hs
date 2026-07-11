@@ -7,8 +7,6 @@ import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Sn
 import Snap.Util.FileServe(serveDirectory)
 import Snap.Util.GZip(withCompression)
 
-import System.Directory(getDirectoryContents)
-
 import Zocalo.Common.SnapHelpers(
     allowingCORS, Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV
   , getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
@@ -40,11 +38,8 @@ import Zocalo.Gallery.LowerText(asLowerText)
 import Zocalo.Gallery.Submission(SubmissionID(SubID, subIDNum))
 
 import qualified Data.ByteString.Base64 as Base64
-import qualified Data.List              as List
 import qualified Data.Map               as Map
 import qualified Data.Text.Encoding     as TextEncoding
-import qualified Data.UUID              as UUID
-import qualified Data.UUID.V4           as UUIDGen
 import qualified Text.Read              as TRead
 
 
@@ -76,8 +71,6 @@ routes = [ ("echo/:param"                                     ,      ac POST   h
          , ("uploads/:session-id/:item-id/:token/approve"                 ,      ac POST   handleApproveItem)
          , ("uploads/:session-id/:item-id/:token/reject"                  ,      ac POST   handleForbidItem)
          , ("mod-listings/:session-id/:token"                             , wc $ ac GET    handleListSessionForModeration)
-         , ("uploader-token"                                              ,      ac GET    handleGetUploaderToken)
-         , ("gallery-types"                                               ,      ac GET    handleGetGalleryTypes)
 
          , ("/assets"                                                     ,                serveDirectory "frontend/dist/assets")
          ]
@@ -183,12 +176,6 @@ handleForbidItem =
           result <- liftIO $ forbidSubmission teacher $ SubID uploadID
           whenSuccess result $ const $ succeed "text/plain" "Submission successfully forbidden"
 
-handleGetUploaderToken :: Snap ()
-handleGetUploaderToken = genToken |> liftIO &>= (succeed "text/plain")
-
-genToken :: IO Text
-genToken = UUIDGen.nextRandom <&> UUID.toText
-
 handleUploadFile :: Snap ()
 handleUploadFile =
   ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
@@ -243,13 +230,6 @@ handleGetStarterConfig =
       whenSuccess starterMaybeResult $
         \case Nothing        -> failWith 404 $ writeText errorMsg
               (Just starter) -> succeed "text/plain" starter
-
-handleGetGalleryTypes :: Snap ()
-handleGetGalleryTypes =
-  do
-    paths <- liftIO $ getDirectoryContents "gallery"
-    let truePaths = List.filter (not . (flip elem) [".", ".."]) paths
-    (encodeText &> (succeed "application/json")) truePaths
 
 handleRegister :: Snap ()
 handleRegister =
