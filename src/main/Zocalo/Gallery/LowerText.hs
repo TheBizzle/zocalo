@@ -12,7 +12,7 @@ import qualified Data.Text as Text
 
 newtype LowerText =
   LowerText Text
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 asLowerText :: Text -> LowerText
 asLowerText = Text.toLower &> LowerText
