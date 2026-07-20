@@ -1,12 +1,12 @@
 <template>
-  <SplitGalleryView   v-if="activity.isSplit" :activity="activity" />
-  <StudentGalleryView v-else                  :activity="activity" />
+  <SplitGalleryView   v-if="activity.isSplit" :activity="activity" :isModerating="isModerating" />
+  <StudentGalleryView v-else                  :activity="activity" :isModerating="isModerating" />
 </template>
 
 <script lang="ts" setup>
 
-  import { ref, watch } from "vue";
-  import { useRoute   } from "vue-router";
+  import { computed, ref, watch } from "vue";
+  import { useRoute             } from "vue-router";
 
   import SplitGalleryView   from "./views/SplitGalleryView.vue";
   import StudentGalleryView from "./views/StudentGalleryView.vue";
@@ -46,5 +46,7 @@
     },
     { immediate: true }
   );
+
+  const isModerating = computed(() => route.meta.isModerating ?? false);
 
 </script>

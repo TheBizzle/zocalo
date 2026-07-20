@@ -183,34 +183,20 @@ readSubmissionListings student nid =
                              , SubmissionDBIsForbidden          ==. False
                              , SubmissionDBIsSuppressed         ==. False
                              ] [Asc SubmissionDBDateAdded]
-      subs <- flip mapM entities $
-        \entity -> do
-          let key       = entityKey entity
-          let subID     = fromIntegral $ fromSqlKey key
-          let val       = entityVal entity
-          uploaderM    <- liftIO $ withDB $ get $ case val of (SubmissionDB _ _ uid _ _ _ _ _ _) -> uid
-          let uploader  = maybe "<unknown>" extractStudentName uploaderM
-          canDelete    <- liftIO $ canDeleteSubmission Nothing (Just student) val
-          commentRows  <- liftIO $ withDB $ selectList [CommentDBUploadID ==. key] [Asc CommentDBTime]
-          let comments  = commentRows |> (map dbToComment) &> (sortBy $ comparing creationTime)
-          return $ case dbToSubmission subID val of
-            (Submission xid b64 sid meta time) ->
-              let xidder = fromIntegral xid
-                  isMine = student.studentID == sid
-              in
-                SubmissionSendable xidder uploader b64 isMine canDelete meta comments time
+      subs <- liftIO $ mapM (toSubmissionSendable (Just student) Nothing) entities
       return $ Success $ AllSubmissions gname isPrescreened subs
 
-readSubmissionListingsForModeration :: AuthorizedTeacher -> LowerText -> IO (ActionResult [SubmissionID])
-readSubmissionListingsForModeration teacher galleryName =
-  withGallery2 teacher.teacherAddr galleryName $
-    \(galleryID, _) -> do
-      canModerate <- (Just teacher) `ownsOneNamed` galleryName
+readSubmissionListingsForModeration :: AuthorizedTeacher -> NanoID -> IO (ActionResult [SubmissionSendable])
+readSubmissionListingsForModeration teacher nid =
+  withGalleryNano nid $
+    \(galleryID, galleryDB) -> do
+      canModerate <- (Just teacher) `ownsOneNamed` (extractGalleryName galleryDB)
       if canModerate then withDB $ do
         rows <- selectList [ SubmissionDBGalleryID            ==. galleryID
                            , SubmissionDBIsAwaitingModeration ==. True
                            ] [Asc SubmissionDBDateAdded]
-        return $ Success $ map (entityKey &> fromSqlKey &> fromIntegral &> SubID) rows
+        subs <- liftIO $ mapM (toSubmissionSendable Nothing $ Just teacher) rows
+        return $ Success subs
       else
         return $ Failure NotAuthorized
 
@@ -548,6 +534,25 @@ withPair key f =
     case entityM of
       Nothing               -> return $ Failure NotFound
       Just (Entity xID xDB) -> f (xID, xDB)
+
+toSubmissionSendable :: Maybe AuthorizedStudent -> Maybe AuthorizedTeacher -> Entity SubmissionDB ->
+                        IO SubmissionSendable
+toSubmissionSendable studentM teacherM entity =
+  do
+    let key       = entityKey entity
+    let subID     = fromIntegral $ fromSqlKey key
+    let val       = entityVal entity
+    uploaderM    <- liftIO $ withDB $ get $ case val of (SubmissionDB _ _ uid _ _ _ _ _ _) -> uid
+    let uploader  = maybe "<unknown>" extractStudentName uploaderM
+    canDelete    <- liftIO $ canDeleteSubmission teacherM studentM val
+    commentRows  <- liftIO $ withDB $ selectList [CommentDBUploadID ==. key] [Asc CommentDBTime]
+    let comments  = commentRows |> (map dbToComment) &> (sortBy $ comparing creationTime)
+    return $ case dbToSubmission subID val of
+      (Submission xid b64 sid meta time) ->
+        let xidder = fromIntegral xid
+            isMine = maybe False (studentID &> (== sid)) studentM
+        in
+          SubmissionSendable xidder uploader b64 isMine canDelete meta comments time
 
 extractGalleryName :: GalleryDB -> LowerText
 extractGalleryName (GalleryDB gn _ _ _ _ _ _ _ _) = gn

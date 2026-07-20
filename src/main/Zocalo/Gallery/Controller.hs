@@ -1,7 +1,16 @@
 module Zocalo.Gallery.Controller(routes, runMigrations) where
 
+import Control.Concurrent.STM.TVar(modifyTVar')
+import Control.Exception(finally)
+import Control.Monad(forever)
+
 import Data.CaseInsensitive(CI)
 import Data.NanoID(unNanoID)
+
+import GHC.Conc(atomically, TVar)
+
+import Network.WebSockets(acceptRequest, receiveData, sendTextData, ServerApp)
+import Network.WebSockets.Snap(runWebSocketsSnap)
 
 import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Snap, writeBS, writeText)
 import Snap.Util.FileServe(serveDirectory)
@@ -12,19 +21,18 @@ import Zocalo.Common.SnapHelpers(
   , getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
   )
 
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher)
+
 import Zocalo.Gallery.Auth.FancyAuth(
     issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, validateStudentAccessToken
   , validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken
+  , validateTeacherAccessTokenRaw
   )
-
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher)
 
 import Zocalo.Gallery.ActionResult(
     ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
   , ActionResult
   )
-
-import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
 
 import Zocalo.Gallery.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher
@@ -35,7 +43,9 @@ import Zocalo.Gallery.Database(
   )
 
 import Zocalo.Gallery.LowerText(asLowerText)
-import Zocalo.Gallery.Submission(SubmissionID(SubID, subIDNum))
+import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
+import Zocalo.Gallery.SocketClient(ModeratorClient(ModeratorClient))
+import Zocalo.Gallery.Submission(SubmissionID(SubID))
 
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.Map               as Map
@@ -43,37 +53,36 @@ import qualified Data.Text.Encoding     as TextEncoding
 import qualified Text.Read              as TRead
 
 
-routes :: [(ByteString, Snap ())]
-routes = [ ("echo/:param"                                     ,      ac POST   handleEchoData)
-         , ("api/version"                                     ,      ac GET    handleAPIVersion)
-         , ("api/auth/student/fresh-cookies"                  ,      ac POST   handleNewStudent)
-         , ("api/auth/student/logout"                         ,      ac POST   handleStudentLogout)
-         , ("api/auth/student/refresh"                        ,      ac POST   handleStudentTokenRefresh)
-         , ("api/auth/teacher/refresh"                        ,      ac POST   handleTeacherTokenRefresh)
-         , ("api/auth/teacher/register"                       ,      ac POST   handleRegister)
-         , ("api/auth/teacher/confirm/:token"                 ,      ac POST   handleTeacherAuthConfirm)
-         , ("api/auth/teacher/request-otp"                    ,      ac POST   handleRequestOTP)
-         , ("api/auth/teacher/verify-otp"                     ,      ac POST   handleVerifyOTP)
-         , ("api/auth/teacher/is-logged-in/"                  ,      ac GET    handleTeacherIsLoggedIn)
-         , ("api/auth/teacher/logout"                         ,      ac POST   handleTeacherLogout)
-         , ("api/auth/teacher/verify-cookie"                  ,      ac POST   handleRegister)
-         , ("api/auth/teacher/who-am-i"                       , wc $ ac GET    handleWhoIsTeacher)
-         , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
-         , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
-         , ("api/galleries/:nano-id/student/:item-id/comment" ,      ac POST   handleSubmitComment)
-         , ("api/galleries/:nano-id/student/starter-config"   , wc $ ac GET    handleGetStarterConfig)
-         , ("api/galleries/:nano-id/student/submission"       ,      ac POST   handleUploadFile)
-         , ("api/galleries/:nano-id/student/submissions"      , wc $ ac GET    handleListSession)
-         , ("api/galleries/:nano-id/student/template-name"    ,      ac GET    handleGetTemplateName)
-         , ("api/galleries/:nano-id/student/:item-id"         , wc $ ac GET    handleDownloadItem)
-         , ("api/galleries/:nano-id/student/:item-id"         ,      ac DELETE handleSuppressItem)
-
-         , ("uploads/:session-id/:item-id/:token/approve"                 ,      ac POST   handleApproveItem)
-         , ("uploads/:session-id/:item-id/:token/reject"                  ,      ac POST   handleForbidItem)
-         , ("mod-listings/:session-id/:token"                             , wc $ ac GET    handleListSessionForModeration)
-
-         , ("/assets"                                                     ,                serveDirectory "frontend/dist/assets")
-         ]
+routes :: TVar (Map AuthorizedTeacher ModeratorClient) -> TVar (Map AuthorizedStudent ServerApp) -> [(ByteString, Snap ())]
+routes moderators students =
+    [ ("echo/:param"                                     ,      ac POST   handleEchoData)
+    , ("api/version"                                     ,      ac GET    handleAPIVersion)
+    , ("api/auth/student/fresh-cookies"                  ,      ac POST   handleNewStudent)
+    , ("api/auth/student/logout"                         ,      ac POST   handleStudentLogout)
+    , ("api/auth/student/refresh"                        ,      ac POST   handleStudentTokenRefresh)
+    , ("api/auth/teacher/refresh"                        ,      ac POST   handleTeacherTokenRefresh)
+    , ("api/auth/teacher/register"                       ,      ac POST   handleRegister)
+    , ("api/auth/teacher/confirm/:token"                 ,      ac POST   handleTeacherAuthConfirm)
+    , ("api/auth/teacher/request-otp"                    ,      ac POST   handleRequestOTP)
+    , ("api/auth/teacher/verify-otp"                     ,      ac POST   handleVerifyOTP)
+    , ("api/auth/teacher/is-logged-in/"                  ,      ac GET    handleTeacherIsLoggedIn)
+    , ("api/auth/teacher/logout"                         ,      ac POST   handleTeacherLogout)
+    , ("api/auth/teacher/verify-cookie"                  ,      ac POST   handleRegister)
+    , ("api/auth/teacher/who-am-i"                       , wc $ ac GET    handleWhoIsTeacher)
+    , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
+    , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
+    , ("api/galleries/:nano-id/student/:item-id/comment" ,      ac POST   handleSubmitComment)
+    , ("api/galleries/:nano-id/student/starter-config"   , wc $ ac GET    handleGetStarterConfig)
+    , ("api/galleries/:nano-id/student/submission"       ,      ac POST   handleUploadFile)
+    , ("api/galleries/:nano-id/student/submissions"      , wc $ ac GET    handleListSession)
+    , ("api/galleries/:nano-id/student/template-name"    ,      ac GET    handleGetTemplateName)
+    , ("api/galleries/:nano-id/student/:item-id"         , wc $ ac GET    handleDownloadItem)
+    , ("api/galleries/:nano-id/student/:item-id"         ,      ac DELETE handleSuppressItem)
+    , ("api/galleries/:nano-id/teacher/:item-id/approve" ,      ac POST   handleApproveItem)
+    , ("api/galleries/:nano-id/teacher/:item-id/reject"  ,      ac POST   handleForbidItem)
+    , ("api/galleries/:nano-id/teacher/moderable/:jwt"   ,                handleModeratorSocket moderators)
+    , ("/assets"                                         ,                serveDirectory "frontend/dist/assets")
+    ]
   where
     wc = withCompression
     ac = allowingCORS
@@ -123,15 +132,6 @@ handleListSession =
         do
           listingsResult <- liftIO $ readSubmissionListings student nanoID
           whenSuccess listingsResult $ encodeText &> succeed "application/json"
-
-handleListSessionForModeration :: Snap ()
-handleListSessionForModeration =
-  ifAuthorizedTeacher $ \teacher ->
-    handle1 (Arg "session-id" notEmpty) $
-      \sessionID ->
-        do
-          listingsResult <- liftIO $ readSubmissionListingsForModeration teacher $ asLowerText sessionID
-          whenSuccess listingsResult $ (map subIDNum) &> encodeText &> succeed "application/json"
 
 handleWhoIsTeacher :: Snap ()
 handleWhoIsTeacher =
@@ -332,6 +332,33 @@ handleStudentLogout =
       result <- liftIO $ logoutStudent student
       whenSuccess result $ const ok
 
+handleModeratorSocket :: TVar (Map AuthorizedTeacher ModeratorClient) -> Snap ()
+handleModeratorSocket moderators = do
+  handle2 (Arg "nano-id" asNanoID, Arg "jwt" notEmpty) $
+    \(galleryID, jwt) ->
+      ifAuthorizedTeacherRaw jwt $ \teacher ->
+        runWebSocketsSnap $ \pending -> do
+
+          connection <- acceptRequest pending
+          let client = ModeratorClient teacher galleryID connection
+          atomically $ modifyTVar' moderators $ teacher `Map.insert` client
+
+          let cleanup = atomically $ modifyTVar' moderators $ Map.delete teacher
+          (flip finally cleanup) $ do
+
+            listingsResult <- readSubmissionListingsForModeration teacher galleryID
+
+            let response =
+                  case listingsResult of
+                    (Success   x) -> encodeText x
+                    (Failure err) -> "{ \"error\": \"" <> (showText err) <> "\" }"
+
+            sendTextData connection response
+
+            forever $ do -- Keeps the connection alive --Jason B. (7/19/26)
+              _ <- receiveData connection :: IO Text
+              pure ()
+
 getHeaderText :: CI ByteString -> Snap (Maybe Text)
 getHeaderText headerName =
   do
@@ -369,4 +396,10 @@ ifAuthorizedTeacher :: (AuthorizedTeacher -> Snap ()) -> Snap ()
 ifAuthorizedTeacher ifGood =
   do
     teacherV <- validateTeacherAccessToken
+    validation (const $ failWith 401 $ writeText "No valid teacher access token.") ifGood teacherV
+
+ifAuthorizedTeacherRaw :: Text -> (AuthorizedTeacher -> Snap ()) -> Snap ()
+ifAuthorizedTeacherRaw jwt ifGood =
+  do
+    teacherV <- validateTeacherAccessTokenRaw $ TextEncoding.encodeUtf8 jwt
     validation (const $ failWith 401 $ writeText "No valid teacher access token.") ifGood teacherV

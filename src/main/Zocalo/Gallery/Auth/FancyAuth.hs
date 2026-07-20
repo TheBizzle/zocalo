@@ -1,5 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Zocalo.Gallery.Auth.FancyAuth(genSecureToken, issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken) where
+module Zocalo.Gallery.Auth.FancyAuth(
+    genSecureToken, issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens
+  , SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateStudentRefreshToken
+  , validateTeacherAccessToken, validateTeacherAccessTokenRaw, validateTeacherRefreshToken
+  ) where
 
 import Control.Lens((^.), (.~), (&))
 
@@ -94,13 +98,16 @@ issueNewTokens storeToken identifier scope daysToLive =
           Right jwt -> Success $ decodeUtf8 $ LazyBS.toStrict $ encodeCompact jwt
 
 validateStudentAccessToken :: Snap (ActionResult AuthorizedStudent)
-validateStudentAccessToken = validateAccessToken Student
+validateStudentAccessToken = validateAccessTokenFromHeader Student
 
 validateTeacherAccessToken :: Snap (ActionResult AuthorizedTeacher)
-validateTeacherAccessToken = validateAccessToken Teacher
+validateTeacherAccessToken = validateAccessTokenFromHeader Teacher
 
-validateAccessToken :: AuthorizedUser a => Scope -> Snap (ActionResult a)
-validateAccessToken scope =
+validateTeacherAccessTokenRaw :: ByteString -> Snap (ActionResult AuthorizedTeacher)
+validateTeacherAccessTokenRaw tokenBS = validateAccessToken Teacher tokenBS
+
+validateAccessTokenFromHeader :: AuthorizedUser a => Scope -> Snap (ActionResult a)
+validateAccessTokenFromHeader scope =
   do
     authM <- getsRequest $ getHeader "Authorization"
     case authM of
@@ -108,13 +115,17 @@ validateAccessToken scope =
         let tokenBSM = BS.stripPrefix (BS.pack "Bearer ") authHeader
         case tokenBSM of
           Nothing      -> return $ Failure Malformed
-          Just tokenBS -> do
-            verified <- liftIO $ verifyJWT scope tokenBS
-            return $ case verified of
-              Failure           _ -> Failure Incorrect
-              Success     Nothing -> Failure Malformed
-              Success (Just user) -> Success user
+          Just tokenBS -> validateAccessToken scope tokenBS
       Nothing -> return $ Failure NotAuthorized
+
+validateAccessToken :: AuthorizedUser a => Scope -> ByteString -> Snap (ActionResult a)
+validateAccessToken scope tokenBS =
+  do
+    verified <- liftIO $ verifyJWT scope tokenBS
+    return $ case verified of
+      Failure           _ -> Failure Incorrect
+      Success     Nothing -> Failure Malformed
+      Success (Just user) -> Success user
 
 validateStudentRefreshToken :: Snap (ActionResult AuthorizedStudent)
 validateStudentRefreshToken = validateRefreshToken Student lookupStudentRefreshToken

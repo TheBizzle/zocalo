@@ -7,52 +7,112 @@
       <template #aside>
 
         <h3 class="sidebar-heading">
+
           <div class="gallery-title" :title="galleryName">
             {{ galleryName }}
           </div>
-        </h3>
 
-        <div v-if="submissions.length === 0" class="sidebar-empty">
-          <p>No submissions yet.</p>
-        </div>
-
-        <div v-else class="item-list">
-          <div
-            v-for="item in submissions" :key="item.id"
-            class="split-sidebar-item item"
-            :class="{ selected: activeSubmission?.id === item.id }"
-            @click="setActiveSubmission(item)"
-          >
-            <div class="sidebar-thumb" v-if="item.image !== null">
-              <button v-if="item.canModerate" class="deleter" @click.stop="deleteSubmission(item)">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-                     stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
-                  <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
-                  <line x1="10" y1="11" x2="10" y2="17"/>
-                  <line x1="14" y1="11" x2="14" y2="17"/>
-                </svg>
-              </button>
-              <img :src="item.image" :alt="item.uploader" />
+          <div v-if="isModerating" class="moderation-tabs">
+            <div class="unapproved tab-button" :class="{ selected: modTab === 'unapproved' }"
+                 @click="selectModTab('unapproved')">
+              Waiting: {{ waitingSubmissions.length }}
             </div>
-            <div class="sidebar-thumb no-img" v-else>📄</div>
-            <div class="sidebar-info">
-              <div class="sidebar-title">{{ item.uploader }}</div>
+            <div class="approved tab-button" :class="{ selected: modTab === 'approved' }"
+                 @click="selectModTab('approved')">
+              Approved: {{submissions.length}}
             </div>
           </div>
+
+        </h3>
+
+        <div v-if="modTab === 'unapproved'">
+
+          <div v-if="waitingSubmissions.length === 0" class="sidebar-empty">
+            <p>No submissions waiting...</p>
+          </div>
+
+          <div v-else class="item-list">
+            <div
+              v-for="item in waitingSubmissions" :key="item.id"
+              class="split-sidebar-item item"
+              :class="{ selected: activeSubmission?.id === item.id }"
+              @click="setActiveSubmission(item)"
+            >
+              <div class="sidebar-thumb" v-if="item.image !== null">
+                <button v-if="item.canModerate" class="thumb-action" @click.stop="rejectSubmission(item)">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                       stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
+                    <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
+                </button>
+                <button v-if="item.canModerate"
+                        class="thumb-action" style="background-color: forestgreen; right: 33px;"
+                        @click.stop="approveSubmission(item)">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.5"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 12.5l5.5 5.5L21 5.5"/>
+                  </svg>
+                </button>
+                <img :src="item.image" :alt="item.uploader" />
+              </div>
+              <div class="sidebar-thumb no-img" v-else>📄</div>
+              <div class="sidebar-info">
+                <div class="sidebar-title">{{ item.uploader }}</div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <div class="controls-container">
+        <div v-if="modTab === 'approved'">
 
-          <a v-if="extStartURL !== null && activity.starterMode === 'external'" :href="extStartURL.href"
-             class="btn btn-accent btn-lg doc-button floaty" target="_blank" rel="noopener noreferrer">
-            📑 Open starter sheet
-          </a>
+          <div v-if="submissions.length === 0" class="sidebar-empty">
+            <p>No submissions yet...</p>
+          </div>
 
-          <button class="btn btn-primary btn-lg floaty share-button" @click="isUploadModalOpen = true">
-            ✚ Share your own
-          </button>
+          <div v-else class="item-list">
+            <div
+              v-for="item in submissions" :key="item.id"
+              class="split-sidebar-item item"
+              :class="{ selected: activeSubmission?.id === item.id }"
+              @click="setActiveSubmission(item)"
+            >
+              <div class="sidebar-thumb" v-if="item.image !== null">
+                <button v-if="item.canModerate" class="thumb-action" @click.stop="deleteSubmission(item)">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                       stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
+                    <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
+                </button>
+                <img :src="item.image" :alt="item.uploader" />
+              </div>
+              <div class="sidebar-thumb no-img" v-else>📄</div>
+              <div class="sidebar-info">
+                <div class="sidebar-title">{{ item.uploader }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="controls-container">
+
+            <a v-if="extStartURL !== null && activity.starterMode === 'external'" :href="extStartURL.href"
+               class="btn btn-accent btn-lg doc-button floaty" target="_blank" rel="noopener noreferrer">
+              📑 Open starter sheet
+            </a>
+
+            <button class="btn btn-primary btn-lg floaty share-button" @click="isUploadModalOpen = true">
+              ✚ Share your own
+            </button>
+
+          </div>
 
         </div>
 
@@ -141,6 +201,7 @@
 
   import { computed, defineComponent, onMounted, type PropType, ref } from "vue";
   import { useRoute                                                 } from "vue-router";
+  import { z                                                        } from "zod";
 
   import Geogebra           from "@/components/Geogebra.vue";
   import GoogleDocsRenderer from "@/components/GoogleDocsRenderer.vue";
@@ -154,18 +215,21 @@
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
 
-  import type { Activity                                       } from "@/core/Activity.ts";
-  import type { ExportData                                     } from "@/core/ExportData.ts";
-  import { setTitle                                            } from "@/core/setTitle.ts";
-  import { authorizedFetch                                     } from "@/core/StudentAuth.ts";
-  import { AllSubmissionsSchema, type Comment, type Submission } from "@/core/Submission.ts";
+  import type { Activity                                                         } from "@/core/Activity.ts";
+  import type { ExportData                                                       } from "@/core/ExportData.ts";
+  import { setTitle                                                              } from "@/core/setTitle.ts";
+  import { authorizedFetch as fetchAsTeacher, getAuthToken                       } from "@/core/TeacherAuth.ts";
+  import { authorizedFetch as fetchAsStudent                                     } from "@/core/StudentAuth.ts";
+  import { AllSubmissionsSchema, type Comment, type Submission, SubmissionSchema }  from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "SplitGalleryView"
   , components: { Geogebra, GoogleDocsRenderer, NetLogo, NetLogoWithWorld, NetsBlox, Segregation, SweepingArea
                 , SubmissionDetailModal, UploadModal, VerticalSplit }
-  , props:      { activity: { type: Object as PropType<Activity>, required: true } }
-  , setup() {
+  , props:      { activity:     { type: Object as PropType<Activity>, required: true }
+                , isModerating: { type:                      Boolean, required: true }
+                }
+  , setup(props) {
 
       const route = useRoute();
 
@@ -181,10 +245,17 @@
       const loadedAuthor      = ref<string | null>(null);
       const loadedContent     = ref<string | null>(null);
 
-      const submissions = ref<Array<Submission>>([]);
+      const modTab = ref<"unapproved" | "approved">("approved");
+      selectModTab("approved");
+
+      const submissions        = ref<Array<Submission>>([]);
+      const waitingSubmissions = ref<Array<Submission>>([]);
       onMounted(
         async () => {
           await updateSubmissions();
+          if (props.isModerating) {
+            await setUpWebSocket();
+          }
           hasMounted.value = true;
         }
       );
@@ -220,8 +291,42 @@
         }
       }
 
+      async function setUpWebSocket(): Promise<void> {
+
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const domain   = window.location.host;
+        const prefix   = `${protocol}://${domain}`;
+
+        const jwt = encodeURIComponent(await getAuthToken() ?? "");
+
+        const socket = new WebSocket(`${prefix}/api/galleries/${galleryID.value}/teacher/moderable/${jwt}`);
+
+        socket.onmessage = (event: MessageEvent<string>): void => {
+          const ErrorOrSubs = z.union([z.object({ error: z.string(), }), z.array(SubmissionSchema)]);
+          const message     = ErrorOrSubs.parse(JSON.parse(event.data));
+          if ("error" in message) {
+            console.error(message.error);
+          } else {
+            waitingSubmissions.value = waitingSubmissions.value.concat(message);
+          }
+        };
+
+        socket.onerror = (event): void => {
+          console.error("Socket error", event);
+        };
+
+        socket.onclose = (event): void => {
+          console.warn("Socket unexpected closed", event.code, event.reason);
+        };
+
+      }
+
       function storeData(data: ExportData): void {
         exportedData.value = data;
+      }
+
+      function selectModTab(typ: "unapproved" | "approved"): void {
+        modTab.value = typ;
       }
 
       function setActiveSubmission(sub: Submission): void {
@@ -232,11 +337,25 @@
         activeSubmission.value = null;
       }
 
+      async function approveSubmission(sub: Submission): Promise<void> {
+        const url    = `/api/galleries/${galleryID.value}/teacher/${sub.id}/approve`;
+        const result = await fetchAsTeacher(url, { method: "POST" });
+        if (result.ok) {
+          submissions.value.push(sub);
+          waitingSubmissions.value = waitingSubmissions.value.filter((x) => x !== sub);
+        } else {
+          alert(await result.text());
+        }
+      }
+
       async function deleteSubmission(sub: Submission): Promise<void> {
-        if (confirm("Are you sure you want to delete your work?")) {
+
+        if (props.isModerating) {
+          await rejectSubmission(sub);
+        } else if (confirm("Are you sure you want to delete your work?")) {
 
           const opts   = { method: "DELETE" };
-          const result = await authorizedFetch(`/api/galleries/${galleryID.value}/student/${sub.id}`, opts);
+          const result = await fetchAsStudent(`/api/galleries/${galleryID.value}/student/${sub.id}`, opts);
 
           if (result.ok) {
             submissions.value = submissions.value.filter((x) => x !== sub);
@@ -245,11 +364,25 @@
           }
 
         }
+
+      }
+
+      async function rejectSubmission(sub: Submission): Promise<void> {
+        if (confirm(`Are you sure you want to delete ${sub.uploader}'s work?`)) {
+          const url    = `/api/galleries/${galleryID.value}/teacher/${sub.id}/reject`;
+          const result = await fetchAsTeacher(url, { method: "POST" });
+          if (result.ok) {
+            waitingSubmissions.value = waitingSubmissions.value.filter((x) => x !== sub);
+                   submissions.value =        submissions.value.filter((x) => x !== sub);
+          } else {
+            alert(await result.text());
+          }
+        }
       }
 
       async function updateSubmissions(): Promise<void> {
 
-        const result = await authorizedFetch(`/api/galleries/${galleryID.value}/student/submissions`);
+        const result = await fetchAsStudent(`/api/galleries/${galleryID.value}/student/submissions`);
 
         if (result.ok) {
 
@@ -270,10 +403,11 @@
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
-      return { activeSubmission, addComment, addNewSubmission, deleteSubmission, exportedData, extStartURL
-             , galleryID, galleryName, hideFiller, isShowingFiller, isUploadModalOpen, loadedAuthor
-             , loadedContent, loadInSplit, onExternalStarter, setActiveSubmission, storeData, submissions
-             , unsetActiveSubmission
+      return { activeSubmission, addComment, addNewSubmission, approveSubmission, deleteSubmission
+             , exportedData, extStartURL, galleryID, galleryName, hideFiller, isShowingFiller
+             , isUploadModalOpen, loadedAuthor, loadedContent, loadInSplit, modTab, onExternalStarter
+             , rejectSubmission, selectModTab, setActiveSubmission, storeData, submissions
+             , unsetActiveSubmission, waitingSubmissions
              };
 
     }
@@ -301,6 +435,14 @@
     margin:    4px auto;
   }
 
+  .approved.tab-button {
+    background-color: navy;
+  }
+
+  .approved.tab-button.selected {
+    background-color: blue;
+  }
+
   .controls-container {
 
     display:        flex;
@@ -312,52 +454,6 @@
     left:           10px;
     z-index:        60;
 
-  }
-
-  .deleter {
-
-    position: absolute;
-    top:      0;
-    right:    0;
-
-    display:         flex;
-    align-items:     center;
-    justify-content: center;
-
-    width:   2rem;
-    height:  2rem;
-    padding: 0;
-
-    border:        1px solid #ddd;
-    border-radius: var(--radius-sm);
-    box-shadow:    0 1px 3px rgba(0, 0, 0, 0.2);
-
-    background: #c62828;
-    color:      white;
-
-    font-size:   1.5rem;
-    line-height: 1;
-
-    cursor: pointer;
-
-    transition: background-color 0.15s, color 0.15s, transform 0.1s;
-
-    z-index: 10;
-
-  }
-
-  .deleter:hover {
-    background: #b71c1c;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  }
-
-  .deleter:active {
-    transform: scale(0.92);
-  }
-
-  .deleter:focus-visible {
-    outline:        2px solid #c62828;
-    outline-offset: 2px;
   }
 
   .doc-button:hover {
@@ -403,6 +499,13 @@
     overflow-y:     auto;
   }
 
+  .moderation-tabs {
+    display:        flex;
+    flex-direction: row;
+    font-size:      14px;
+    max-height:     41px;
+  }
+
   .placeholder-inner {
     text-align: center;
     color:      var(--clr-muted);
@@ -426,8 +529,11 @@
 
   .sidebar-heading {
     border-bottom: 1px solid var(--clr-border-2);
-    padding:       12px;
     text-align:    center;
+  }
+
+  .sidebar-heading > :first-child {
+    padding: 12px;
   }
 
   .sidebar-info {
@@ -491,6 +597,78 @@
     align-items:             center;
     gap:                     var(--space-4);
     z-index:                 50;
+  }
+
+  .tab-button {
+    border-bottom:  3px solid #ffffff00;
+    color:          white;
+    cursor:         pointer;
+    flex-grow:      1;
+    padding-bottom: 12px;
+    padding-top:    12px;
+    user-select:    none;
+  }
+
+  .tab-button.selected {
+    border-bottom-color: white;
+  }
+
+  .tab-button:not(.selected):hover {
+    filter: brightness(1.5);
+  }
+
+  .thumb-action {
+
+    position: absolute;
+    top:      0;
+    right:    0;
+
+    display:         flex;
+    align-items:     center;
+    justify-content: center;
+
+    width:   2rem;
+    height:  2rem;
+    padding: 0;
+
+    border:        1px solid #ddd;
+    border-radius: var(--radius-sm);
+    box-shadow:    0 1px 3px rgba(0, 0, 0, 0.2);
+
+    background: #c62828;
+    color:      white;
+
+    font-size:   1.5rem;
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition: background-color 0.15s, color 0.15s, transform 0.1s;
+
+    z-index: 10;
+
+  }
+
+  .thumb-action:hover {
+    background: #b71c1c;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  .thumb-action:active {
+    transform: scale(0.92);
+  }
+
+  .thumb-action:focus-visible {
+    outline:        2px solid #c62828;
+    outline-offset: 2px;
+  }
+
+  .unapproved.tab-button {
+    background-color: darkred;
+  }
+
+  .unapproved.tab-button.selected {
+    background-color: crimson;
   }
 
 </style>

@@ -69,8 +69,8 @@
                  rel="noopener noreferrer">
                 Student view
               </a>
-              <a v-if="gallery.isPrescreened" :href="`/`" class="btn btn-accent link" target="_blank"
-                 rel="noopener noreferrer" @click="viewAsTeacher(gallery)">
+              <a v-if="gallery.isPrescreened" :href="`/galleries/teacher/moderation/${gallery.id}`"
+                 class="btn btn-accent link" target="_blank" rel="noopener noreferrer">
                 Moderation view
               </a>
             </div>
@@ -246,10 +246,6 @@
         activeTab.value = "create";
       }
 
-      function viewAsTeacher(_g: Gallery): void {
-        alert("Not yet implemented"); // TODO
-      }
-
       function resetCloneModal(): void {
         cloneError.value = null;
         cloneName.value  = "";
@@ -327,8 +323,8 @@
 
       return {
         activeTab, cloneDesc, cloneError, cloneModal, cloneName, cloneSource, confirmClone, formatDate
-      , handleEsc, hasMounted, modalRef, onGalleryCanceled, onGalleryCreated, openCloneModal
-      , openCreateModal, sortedGalleries, sortKey, viewAsTeacher
+      , handleEsc, hasMounted, modalRef, onGalleryCanceled, onGalleryCreated, openCloneModal, openCreateModal
+      , sortedGalleries, sortKey
       };
 
     }
