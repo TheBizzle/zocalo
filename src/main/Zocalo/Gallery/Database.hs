@@ -398,9 +398,6 @@ validateOTP emailAddr passcode =
                                  [OTPRequestDBWasUsed =. True]
             return $ Success $ ATeacher $ extractEmailAddr teacherDB
 
--- TODO: How/when do refresh tokens get revoked?
--- TODO: Are `data` files blobs?
-
 lookupStudentRefreshToken :: SecureToken -> IO (ActionResult AuthorizedStudent)
 lookupStudentRefreshToken refreshToken =
   do
