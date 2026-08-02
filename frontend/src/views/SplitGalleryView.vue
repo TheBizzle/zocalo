@@ -15,7 +15,7 @@
           <div v-if="isModerating" class="moderation-tabs">
             <div class="unapproved tab-button" :class="{ selected: modTab === 'unapproved' }"
                  @click="selectModTab('unapproved')">
-              Waiting: {{ waitingSubmissions.length }}
+              Pending: {{ waitingSubmissions.length }}
             </div>
             <div class="approved tab-button" :class="{ selected: modTab === 'approved' }"
                  @click="selectModTab('approved')">
