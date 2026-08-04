@@ -218,6 +218,7 @@
   import type { Activity                                                         } from "@/core/Activity.ts";
   import type { ExportData                                                       } from "@/core/ExportData.ts";
   import { setTitle                                                              } from "@/core/setTitle.ts";
+  import { setUpWebSocket                                                        } from "@/core/setUpWebSocket.ts";
   import { authorizedFetch as fetchAsTeacher, getAuthToken                       } from "@/core/TeacherAuth.ts";
   import { authorizedFetch as fetchAsStudent                                     } from "@/core/StudentAuth.ts";
   import { AllSubmissionsSchema, type Comment, type Submission, SubmissionSchema }  from "@/core/Submission.ts";
@@ -254,7 +255,7 @@
         async () => {
           await updateSubmissions();
           if (props.isModerating) {
-            await setUpWebSocket();
+            await setUpModeratorSocket();
           }
           hasMounted.value = true;
         }
@@ -291,17 +292,12 @@
         }
       }
 
-      async function setUpWebSocket(): Promise<void> {
-
-        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        const domain   = window.location.host;
-        const prefix   = `${protocol}://${domain}`;
+      async function setUpModeratorSocket(): Promise<void> {
 
         const jwt = encodeURIComponent(await getAuthToken() ?? "");
+        const urlish = `/api/galleries/${galleryID.value}/teacher/moderable/${jwt}`;
 
-        const socket = new WebSocket(`${prefix}/api/galleries/${galleryID.value}/teacher/moderable/${jwt}`);
-
-        socket.onmessage = (event: MessageEvent<string>): void => {
+        const onMessage = (event: MessageEvent<string>): void => {
           const ErrorOrSubs = z.union([z.object({ error: z.string(), }), z.array(SubmissionSchema)]);
           const message     = ErrorOrSubs.parse(JSON.parse(event.data));
           if ("error" in message) {
@@ -311,13 +307,7 @@
           }
         };
 
-        socket.onerror = (event): void => {
-          console.error("Socket error", event);
-        };
-
-        socket.onclose = (event): void => {
-          console.warn("Socket unexpected closed", event.code, event.reason);
-        };
+        await setUpWebSocket(urlish, onMessage);
 
       }
 
