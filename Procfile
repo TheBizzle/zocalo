@@ -1,1 +1,1 @@
-web: zocalo
+web: run-zocalo

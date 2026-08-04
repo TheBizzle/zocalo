@@ -26,7 +26,7 @@ ghc-options:
   - -O2
 
 executables:
-  zocalo:
+  run-zocalo:
     source-dirs: app
     main:        Main.hs
     dependencies:

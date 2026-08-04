@@ -8,4 +8,4 @@ cd ..
 
 stack build
 
-killall zocalo
+killall run-zocalo

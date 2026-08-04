@@ -57,9 +57,9 @@ zócalo
 
 ### Running
 
-  * To run the server without HTTP, run `stack build && stack exec zocalo`
+  * To run the server without HTTP, run `stack build && stack exec run-zocalo`
 
-  * For HTTPS support, ensure that your SSL cert is accessible and run this command: `stack build && sudo /PATH/TO/STACK/stack exec --allow-different-user zocalo -- --port=80 --ssl-port=443 --ssl-cert=/PATH/TO/CERT/cert.pem --ssl-key=/PATH/TO/KEY/privkey.pem --ssl-address=0.0.0.0 --no-ssl-chain-cert` (your filenames for the key and cert may differ)
+  * For HTTPS support, ensure that your SSL cert is accessible and run this command: `stack build && sudo /PATH/TO/STACK/stack exec --allow-different-user run-zocalo -- --port=80 --ssl-port=443 --ssl-cert=/PATH/TO/CERT/cert.pem --ssl-key=/PATH/TO/KEY/privkey.pem --ssl-address=0.0.0.0 --no-ssl-chain-cert` (your filenames for the key and cert may differ)
 
 ### API Docs
 
