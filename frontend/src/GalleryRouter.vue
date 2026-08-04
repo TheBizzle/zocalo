@@ -1,6 +1,8 @@
 <template>
-  <SplitGalleryView   v-if="activity.isSplit" :activity="activity" :isModerating="isModerating" />
-  <StudentGalleryView v-else                  :activity="activity" :isModerating="isModerating" />
+  <template v-if="activity">
+    <SplitGalleryView   v-if="activity.isSplit" :activity="activity" :isModerating="isModerating" />
+    <StudentGalleryView v-else                  :activity="activity" :isModerating="isModerating" />
+  </template>
 </template>
 
 <script lang="ts" setup>
@@ -15,16 +17,7 @@
 
   const route = useRoute();
 
-  const nonActivity: Activity =
-    { hasLoadableWork: false
-    , isSplit:         false
-    , name:            "fake activity"
-    , sharingStyle:    "file-picker"
-    , starterKeys:     []
-    , starterMode:     "none"
-    };
-
-  const activity = ref<Activity>(nonActivity);
+  const activity = ref<Activity | null>(null);
 
   watch(
     () => route.params["nanoid"],
