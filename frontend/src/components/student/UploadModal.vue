@@ -346,6 +346,7 @@
               };
 
             emit("add-new-submission", submission);
+            uploadedTextContent.value = null;
             uploadForm.value = { description: "", imageFile: null, imageName: "", uploadFile: null, uploadName: "" };
             uploadData.value = null;
             close();
