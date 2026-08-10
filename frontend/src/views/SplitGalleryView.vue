@@ -25,7 +25,7 @@
 
         </h3>
 
-        <div v-if="modTab === 'unapproved'">
+        <div v-if="modTab === 'unapproved'" style="height: 100%;">
 
           <div v-if="waitingSubmissions.length === 0" class="sidebar-empty">
             <p>No submissions waiting...</p>
@@ -68,7 +68,7 @@
 
         </div>
 
-        <div v-if="modTab === 'approved'">
+        <div v-if="modTab === 'approved'" style="height: 100%;">
 
           <div v-if="submissions.length === 0" class="sidebar-empty">
             <p>No submissions yet...</p>
@@ -518,6 +518,7 @@
     display:        flex;
     flex-direction: column;
     gap:            3px;
+    height:         100%;
     padding:        5px;
     overflow-y:     auto;
   }
