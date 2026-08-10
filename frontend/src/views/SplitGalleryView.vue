@@ -519,7 +519,7 @@
     flex-direction: column;
     gap:            3px;
     height:         100%;
-    padding:        5px;
+    padding:        5px 5px 166px 5px;
     overflow-y:     auto;
   }
 
