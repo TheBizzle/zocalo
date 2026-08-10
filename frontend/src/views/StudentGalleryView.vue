@@ -42,16 +42,18 @@
 
   import { computed, defineComponent, onMounted, type PropType, ref } from "vue";
   import { useRoute                                                 } from "vue-router";
+  import { z                                                        } from "zod";
 
   import BasicGallery          from "@/components/student/BasicGallery.vue";
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
 
-  import type { Activity                                       } from "@/core/Activity.ts";
-  import type { ExportData                                     } from "@/core/ExportData.ts";
-  import { setTitle                                            } from "@/core/setTitle.ts";
-  import { authorizedFetch                                     } from "@/core/StudentAuth.ts";
-  import { AllSubmissionsSchema, type Comment, type Submission } from "@/core/Submission.ts";
+  import type { Activity                                                          } from "@/core/Activity.ts";
+  import type { ExportData                                                        } from "@/core/ExportData.ts";
+  import { setTitle                                                               } from "@/core/setTitle.ts";
+  import { setUpWebSocket                                                         } from "@/core/setUpWebSocket.ts";
+  import { getAuthToken as getStudentToken                                        } from "@/core/StudentAuth.ts";
+  import { type Comment, GalleryMetadataSchema, type Submission, SubmissionSchema } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "StudentGalleryView"
@@ -64,7 +66,7 @@
       const submissions = ref<Array<Submission>>([]);
       onMounted(
         async () => {
-          await updateSubmissions();
+          await setUpStudentSocket();
           hasMounted.value = true;
         }
       );
@@ -97,23 +99,38 @@
         activeSubmission.value = null;
       }
 
-      async function updateSubmissions(): Promise<void> {
+      async function setUpStudentSocket(): Promise<void> {
 
-        const result = await authorizedFetch(`/api/galleries/${galleryID.value}/student/submissions`);
+        const jwt = encodeURIComponent(await getStudentToken() ?? "");
+        const urlish = `/api/galleries/${galleryID.value}/student/submissions/${jwt}`;
 
-        if (result.ok) {
+        const onMessage = (event: MessageEvent<string>): void => {
 
-          const subs  = AllSubmissionsSchema.parse(await result.json());
-          const asNum = (x: { creationTime: Date }): number => x.creationTime.getTime();
-          subs.submissions.forEach((s) => s.comments.sort((x, y) => asNum(x) - asNum(y)));
+          const ErrorOrMetaOrSubs =
+            z.union(
+              [ z.object({ error: z.string(), })
+              , GalleryMetadataSchema
+              , z.array(SubmissionSchema)
+              ]
+            );
 
-          submissions.value = subs.submissions.sort((x, y) => asNum(y) - asNum(x));
-          isModerated.value = subs.isModerated;
-          galleryName.value = subs.galleryName;
+          const message = ErrorOrMetaOrSubs.parse(JSON.parse(event.data));
 
-        } else {
-          alert(await result.text());
-        }
+          if ("error" in message) {
+            alert(message.error);
+          } else if ("galleryName" in message) {
+            isModerated.value = message.isModerated;
+            galleryName.value = message.galleryName;
+          } else {
+            const asNum = (x: { creationTime: Date }): number => x.creationTime.getTime();
+            message.forEach((s) => s.comments.sort((x, y) => asNum(x) - asNum(y)));
+            const sorted = message.sort((x, y) => asNum(y) - asNum(x));
+            submissions.value = sorted.concat(submissions.value);
+          }
+
+        };
+
+        await setUpWebSocket(urlish, onMessage);
 
       }
 

@@ -3,12 +3,12 @@
   <div class="comment-section">
     <h3 class="comment-heading">
       Comments
-      <span class="comment-count">{{ localComments.length }}</span>
+      <span class="comment-count">{{ comments.length }}</span>
     </h3>
 
     <!-- Existing comments -->
-    <div class="comment-thread" v-if="localComments.length > 0">
-      <div v-for="c in localComments" class="comment-bubble animate-fade">
+    <div class="comment-thread" v-if="comments.length > 0">
+      <div v-for="c in comments" class="comment-bubble animate-fade">
         <div class="comment-author">{{ c.author }}</div>
         <div class="comment-text">{{ c.comment }}</div>
         <div class="comment-time">{{ formatTime(c.creationTime) }}</div>
@@ -57,7 +57,6 @@
   , emits: ["add-comment"]
   , setup(props, { emit }) {
 
-      const localComments = ref<Array<Comment>>([...props.comments]);
       const errorMsg      = ref("");
       const newText       = ref("");
       const posting       = ref(false);
@@ -95,7 +94,6 @@
               , parentID:     null
               , creationTime: new Date()
               };
-            localComments.value.push(newComment);
             emit("add-comment", newComment);
           } else {
             errorMsg.value = await res.text();
@@ -115,7 +113,7 @@
       }
 
       return {
-        errorMsg, formatTime, localComments, newText, postComment, posting, selfName
+        errorMsg, formatTime, newText, postComment, posting, selfName
       };
 
     }

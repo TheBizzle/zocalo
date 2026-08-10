@@ -2,7 +2,8 @@
 module Zocalo.Gallery.Auth.FancyAuth(
     genSecureToken, issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens
   , SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateStudentRefreshToken
-  , validateTeacherAccessToken, validateTeacherAccessTokenRaw, validateTeacherRefreshToken
+  , validateStudentAccessTokenRaw, validateTeacherAccessToken, validateTeacherAccessTokenRaw
+  , validateTeacherRefreshToken
   ) where
 
 import Control.Lens((^.), (.~), (&))
@@ -102,6 +103,9 @@ validateStudentAccessToken = validateAccessTokenFromHeader Student
 
 validateTeacherAccessToken :: Snap (ActionResult AuthorizedTeacher)
 validateTeacherAccessToken = validateAccessTokenFromHeader Teacher
+
+validateStudentAccessTokenRaw :: ByteString -> Snap (ActionResult AuthorizedStudent)
+validateStudentAccessTokenRaw tokenBS = validateAccessToken Student tokenBS
 
 validateTeacherAccessTokenRaw :: ByteString -> Snap (ActionResult AuthorizedTeacher)
 validateTeacherAccessTokenRaw tokenBS = validateAccessToken Teacher tokenBS

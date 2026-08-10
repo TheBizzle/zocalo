@@ -12,6 +12,13 @@ const CommentSchema =
 type Comment = z.infer<typeof CommentSchema>;
 const CommentArraySchema = z.array(CommentSchema);
 
+const BroadcastCommentSchema =
+  z.object(
+    { comment:     CommentSchema
+    , commentedID: z.number()
+    }
+  );
+
 const SubmissionSchema =
   z.object(
     { id:           z.number()
@@ -29,13 +36,19 @@ const SubmissionSchema =
 
 type Submission = z.infer<typeof SubmissionSchema>;
 
-const AllSubmissionsSchema =
+const GalleryMetadataSchema =
   z.object(
     { galleryName: z.string()
     , isModerated: z.boolean()
-    , submissions: z.array(SubmissionSchema)
     }
   );
 
-export { AllSubmissionsSchema, CommentArraySchema, CommentSchema, SubmissionSchema };
+const DeletedSubmissionSchema =
+  z.object(
+    { deletedID: z.number()
+    }
+  );
+
+export { BroadcastCommentSchema, CommentArraySchema, CommentSchema, DeletedSubmissionSchema
+       , GalleryMetadataSchema, SubmissionSchema };
 export type { Comment, Submission };

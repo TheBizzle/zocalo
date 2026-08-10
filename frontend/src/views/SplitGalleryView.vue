@@ -215,13 +215,15 @@
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
   import UploadModal           from "@/components/student/UploadModal.vue";
 
-  import type { Activity                                                         } from "@/core/Activity.ts";
-  import type { ExportData                                                       } from "@/core/ExportData.ts";
-  import { setTitle                                                              } from "@/core/setTitle.ts";
-  import { setUpWebSocket                                                        } from "@/core/setUpWebSocket.ts";
-  import { authorizedFetch as fetchAsTeacher, getAuthToken                       } from "@/core/TeacherAuth.ts";
-  import { authorizedFetch as fetchAsStudent                                     } from "@/core/StudentAuth.ts";
-  import { AllSubmissionsSchema, type Comment, type Submission, SubmissionSchema }  from "@/core/Submission.ts";
+  import type { Activity                                                      } from "@/core/Activity.ts";
+  import type { ExportData                                                    } from "@/core/ExportData.ts";
+  import { setTitle                                                           } from "@/core/setTitle.ts";
+  import { setUpWebSocket                                                     } from "@/core/setUpWebSocket.ts";
+  import { authorizedFetch as fetchAsStudent, getAuthToken as getStudentToken } from "@/core/StudentAuth.ts";
+  import { authorizedFetch as fetchAsTeacher, getAuthToken as getTeacherToken } from "@/core/TeacherAuth.ts";
+
+  import { BroadcastCommentSchema, type Comment, DeletedSubmissionSchema, GalleryMetadataSchema
+         , type Submission, SubmissionSchema } from "@/core/Submission.ts";
 
   export default defineComponent({
     name:       "SplitGalleryView"
@@ -253,7 +255,7 @@
       const waitingSubmissions = ref<Array<Submission>>([]);
       onMounted(
         async () => {
-          await updateSubmissions();
+          await setUpStudentSocket();
           if (props.isModerating) {
             await setUpModeratorSocket();
           }
@@ -294,14 +296,25 @@
 
       async function setUpModeratorSocket(): Promise<void> {
 
-        const jwt = encodeURIComponent(await getAuthToken() ?? "");
+        const jwt = encodeURIComponent(await getTeacherToken() ?? "");
         const urlish = `/api/galleries/${galleryID.value}/teacher/moderable/${jwt}`;
 
         const onMessage = (event: MessageEvent<string>): void => {
-          const ErrorOrSubs = z.union([z.object({ error: z.string(), }), z.array(SubmissionSchema)]);
-          const message     = ErrorOrSubs.parse(JSON.parse(event.data));
+
+          const MessageOptions =
+            z.union(
+              [ z.object({ error: z.string(), })
+              , DeletedSubmissionSchema
+              , z.array(SubmissionSchema)
+              ]
+            );
+
+          const message = MessageOptions.parse(JSON.parse(event.data));
+
           if ("error" in message) {
             console.error(message.error);
+          } else if ("deletedID" in message) {
+            waitingSubmissions.value = waitingSubmissions.value.filter((s) => s.id !== message.deletedID);
           } else {
             waitingSubmissions.value = waitingSubmissions.value.concat(message);
           }
@@ -331,7 +344,6 @@
         const url    = `/api/galleries/${galleryID.value}/teacher/${sub.id}/approve`;
         const result = await fetchAsTeacher(url, { method: "POST" });
         if (result.ok) {
-          submissions.value.push(sub);
           waitingSubmissions.value = waitingSubmissions.value.filter((x) => x !== sub);
         } else {
           alert(await result.text());
@@ -370,23 +382,44 @@
         }
       }
 
-      async function updateSubmissions(): Promise<void> {
+      async function setUpStudentSocket(): Promise<void> {
 
-        const result = await fetchAsStudent(`/api/galleries/${galleryID.value}/student/submissions`);
+        const jwt = encodeURIComponent(await getStudentToken() ?? "");
+        const urlish = `/api/galleries/${galleryID.value}/student/submissions/${jwt}`;
 
-        if (result.ok) {
+        const onMessage = (event: MessageEvent<string>): void => {
 
-          const subs  = AllSubmissionsSchema.parse(await result.json());
-          const asNum = (x: { creationTime: Date }): number => x.creationTime.getTime();
-          subs.submissions.forEach((s) => s.comments.sort((x, y) => asNum(x) - asNum(y)));
+          const MessageOptions =
+            z.union(
+              [ z.object({ error: z.string(), })
+              , BroadcastCommentSchema
+              , GalleryMetadataSchema
+              , DeletedSubmissionSchema
+              , z.array(SubmissionSchema)
+              ]
+            );
 
-          submissions.value = subs.submissions.sort((x, y) => asNum(y) - asNum(x));
-          isModerated.value = subs.isModerated;
-          galleryName.value = subs.galleryName;
+          const message = MessageOptions.parse(JSON.parse(event.data));
 
-        } else {
-          alert(await result.text());
-        }
+          if ("error" in message) {
+            alert(message.error);
+          } else if ("commentedID" in message) {
+            submissions.value.find((s) => s.id === message.commentedID)?.comments.push(message.comment);
+          } else if ("galleryName" in message) {
+            isModerated.value = message.isModerated;
+            galleryName.value = message.galleryName;
+          } else if ("deletedID" in message) {
+            submissions.value = submissions.value.filter((s) => s.id !== message.deletedID);
+          } else {
+            const asNum = (x: { creationTime: Date }): number => x.creationTime.getTime();
+            message.forEach((s) => s.comments.sort((x, y) => asNum(x) - asNum(y)));
+            const sorted = message.sort((x, y) => asNum(y) - asNum(x));
+            submissions.value = sorted.concat(submissions.value);
+          }
+
+        };
+
+        await setUpWebSocket(urlish, onMessage);
 
       }
 

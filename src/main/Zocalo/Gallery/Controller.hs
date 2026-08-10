@@ -1,6 +1,6 @@
 module Zocalo.Gallery.Controller(routes, runMigrations) where
 
-import Control.Concurrent.STM.TVar(modifyTVar')
+import Control.Concurrent.STM.TVar(modifyTVar', readTVarIO)
 import Control.Exception(finally)
 import Control.Monad(forever)
 
@@ -9,7 +9,7 @@ import Data.NanoID(unNanoID)
 
 import GHC.Conc(atomically, TVar)
 
-import Network.WebSockets(acceptRequest, receiveData, sendTextData, ServerApp)
+import Network.WebSockets(acceptRequest, receiveData, sendTextData)
 import Network.WebSockets.Snap(runWebSocketsSnap)
 
 import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Snap, writeBS, writeText)
@@ -26,7 +26,7 @@ import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher)
 import Zocalo.Gallery.Auth.FancyAuth(
     issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, validateStudentAccessToken
   , validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken
-  , validateTeacherAccessTokenRaw
+  , validateStudentAccessTokenRaw, validateTeacherAccessTokenRaw
   )
 
 import Zocalo.Gallery.ActionResult(
@@ -44,8 +44,18 @@ import Zocalo.Gallery.Database(
 
 import Zocalo.Gallery.LowerText(asLowerText)
 import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
-import Zocalo.Gallery.SocketClient(ModeratorClient(ModeratorClient))
-import Zocalo.Gallery.Submission(SubmissionID(SubID))
+
+import Zocalo.Gallery.SocketClient(
+    GalleryObserverClient(GalleryObserverClient, gocConnection, gocGalleryID, gocStudent)
+  , ModeratorClient(ModeratorClient, mcConnection, mcGalleryID, mcTeacher)
+  )
+
+import Zocalo.Gallery.StudentUploadResponse(
+    UploadCommentResponse(UploadCommentResponse)
+  , UploadDeleteResponse(UploadDeleteResponse)
+  )
+
+import Zocalo.Gallery.Submission(SubmissionID(SubID), SubmissionSendable(SubmissionSendable))
 
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.Map               as Map
@@ -53,7 +63,9 @@ import qualified Data.Text.Encoding     as TextEncoding
 import qualified Text.Read              as TRead
 
 
-routes :: TVar (Map AuthorizedTeacher ModeratorClient) -> TVar (Map AuthorizedStudent ServerApp) -> [(ByteString, Snap ())]
+routes :: TVar (Map AuthorizedTeacher ModeratorClient) ->
+          TVar (Map AuthorizedStudent GalleryObserverClient) ->
+          [(ByteString, Snap ())]
 routes moderators students =
     [ ("echo/:param"                                     ,      ac POST   handleEchoData)
     , ("api/version"                                     ,      ac GET    handleAPIVersion)
@@ -71,15 +83,15 @@ routes moderators students =
     , ("api/auth/teacher/who-am-i"                       , wc $ ac GET    handleWhoIsTeacher)
     , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
     , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
-    , ("api/galleries/:nano-id/student/:item-id/comment" ,      ac POST   handleSubmitComment)
+    , ("api/galleries/:nano-id/student/:item-id/comment" ,      ac POST   (handleSubmitComment students))
     , ("api/galleries/:nano-id/student/starter-config"   , wc $ ac GET    handleGetStarterConfig)
-    , ("api/galleries/:nano-id/student/submission"       ,      ac POST   handleUploadFile)
-    , ("api/galleries/:nano-id/student/submissions"      , wc $ ac GET    handleListSession)
+    , ("api/galleries/:nano-id/student/submission"       ,      ac POST   (handleUploadFile students moderators))
+    , ("api/galleries/:nano-id/student/submissions/:jwt" ,                handleStudentSocket students)
     , ("api/galleries/:nano-id/student/template-name"    ,      ac GET    handleGetTemplateName)
     , ("api/galleries/:nano-id/student/:item-id"         , wc $ ac GET    handleDownloadItem)
-    , ("api/galleries/:nano-id/student/:item-id"         ,      ac DELETE handleSuppressItem)
-    , ("api/galleries/:nano-id/teacher/:item-id/approve" ,      ac POST   handleApproveItem)
-    , ("api/galleries/:nano-id/teacher/:item-id/reject"  ,      ac POST   handleForbidItem)
+    , ("api/galleries/:nano-id/student/:item-id"         ,      ac DELETE (handleSuppressItem students moderators))
+    , ("api/galleries/:nano-id/teacher/:item-id/approve" ,      ac POST   (handleApproveItem students moderators))
+    , ("api/galleries/:nano-id/teacher/:item-id/reject"  ,      ac POST   (handleForbidItem students moderators))
     , ("api/galleries/:nano-id/teacher/moderable/:jwt"   ,                handleModeratorSocket moderators)
     , ("/assets"                                         ,                serveDirectory "frontend/dist/assets")
     ]
@@ -124,15 +136,6 @@ handleListGalleries =
       listingsResult <- liftIO $ readGalleryListings teacher
       whenSuccess listingsResult $ encodeText &> succeed "application/json"
 
-handleListSession :: Snap ()
-handleListSession =
-  ifAuthorizedStudent $ \student ->
-    handle1 (Arg "nano-id" asNanoID) $
-      \nanoID ->
-        do
-          listingsResult <- liftIO $ readSubmissionListings student nanoID
-          whenSuccess listingsResult $ encodeText &> succeed "application/json"
-
 handleWhoIsTeacher :: Snap ()
 handleWhoIsTeacher =
   ifAuthorizedTeacher $ \teacher ->
@@ -149,35 +152,80 @@ handleDownloadItem =
           dlResult <- liftIO $ readSubmissionData teacherM studM $ SubID uploadID
           whenSuccess dlResult $ succeed "text/plain"
 
-handleSuppressItem :: Snap ()
-handleSuppressItem =
+handleSuppressItem :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
+                      TVar (Map AuthorizedTeacher       ModeratorClient) ->
+                      Snap ()
+handleSuppressItem students teachers =
   withAuthorizations $ \teacherM studM ->
-    handle1 (Arg "item-id" asNonNeg) $
-      \uploadID ->
+    handle2 (Arg "nano-id" asNanoID, Arg "item-id" asNonNeg) $
+      \(galleryID, uploadID) ->
         do
           result <- liftIO $ suppressSubmission teacherM studM $ SubID uploadID
-          whenSuccess result $ const $ succeed "text/plain" "Submission successfully suppressed"
+          whenSuccess result $ const $ do
 
-handleApproveItem :: Snap ()
-handleApproveItem =
+            studentClients <- liftIO $ readTVarIO students
+            for_ studentClients $ \client ->
+              when (client.gocGalleryID == galleryID) $
+                liftIO $ sendTextData client.gocConnection $ encodeText $ UploadDeleteResponse uploadID
+
+            teacherClients <- liftIO $ readTVarIO teachers
+            for_ teacherClients $ \client ->
+              when (client.mcGalleryID == galleryID && (Just client.mcTeacher) /= teacherM) $
+                liftIO $ sendTextData client.mcConnection $ encodeText $ UploadDeleteResponse uploadID
+
+            succeed "text/plain" "Submission successfully suppressed"
+
+handleApproveItem :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
+                     TVar (Map AuthorizedTeacher       ModeratorClient) ->
+                     Snap ()
+handleApproveItem students teachers =
   ifAuthorizedTeacher $ \teacher ->
-    handle1 (Arg "item-id" asNonNeg) $
-      \uploadID ->
+    handle2 (Arg "nano-id" asNanoID, Arg "item-id" asNonNeg) $
+      \(galleryID, uploadID) ->
         do
           result <- liftIO $ approveSubmission teacher $ SubID uploadID
-          whenSuccess result $ const $ succeed "text/plain" "Submission approved"
+          whenSuccess result $
+            \submission@(SubmissionSendable ssid _ _ _ _ _ _ _) -> do
 
-handleForbidItem :: Snap ()
-handleForbidItem =
+              studentClients <- liftIO $ readTVarIO students
+              for_ studentClients $ \client ->
+                when (client.gocGalleryID == galleryID) $
+                  liftIO $ sendTextData client.gocConnection $ encodeText [submission]
+
+              teacherClients <- liftIO $ readTVarIO teachers
+              for_ teacherClients $ \client ->
+                when (client.mcGalleryID == galleryID && client.mcTeacher /= teacher) $
+                  liftIO $ sendTextData client.mcConnection $ encodeText $ UploadDeleteResponse $ fromIntegral ssid
+
+              succeed "text/plain" "Submission approved"
+
+handleForbidItem :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
+                    TVar (Map AuthorizedTeacher       ModeratorClient) ->
+                    Snap ()
+handleForbidItem students teachers =
   ifAuthorizedTeacher $ \teacher ->
-    handle1 (Arg "item-id" asNonNeg) $
-      \uploadID ->
+    handle2 (Arg "nano-id" asNanoID, Arg "item-id" asNonNeg) $
+      \(galleryID, uploadID) ->
         do
           result <- liftIO $ forbidSubmission teacher $ SubID uploadID
-          whenSuccess result $ const $ succeed "text/plain" "Submission successfully forbidden"
 
-handleUploadFile :: Snap ()
-handleUploadFile =
+          whenSuccess result $ const $ do
+            studentClients <- liftIO $ readTVarIO students
+            for_ studentClients $ \client ->
+              when (client.gocGalleryID == galleryID) $
+                liftIO $ sendTextData client.gocConnection $ encodeText $ UploadDeleteResponse uploadID
+
+            teacherClients <- liftIO $ readTVarIO teachers
+            for_ teacherClients $ \client ->
+              when (client.mcGalleryID == galleryID && client.mcTeacher /= teacher) $
+                liftIO $ sendTextData client.mcConnection $ encodeText $ UploadDeleteResponse uploadID
+
+            succeed "text/plain" "Submission successfully forbidden"
+
+handleUploadFile :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
+                    TVar (Map AuthorizedTeacher       ModeratorClient) ->
+                    Snap ()
+handleUploadFile students teachers =
   ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
     let datum   = lookupParam "data"  fileMap
     let image   = lookupParam "image" fileMap
@@ -188,8 +236,21 @@ handleUploadFile =
     case tupleV of
       Failure es    -> notifyBadParams es
       Success tuple -> do
-        uploadIDResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
-        whenSuccess uploadIDResult $ encodeText &> succeed "text/plain"
+        pairResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
+        whenSuccess pairResult $
+          \(uploadID, getsPreed, submission) -> do
+
+            studentClients <- liftIO $ readTVarIO students
+            for_ studentClients $ \client ->
+              when ((Success client.gocGalleryID) == nanoID && (not getsPreed) && client.gocStudent /= student) $
+                liftIO $ sendTextData client.gocConnection $ encodeText [submission]
+
+            teacherClients <- liftIO $ readTVarIO teachers
+            for_ teacherClients $ \client ->
+              when ((Success client.mcGalleryID) == nanoID) $
+                liftIO $ sendTextData client.mcConnection $ encodeText [submission]
+
+            succeed "text/plain" $ encodeText uploadID
   where
     lookupParam param fileMap =
       case Map.lookup param fileMap of
@@ -199,20 +260,27 @@ handleUploadFile =
             Right good -> good
             Left     _ -> TextEncoding.decodeUtf8 $ Base64.encode result
 
-handleSubmitComment :: Snap ()
-handleSubmitComment =
+handleSubmitComment :: TVar (Map AuthorizedStudent GalleryObserverClient) -> Snap ()
+handleSubmitComment students =
   ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
+    nanoIDV     <- getParamVM fileMap $ Arg "nano-id" asNanoID
     uploadIDV   <- getParamVM fileMap $ Arg "item-id" asNonNeg
     parentV     <- getParamVM fileMap $ Arg "parent"  free
     commentV    <- getParamVM fileMap $ Arg "comment" notEmpty
-    let tupleV   = (,) <$> uploadIDV <*> commentV
+    let tupleV   = (,,) <$> nanoIDV <*> uploadIDV <*> commentV
     let pidM     = validation (const Nothing) (asString &> TRead.readMaybe) parentV
     bimapM_ notifyBadParams (helper student pidM) tupleV
   where
-    helper student pidM (uid, comment) =
+    helper student pidM (nid, uid, comment) =
       do
         result <- liftIO $ writeComment student uid pidM comment
-        whenSuccess result $ const $ writeText ""
+        whenSuccess result $
+          \comment -> do
+            studentClients <- liftIO $ readTVarIO students
+            for_ studentClients $ \client ->
+              when (client.gocGalleryID == nid && client.gocStudent /= student) $
+                liftIO $ sendTextData client.gocConnection $ encodeText $ UploadCommentResponse comment uid
+            writeText ""
 
 handleGetTemplateName :: Snap ()
 handleGetTemplateName =
@@ -359,6 +427,33 @@ handleModeratorSocket moderators = do
               _ <- receiveData connection :: IO Text
               pure ()
 
+handleStudentSocket :: TVar (Map AuthorizedStudent GalleryObserverClient) -> Snap ()
+handleStudentSocket students = do
+  handle2 (Arg "nano-id" asNanoID, Arg "jwt" notEmpty) $
+    \(galleryID, jwt) ->
+      ifAuthorizedStudentRaw jwt $ \student ->
+        runWebSocketsSnap $ \pending -> do
+
+          connection <- acceptRequest pending
+          let client = GalleryObserverClient student galleryID connection
+          atomically $ modifyTVar' students $ student `Map.insert` client
+
+          let cleanup = atomically $ modifyTVar' students $ Map.delete student
+          (flip finally cleanup) $ do
+
+            listingsResult <- liftIO $ readSubmissionListings student galleryID
+
+            let responses =
+                  case listingsResult of
+                    (Success (meta, subs)) -> [encodeText meta, encodeText subs]
+                    (Failure          err) -> ["{ \"error\": \"" <> (showText err) <> "\" }"]
+
+            for_ responses $ sendTextData connection
+
+            forever $ do -- Keeps the connection alive --Jason B. (7/19/26)
+              _ <- receiveData connection :: IO Text
+              pure ()
+
 getHeaderText :: CI ByteString -> Snap (Maybe Text)
 getHeaderText headerName =
   do
@@ -390,6 +485,12 @@ ifAuthorizedStudent :: (AuthorizedStudent -> Snap ()) -> Snap ()
 ifAuthorizedStudent ifGood =
   do
     studentV <- validateStudentAccessToken
+    validation (const $ failWith 401 $ writeText "No valid student access token.") ifGood studentV
+
+ifAuthorizedStudentRaw :: Text -> (AuthorizedStudent -> Snap ()) -> Snap ()
+ifAuthorizedStudentRaw jwt ifGood =
+  do
+    studentV <- validateStudentAccessTokenRaw $ TextEncoding.encodeUtf8 jwt
     validation (const $ failWith 401 $ writeText "No valid student access token.") ifGood studentV
 
 ifAuthorizedTeacher :: (AuthorizedTeacher -> Snap ()) -> Snap ()

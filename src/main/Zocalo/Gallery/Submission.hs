@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
 module Zocalo.Gallery.Submission(
-    AllSubmissions(..), Submission(..), SubmissionID(SubID, subIDNum), SubmissionSendable(..)
+    GalleryMetadata(..), Submission(..), SubmissionID(SubID, subIDNum), SubmissionSendable(..)
   ) where
 
 import Data.Aeson(ToJSON)
@@ -13,11 +13,10 @@ import Zocalo.Gallery.Comment(Comment)
 
 newtype SubmissionID = SubID { subIDNum :: Word64 }
 
-data AllSubmissions
-  = AllSubmissions {
+data GalleryMetadata
+  = GalleryMetadata {
       galleryName :: Text
     , isModerated :: Bool
-    , submissions :: [SubmissionSendable]
     } deriving (Generic, Show, ToJSON)
 
 data Submission

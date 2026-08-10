@@ -25,7 +25,7 @@ import Data.Ord(comparing)
 import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
 
-import Database.Persist((=.), (==.), (>=.), count, Entity(Entity, entityKey, entityVal), get, getBy, insert, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateWhere, upsert)
+import Database.Persist((=.), (==.), (>=.), count, Entity(Entity, entityKey, entityVal), get, getBy, insert, insertEntity, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateGet, updateWhere, upsert)
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
 import Database.Persist.Sql(fromSqlKey, toSqlKey)
 import Database.Persist.TH(mkMigrate, mkPersist, share, sqlSettings)
@@ -45,7 +45,7 @@ import Zocalo.Gallery.LowerText(asLowerText, LowerText)
 import Zocalo.Gallery.StudentUploadResponse(StudentUploadResponse(StudentUploadResponse))
 
 import Zocalo.Gallery.Submission(
-    AllSubmissions(AllSubmissions)
+    GalleryMetadata(GalleryMetadata)
   , Submission(Submission)
   , SubmissionID(SubID)
   , SubmissionSendable(SubmissionSendable)
@@ -174,7 +174,7 @@ readGalleryListings teacher =
     getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
     chooseLater a b = if a < b then b else a
 
-readSubmissionListings :: AuthorizedStudent -> NanoID -> IO (ActionResult AllSubmissions)
+readSubmissionListings :: AuthorizedStudent -> NanoID -> IO (ActionResult (GalleryMetadata, [SubmissionSendable]))
 readSubmissionListings student nid =
   withGalleryNano nid $
     \(gID, (GalleryDB _ gname _ _ _ isPrescreened _ _ _)) -> withDB $ do
@@ -184,7 +184,7 @@ readSubmissionListings student nid =
                              , SubmissionDBIsSuppressed         ==. False
                              ] [Asc SubmissionDBDateAdded]
       subs <- liftIO $ mapM (toSubmissionSendable (Just student) Nothing) entities
-      return $ Success $ AllSubmissions gname isPrescreened subs
+      return $ Success $ (GalleryMetadata gname isPrescreened, subs)
 
 readSubmissionListingsForModeration :: AuthorizedTeacher -> NanoID -> IO (ActionResult [SubmissionSendable])
 readSubmissionListingsForModeration teacher nid =
@@ -229,12 +229,12 @@ suppressSubmission teacherM studentM subID =
         return $ Failure NotAuthorized
 
 forbidSubmission :: AuthorizedTeacher -> SubmissionID -> IO (ActionResult ())
-forbidSubmission = moderateSubmission True
+forbidSubmission teacher uploadID = (moderateSubmission True teacher uploadID) <&> ($> ())
 
-approveSubmission :: AuthorizedTeacher -> SubmissionID -> IO (ActionResult ())
+approveSubmission :: AuthorizedTeacher -> SubmissionID -> IO (ActionResult SubmissionSendable)
 approveSubmission = moderateSubmission False
 
-moderateSubmission :: Bool -> AuthorizedTeacher -> SubmissionID -> IO (ActionResult ())
+moderateSubmission :: Bool -> AuthorizedTeacher -> SubmissionID -> IO (ActionResult SubmissionSendable)
 moderateSubmission isForbidden teacher submissionID =
   withSubmission submissionID $
     \(subKey, subDB) -> do
@@ -244,13 +244,14 @@ moderateSubmission isForbidden teacher submissionID =
         Just gallery -> do
           canModerate <- (Just teacher) `ownsOneNamed` (extractGalleryName gallery)
           if canModerate then withDB $ do
-            update subKey [SubmissionDBIsForbidden          =. isForbidden]
-            update subKey [SubmissionDBIsAwaitingModeration =.       False]
-            return $ Success ()
+            sub      <- updateGet subKey [SubmissionDBIsForbidden =. isForbidden, SubmissionDBIsAwaitingModeration =. False]
+            sendable <- liftIO $ toSubmissionSendable Nothing (Just teacher) $ Entity subKey sub
+            return $ Success sendable
           else
             return $ Failure NotAuthorized
 
-writeSubmission :: AuthorizedStudent -> NanoID -> Text -> Maybe Text -> Text -> IO (ActionResult StudentUploadResponse)
+writeSubmission :: AuthorizedStudent -> NanoID -> Text -> Maybe Text -> Text ->
+  IO (ActionResult (StudentUploadResponse, Bool, SubmissionSendable))
 writeSubmission student nid imageBytes metadata extraData =
   withGalleryNano nid $
     \(galleryID, gallery) -> do
@@ -259,8 +260,10 @@ writeSubmission student nid imageBytes metadata extraData =
       let getsPreed  = maybe False (entityVal &> extractGetsPrescreened) gEntityMaybe
       timestamp     <- getCurrentTime
       let subDB      = SubmissionDB galleryID imageBytes studID False False getsPreed metadata extraData timestamp
-      subID         <- withDB $ insert subDB
-      return $ Success $ StudentUploadResponse $ fromIntegral $ fromSqlKey subID
+      subEntity     <- withDB $ insertEntity subDB
+      let response   = StudentUploadResponse $ fromIntegral $ fromSqlKey $ entityKey subEntity
+      sendable      <- toSubmissionSendable (Just student) Nothing subEntity
+      return $ Success $ (response, getsPreed, sendable)
 
 readStarterConfigFor :: NanoID -> IO (ActionResult (Maybe Text))
 readStarterConfigFor nid =
@@ -268,14 +271,14 @@ readStarterConfigFor nid =
     \(_, galleryDB) ->
       return $ Success $ extractStarterConfig galleryDB
 
-writeComment :: AuthorizedStudent -> Word64 -> Maybe Int64 -> Text -> IO (ActionResult ())
+writeComment :: AuthorizedStudent -> Word64 -> Maybe Int64 -> Text -> IO (ActionResult Comment)
 writeComment student uploadID parentIDM comment =
   do
     let uploadKey    = toSqlKey $ fromIntegral uploadID
     timestamp       <- getCurrentTime
     let parentDBIDM  = map toSqlKey parentIDM
-    void $ withDB $ insert $ CommentDB comment student.studentName parentDBIDM uploadKey timestamp
-    return $ Success ()
+    commentDB <- withDB $ insertEntity $ CommentDB comment student.studentName parentDBIDM uploadKey timestamp
+    return $ Success $ dbToComment commentDB
 
 runMigrations :: IO ()
 runMigrations = liftIO $ withDB $ runMigration migrateAll
