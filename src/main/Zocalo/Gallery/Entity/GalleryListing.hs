@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
-module Zocalo.Gallery.GalleryListing(GalleryListing(..)) where
+module Zocalo.Gallery.Entity.GalleryListing(GalleryListing(..)) where
 
 import Data.Aeson(ToJSON)
 import Data.NanoID(NanoID)

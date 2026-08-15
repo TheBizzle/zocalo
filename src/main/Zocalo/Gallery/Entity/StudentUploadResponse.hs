@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Zocalo.Gallery.StudentUploadResponse(
+module Zocalo.Gallery.Entity.StudentUploadResponse(
     StudentUploadResponse(id, StudentUploadResponse)
   , UploadCommentResponse(commentedID, UploadCommentResponse)
   , UploadDeleteResponse(deletedID, UploadDeleteResponse)
@@ -10,7 +10,7 @@ import Data.Aeson(ToJSON)
 
 import GHC.Generics(Generic)
 
-import Zocalo.Gallery.Comment(Comment)
+import Zocalo.Gallery.Entity.Comment(Comment)
 
 
 data StudentUploadResponse

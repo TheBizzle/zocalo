@@ -1,4 +1,4 @@
-module Zocalo.Gallery.LowerText(asLowerText, LowerText, lowText) where
+module Zocalo.Gallery.Entity.LowerText(asLowerText, LowerText, lowText) where
 
 import Database.Persist.Sql(
     PersistField(fromPersistValue, toPersistValue)

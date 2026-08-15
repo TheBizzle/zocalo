@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Zocalo.Gallery.Auth.FancyAuth(
+module Zocalo.Gallery.Auth.Validator(
     genSecureToken, issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens
   , SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateStudentRefreshToken
   , validateStudentAccessTokenRaw, validateTeacherAccessToken, validateTeacherAccessTokenRaw
@@ -9,7 +9,14 @@ module Zocalo.Gallery.Auth.FancyAuth(
 import Control.Lens((^.), (.~), (&))
 
 import Crypto.JOSE.JWK(fromOctets, JWK)
-import Crypto.JWT(Alg(HS256), Audience(Audience), claimAud, claimExp, ClaimsSet, claimSub, decodeCompact, defaultJWTValidationSettings, emptyClaimsSet, encodeCompact, JOSE, JWTError, newJWSHeader, NumericDate(NumericDate), runJOSE, signClaims, SignedJWT, string, verifyClaims)
+import Crypto.JWT(
+    Alg(HS256)
+  , Audience(Audience)
+  , claimAud, claimExp, ClaimsSet, claimSub, decodeCompact, defaultJWTValidationSettings, emptyClaimsSet
+  , encodeCompact, JOSE, JWTError, newJWSHeader
+  , NumericDate(NumericDate)
+  , runJOSE, signClaims, SignedJWT, string, verifyClaims
+  )
 
 import Data.FileEmbed(embedFile)
 import Data.String(fromString)
@@ -25,11 +32,23 @@ import Snap.Core(
 
 import Zocalo.Common.SecureToken(genSecureToken, SecureToken(SecureToken, tokenText))
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent), AuthorizedTeacher(ATeacher), AuthorizedUser(readUser))
+import Zocalo.Gallery.Auth.AuthorizedUser(
+    AuthorizedStudent(AStudent)
+  , AuthorizedTeacher(ATeacher)
+  , AuthorizedUser(readUser)
+  )
 
-import Zocalo.Gallery.ActionResult(ActionError(Incorrect, InternalError, Malformed, NotAuthorized), ActionResult)
-import Zocalo.Gallery.Database(registerNewStudent, lookupStudentRefreshToken, lookupTeacherRefreshToken, setStudentRefreshToken, setTeacherRefreshToken)
-import Zocalo.Gallery.LowerText(lowText)
+import Zocalo.Gallery.Database.Database(
+    registerNewStudent, lookupStudentRefreshToken, lookupTeacherRefreshToken, setStudentRefreshToken
+  , setTeacherRefreshToken
+  )
+
+import Zocalo.Gallery.Entity.ActionResult(
+    ActionError(Incorrect, InternalError, Malformed, NotAuthorized)
+  , ActionResult
+  )
+
+import Zocalo.Gallery.Entity.LowerText(lowText)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy  as LazyBS

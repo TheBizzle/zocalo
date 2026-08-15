@@ -1,4 +1,4 @@
-module Zocalo.Gallery.DBSnakeCase(bizzleSnakeCase) where
+module Zocalo.Gallery.Database.DBSnakeCase(bizzleSnakeCase) where
 
 import Language.Haskell.TH.Quote(QuasiQuoter)
 

@@ -1,4 +1,4 @@
-module Zocalo.Gallery.ActionResult(
+module Zocalo.Gallery.Entity.ActionResult(
     ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
   , ActionResult
   ) where

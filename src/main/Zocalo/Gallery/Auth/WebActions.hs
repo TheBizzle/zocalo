@@ -1,4 +1,4 @@
-module Zocalo.Gallery.OldAuth(sendOTP, setUpNewUser) where
+module Zocalo.Gallery.Auth.WebActions(sendOTP, setUpNewUser) where
 
 import Data.Text(intercalate)
 
@@ -7,13 +7,20 @@ import qualified Data.Text as Text
 
 import Zocalo.Common.SecureToken(SecureToken(tokenText))
 
-import Zocalo.Gallery.Auth.FancyAuth(genSecureToken)
+import Zocalo.Gallery.Auth.RandGen(generate6Digit)
+import Zocalo.Gallery.Auth.Validator(genSecureToken)
+import Zocalo.Gallery.Auth.WebReq(
+    HTTPMethod(POST)
+  , httpRequest
+  , HTTPRequest(HTTPRequest)
+  , MailtrapBody(MailtrapBody)
+  )
 
-import Zocalo.Gallery.ActionResult(ActionResult)
-import Zocalo.Gallery.Database(checkIsOkayOTPRate)
-import Zocalo.Gallery.LowerText(LowerText)
-import Zocalo.Gallery.RandGen(generate6Digit)
-import Zocalo.Gallery.WebReq(HTTPMethod(POST), httpRequest, HTTPRequest(HTTPRequest), MailtrapBody(MailtrapBody))
+import Zocalo.Gallery.Database.Database(checkIsOkayOTPRate)
+
+import Zocalo.Gallery.Entity.ActionResult(ActionResult)
+import Zocalo.Gallery.Entity.LowerText(LowerText)
+
 
 sendOTP :: LowerText -> IO (ActionResult Text)
 sendOTP emailAddr =

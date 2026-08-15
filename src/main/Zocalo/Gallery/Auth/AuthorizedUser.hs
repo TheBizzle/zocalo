@@ -4,7 +4,7 @@ module Zocalo.Gallery.Auth.AuthorizedUser(
   , AuthorizedUser(readUser)
   ) where
 
-import Zocalo.Gallery.LowerText(asLowerText, LowerText)
+import Zocalo.Gallery.Entity.LowerText(asLowerText, LowerText)
 
 import qualified Data.Text      as Text
 import qualified Data.Text.Read as Read

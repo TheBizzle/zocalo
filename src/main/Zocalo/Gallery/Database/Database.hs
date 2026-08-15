@@ -13,7 +13,14 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Zocalo.Gallery.Database(approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionListings, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken, setTeacherRefreshToken, storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission) where
+module Zocalo.Gallery.Database.Database(
+    approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent
+  , logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readGalleryListings
+  , readStarterConfigFor, readSubmissionData, readSubmissionListings, readSubmissionListingsForModeration
+  , readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewStudent, registerNewTeacher
+  , runMigrations, setStudentRefreshToken, setTeacherRefreshToken, storeOTP, suppressSubmission, validateOTP
+  , writeComment, writeSubmission
+  ) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -25,7 +32,12 @@ import Data.Ord(comparing)
 import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
 
-import Database.Persist((=.), (==.), (>=.), count, Entity(Entity, entityKey, entityVal), get, getBy, insert, insertEntity, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique, update, updateGet, updateWhere, upsert)
+import Database.Persist(
+    (=.), (==.), (>=.), count, Entity(Entity, entityKey, entityVal), get, getBy, insert, insertEntity
+  , insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique
+  , update, updateGet, updateWhere, upsert
+  )
+
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
 import Database.Persist.Sql(fromSqlKey, toSqlKey)
 import Database.Persist.TH(mkMigrate, mkPersist, share, sqlSettings)
@@ -35,16 +47,23 @@ import System.Random.MWC(createSystemRandom)
 import Zocalo.Common.DBCredentials(password, username)
 import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(AStudent, studentID, studentName), AuthorizedTeacher(ATeacher, teacherAddr))
+import Zocalo.Gallery.Auth.AuthorizedUser(
+    AuthorizedStudent(AStudent, studentID, studentName)
+  , AuthorizedTeacher(ATeacher, teacherAddr)
+  )
 
-import Zocalo.Gallery.ActionResult(ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed), ActionResult)
-import Zocalo.Gallery.Comment(Comment(Comment, creationTime))
-import Zocalo.Gallery.DBSnakeCase(bizzleSnakeCase)
-import Zocalo.Gallery.GalleryListing(GalleryListing(GalleryListing))
-import Zocalo.Gallery.LowerText(asLowerText, LowerText)
-import Zocalo.Gallery.StudentUploadResponse(StudentUploadResponse(StudentUploadResponse))
+import Zocalo.Gallery.Database.DBSnakeCase(bizzleSnakeCase)
 
-import Zocalo.Gallery.Submission(
+import Zocalo.Gallery.Entity.ActionResult(
+    ActionError(Duplicate, Expired, Incorrect, NotAuthorized, NotFound, Unconfirmed)
+  , ActionResult
+  )
+
+import Zocalo.Gallery.Entity.Comment(Comment(Comment, creationTime))
+import Zocalo.Gallery.Entity.GalleryListing(GalleryListing(GalleryListing))
+import Zocalo.Gallery.Entity.LowerText(asLowerText, LowerText)
+import Zocalo.Gallery.Entity.StudentUploadResponse(StudentUploadResponse(StudentUploadResponse))
+import Zocalo.Gallery.Entity.Submission(
     GalleryMetadata(GalleryMetadata)
   , Submission(Submission)
   , SubmissionID(SubID)

@@ -23,18 +23,15 @@ import Zocalo.Common.SnapHelpers(
 
 import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher)
 
-import Zocalo.Gallery.Auth.FancyAuth(
+import Zocalo.Gallery.Auth.Validator(
     issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, validateStudentAccessToken
   , validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken
   , validateStudentAccessTokenRaw, validateTeacherAccessTokenRaw
   )
 
-import Zocalo.Gallery.ActionResult(
-    ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
-  , ActionResult
-  )
+import Zocalo.Gallery.Auth.WebActions(setUpNewUser, sendOTP)
 
-import Zocalo.Gallery.Database(
+import Zocalo.Gallery.Database.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher
   , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionListings
   , readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery, readTemplateName
@@ -42,20 +39,23 @@ import Zocalo.Gallery.Database(
   , writeSubmission
   )
 
-import Zocalo.Gallery.LowerText(asLowerText)
-import Zocalo.Gallery.OldAuth(setUpNewUser, sendOTP)
+import Zocalo.Gallery.Entity.ActionResult(
+    ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
+  , ActionResult
+  )
+
+import Zocalo.Gallery.Entity.LowerText(asLowerText)
+import Zocalo.Gallery.Entity.StudentUploadResponse(
+    UploadCommentResponse(UploadCommentResponse)
+  , UploadDeleteResponse(UploadDeleteResponse)
+  )
+
+import Zocalo.Gallery.Entity.Submission(SubmissionID(SubID), SubmissionSendable(SubmissionSendable))
 
 import Zocalo.Gallery.SocketClient(
     GalleryObserverClient(GalleryObserverClient, gocConnection, gocGalleryID, gocStudent)
   , ModeratorClient(ModeratorClient, mcConnection, mcGalleryID, mcTeacher)
   )
-
-import Zocalo.Gallery.StudentUploadResponse(
-    UploadCommentResponse(UploadCommentResponse)
-  , UploadDeleteResponse(UploadDeleteResponse)
-  )
-
-import Zocalo.Gallery.Submission(SubmissionID(SubID), SubmissionSendable(SubmissionSendable))
 
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.Map               as Map

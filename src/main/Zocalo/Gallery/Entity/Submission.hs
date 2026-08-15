@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
-module Zocalo.Gallery.Submission(
+module Zocalo.Gallery.Entity.Submission(
     GalleryMetadata(..), Submission(..), SubmissionID(SubID, subIDNum), SubmissionSendable(..)
   ) where
 
@@ -8,7 +8,7 @@ import Data.Aeson(ToJSON)
 
 import GHC.Generics(Generic)
 
-import Zocalo.Gallery.Comment(Comment)
+import Zocalo.Gallery.Entity.Comment(Comment)
 
 
 newtype SubmissionID = SubID { subIDNum :: Word64 }

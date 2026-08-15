@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Zocalo.Gallery.Comment(Comment(..)) where
+module Zocalo.Gallery.Entity.Comment(Comment(..)) where
 
 import Data.Aeson(ToJSON)
 

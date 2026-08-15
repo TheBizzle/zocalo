@@ -1,4 +1,4 @@
-module Zocalo.Gallery.RandGen(generate6Digit, randomOneOf) where
+module Zocalo.Gallery.Auth.RandGen(generate6Digit, randomOneOf) where
 
 import Data.List((!!))
 

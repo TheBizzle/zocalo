@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts, QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Zocalo.Gallery.WebReq(HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody)) where
+module Zocalo.Gallery.Auth.WebReq(
+    HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody)
+  ) where
 
 import Control.Monad(mzero)
 
@@ -8,11 +10,13 @@ import Data.Aeson((.:), (.=), FromJSON(parseJSON), object, ToJSON(toJSON), Value
 import Data.CaseInsensitive(CI, mk)
 import Data.FileEmbed(embedFile)
 
-import Network.HTTP.Simple(getResponseBody, httpJSON, parseRequest_, Request, setRequestBodyJSON, setRequestHeader)
+import Network.HTTP.Simple(
+    getResponseBody, httpJSON, parseRequest_, Request, setRequestBodyJSON, setRequestHeader
+  )
 
 import Text.Regex.PCRE.Heavy(gsub, re)
 
-import Zocalo.Gallery.LowerText(LowerText, lowText)
+import Zocalo.Gallery.Entity.LowerText(LowerText, lowText)
 
 import qualified Data.List          as List
 import qualified Data.Map           as Map
