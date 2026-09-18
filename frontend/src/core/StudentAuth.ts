@@ -105,7 +105,8 @@ async function refreshAuth(): Promise<boolean> {
 
 function storeToken(compactToken: string): void {
   const [idNum, name, expiry] = decodeJWT(compactToken);
-  authM = { idNum, username: name, expiry, rawToken: compactToken };
+  username = name;
+  authM = { idNum, username, expiry, rawToken: compactToken };
 }
 
 function decodeJWT(compactToken: string): [number, string, number] {
