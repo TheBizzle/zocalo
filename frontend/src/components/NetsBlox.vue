@@ -30,10 +30,8 @@
       const iframe = ref<HTMLIFrameElement | null>(null);
 
       onMounted(
-        async () => {
+        () => {
           window.addEventListener("message", onMessage);
-          await initNetsBlox();
-          await fetchStarter();
         }
       );
 
@@ -110,20 +108,32 @@
               break;
             case "reply":
 
-              clearInterval(peskyLoop);
+              let prelude: Promise<void> | null = null;
 
-              const  dMsg = { key: "domain"      , value: window.location.origin, type: "set-variable" };
-              const lhMsg = { key: "locationHash", value:        props.galleryID, type: "set-variable" };
-
-              iframe.value.contentWindow?.postMessage( dMsg, "*");
-              iframe.value.contentWindow?.postMessage(lhMsg, "*");
-
-              if (waitingData !== null) {
-                iframe.value.contentWindow?.postMessage(waitingData, "*");
-                waitingData = null;
+              if (hasLoaded) {
+                prelude = Promise.resolve();
+              } else {
+                clearInterval(peskyLoop);
+                hasLoaded = true;
+                prelude = initNetsBlox().then(fetchStarter);
               }
 
-              hasLoaded = true;
+              void prelude.then(
+                () => {
+
+                  const  dMsg = { key: "domain"      , value: window.location.origin, type: "set-variable" };
+                  const lhMsg = { key: "locationHash", value:        props.galleryID, type: "set-variable" };
+
+                  iframe.value?.contentWindow?.postMessage( dMsg, "*");
+                  iframe.value?.contentWindow?.postMessage(lhMsg, "*");
+
+                  if (waitingData !== null) {
+                    iframe.value?.contentWindow?.postMessage(waitingData, "*");
+                    waitingData = null;
+                  }
+
+                }
+              );
 
               break;
 
