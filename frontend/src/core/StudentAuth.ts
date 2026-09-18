@@ -54,7 +54,7 @@ async function getFreshToken(isNameRequired: boolean): Promise<boolean> {
 
   if (!isNameRequired) {
 
-    const res = await fetch( "/api/auth/student/refresh", { method: "POST" , credentials: "include" });
+    const res = await fetch("/api/auth/student/refresh", { method: "POST" , credentials: "include" });
 
     if (res.ok) {
       storeToken(await res.text());
