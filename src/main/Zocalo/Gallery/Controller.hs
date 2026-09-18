@@ -50,7 +50,10 @@ import Zocalo.Gallery.Entity.StudentUploadResponse(
   , UploadDeleteResponse(UploadDeleteResponse)
   )
 
-import Zocalo.Gallery.Entity.Submission(SubmissionID(SubID), SubmissionSendable(SubmissionSendable))
+import Zocalo.Gallery.Entity.Submission(
+    SubmissionID(SubID)
+  , SubmissionSendable(canModerate, isOwner, SubmissionSendable)
+  )
 
 import Zocalo.Gallery.SocketClient(
     GalleryObserverClient(GalleryObserverClient, gocConnection, gocGalleryID, gocStudent)
@@ -239,16 +242,17 @@ handleUploadFile students teachers =
         pairResult <- liftIO $ (uncurry4 $ writeSubmission student) tuple
         whenSuccess pairResult $
           \(uploadID, getsPreed, submission) -> do
-
-            studentClients <- liftIO $ readTVarIO students
-            for_ studentClients $ \client ->
-              when ((Success client.gocGalleryID) == nanoID && (not getsPreed) && client.gocStudent /= student) $
-                liftIO $ sendTextData client.gocConnection $ encodeText [submission]
-
+            let teacherSubmission = submission { isOwner = False }
             teacherClients <- liftIO $ readTVarIO teachers
             for_ teacherClients $ \client ->
               when ((Success client.mcGalleryID) == nanoID) $
-                liftIO $ sendTextData client.mcConnection $ encodeText [submission]
+                liftIO $ sendTextData client.mcConnection $ encodeText [teacherSubmission]
+
+            let studentSubmission = teacherSubmission { canModerate = False }
+            studentClients <- liftIO $ readTVarIO students
+            for_ studentClients $ \client ->
+              when ((Success client.gocGalleryID) == nanoID && (not getsPreed) && client.gocStudent /= student) $
+                liftIO $ sendTextData client.gocConnection $ encodeText [studentSubmission]
 
             succeed "text/plain" $ encodeText uploadID
   where
