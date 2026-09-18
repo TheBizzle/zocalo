@@ -61,12 +61,8 @@
 
       watch(
         () => props.loadedContent
-      , async (content) => {
-          if (hasLoaded) {
-            iframe.value?.contentWindow?.postMessage(content, "*");
-          } else {
-            waitingData = JSON.parse(content) as Record<string, string>;
-          }
+      , async (content: string) => {
+          importProject({ content });
         }
       );
 
@@ -95,21 +91,23 @@
 
       }
 
+      function importProject(data: Record<string, string>): void {
+        const msg = { ...data, type: "import" };
+        if (hasLoaded) {
+          iframe.value?.contentWindow?.postMessage(msg, "*");
+        } else {
+          waitingData = msg;
+        }
+      }
+
       function onMessage(event: MessageEvent): void {
 
         if (event.source === iframe.value?.contentWindow) {
           const data = event.data as { type: string };
           switch (data.type) {
-
             case "import-project":
-              const msg = { ...data, type: "import" };
-              if (hasLoaded) {
-                iframe.value.contentWindow?.postMessage(msg, "*");
-              } else {
-                waitingData = msg;
-              }
+              importProject(data);
               break;
-
             case "reply":
 
               clearInterval(peskyLoop);
