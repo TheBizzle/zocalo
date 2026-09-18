@@ -125,6 +125,8 @@
 
               hasLoaded = true;
 
+              break;
+
             default:
               console.log("Ignoring message:", data.type, event);
 
