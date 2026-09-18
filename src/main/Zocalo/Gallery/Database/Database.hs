@@ -250,8 +250,11 @@ suppressSubmission teacherM studentM subID =
 forbidSubmission :: AuthorizedTeacher -> SubmissionID -> IO (ActionResult ())
 forbidSubmission teacher uploadID = (moderateSubmission True teacher uploadID) <&> ($> ())
 
-approveSubmission :: AuthorizedTeacher -> SubmissionID -> IO (ActionResult SubmissionSendable)
-approveSubmission = moderateSubmission False
+approveSubmission :: AuthorizedTeacher -> SubmissionID -> IO (ActionResult (SubmissionSendable, Word64))
+approveSubmission teacher submissionID = do
+  submissionRes <- moderateSubmission False teacher submissionID
+  authorIDRes <- withSubmission submissionID $ snd &> extractStudentID &> Success &> return
+  return $ (,) <$> submissionRes <*> authorIDRes
 
 moderateSubmission :: Bool -> AuthorizedTeacher -> SubmissionID -> IO (ActionResult SubmissionSendable)
 moderateSubmission isForbidden teacher submissionID =

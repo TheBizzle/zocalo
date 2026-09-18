@@ -21,7 +21,7 @@ import Zocalo.Common.SnapHelpers(
   , getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
   )
 
-import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent, AuthorizedTeacher)
+import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher)
 
 import Zocalo.Gallery.Auth.Validator(
     issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, validateStudentAccessToken
@@ -188,12 +188,17 @@ handleApproveItem students teachers =
         do
           result <- liftIO $ approveSubmission teacher $ SubID uploadID
           whenSuccess result $
-            \submission@(SubmissionSendable ssid _ _ _ _ _ _ _) -> do
-
+            \(submission@(SubmissionSendable ssid _ _ _ _ _ _ _), authorID) -> do
+              let studentSubmission = submission { canModerate = False, isOwner = False }
               studentClients <- liftIO $ readTVarIO students
               for_ studentClients $ \client ->
-                when (client.gocGalleryID == galleryID) $
-                  liftIO $ sendTextData client.gocConnection $ encodeText [submission]
+                when (client.gocGalleryID == galleryID) $ do
+                  let personalizedSubmission =
+                        if client.gocStudent.studentID == authorID then
+                          studentSubmission { canModerate = True, isOwner = True }
+                        else
+                          studentSubmission
+                  liftIO $ sendTextData client.gocConnection $ encodeText [personalizedSubmission]
 
               teacherClients <- liftIO $ readTVarIO teachers
               for_ teacherClients $ \client ->
