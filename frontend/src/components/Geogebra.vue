@@ -140,10 +140,7 @@
 
       async function fetchStarter(): Promise<void> {
         const res = await fetch(`/api/galleries/${props.galleryID}/student/starter-config`);
-        if (!res.ok) {
-          const message = await res.text();
-          alert(`Could not fetch starter: ${message}`);
-        } else {
+        if (res.ok) {
           waitingData = await res.text();
         }
       }
