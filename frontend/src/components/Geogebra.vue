@@ -50,10 +50,12 @@
       );
 
       let waitingData: string | null = null;
+      let isIntervalPolling = true;
       const peskyLoop = // Load the waiting data, once Geogebra is loaded
         setInterval(
           () => {
             if (ggbApplet?.setBase64 !== undefined) {
+              isIntervalPolling = false;
               clearInterval(peskyLoop);
               if (waitingData !== null) {
                 ggbApplet.setBase64(waitingData);
@@ -70,7 +72,7 @@
           const base64 = content.slice(content.indexOf(",") + 1);
           if (ggbApplet?.setBase64 !== undefined) {
             ggbApplet.setBase64(base64);
-          } else {
+          } else if (isIntervalPolling) {
             waitingData = base64;
           }
         }
@@ -141,7 +143,12 @@
       async function fetchStarter(): Promise<void> {
         const res = await fetch(`/api/galleries/${props.galleryID}/student/starter-config`);
         if (res.ok) {
-          waitingData = await res.text();
+          const base64 = await res.text();
+          if (ggbApplet?.setBase64 !== undefined) {
+            ggbApplet.setBase64(base64);
+          } else if (isIntervalPolling) {
+            waitingData = base64;
+          }
         }
       }
 
