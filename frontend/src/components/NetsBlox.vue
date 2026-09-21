@@ -110,16 +110,18 @@
 
               let prelude: Promise<void> | null = null;
 
+              const hadntLoaded = !hasLoaded;
+
               if (hasLoaded) {
                 prelude = Promise.resolve();
               } else {
                 clearInterval(peskyLoop);
                 hasLoaded = true;
-                prelude = initNetsBlox().then(fetchStarter);
+                prelude = initNetsBlox();
               }
 
               void prelude.then(
-                () => {
+                async () => {
 
                   const  dMsg = { key: "domain"      , value: window.location.origin, type: "set-variable" };
                   const lhMsg = { key: "locationHash", value:        props.galleryID, type: "set-variable" };
@@ -127,14 +129,20 @@
                   iframe.value?.contentWindow?.postMessage( dMsg, "*");
                   iframe.value?.contentWindow?.postMessage(lhMsg, "*");
 
-                  if (waitingData !== null) {
-                    iframe.value?.contentWindow?.postMessage(waitingData, "*");
-                    waitingData = null;
-                  }
+                  setTimeout(
+                    () => {
+                      if (waitingData !== null) {
+                        iframe.value?.contentWindow?.postMessage(waitingData, "*");
+                        waitingData = null;
+                      } else if (hadntLoaded) {
+                        void fetchStarter();
+                      }
+                    }
+                    , 900
+                  );
 
                 }
               );
-
               break;
 
             default:
@@ -145,13 +153,11 @@
       }
 
       async function fetchStarter(): Promise<void> {
-        // Does not currently do anything.  The old code was trying to grab something called a "starter"
-        // from the query params.  Yet... that can't be right... right?  IDK. --Jason B. (7/5/26)
-
-        // const res = await fetch(`/api/galleries/${props.galleryID}/student/starter-config`);
-        // if (res.ok) {
-        //  console.warn("Starter", await res.text());
-        // }
+        const res = await fetch(`/api/galleries/${props.galleryID}/student/starter-config`);
+        if (res.ok) {
+          const content = await res.text();
+          iframe.value?.contentWindow?.postMessage({ type: "import", content }, "*");
+        }
       }
 
       async function exportData(): Promise<ExportData | undefined> {
