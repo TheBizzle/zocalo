@@ -8,18 +8,24 @@
 
         <h3 class="sidebar-heading">
 
-          <div class="gallery-title" :title="galleryName">
+          <div class="gallery-title" :class="isModerating ? 'moderated' : ''" :title="galleryName">
             {{ galleryName }}
           </div>
 
-          <div v-if="isModerating" class="moderation-tabs">
-            <div class="unapproved tab-button" :class="{ selected: modTab === 'unapproved' }"
-                 @click="selectModTab('unapproved')">
-              Pending: {{ waitingSubmissions.length }}
+          <div v-if="isModerating">
+            <div class="toggle-container">
+              <ToggleSwitch :label="'Auto-approve all'" @is-on="watchAutoApproveIsOn" />
             </div>
-            <div class="approved tab-button" :class="{ selected: modTab === 'approved' }"
-                 @click="selectModTab('approved')">
-              Approved: {{submissions.length}}
+
+            <div v-if="isModerating" class="moderation-tabs">
+              <div class="unapproved tab-button" :class="{ selected: modTab === 'unapproved' }"
+                   @click="selectModTab('unapproved')">
+                Pending: {{ waitingSubmissions.length }}
+              </div>
+              <div class="approved tab-button" :class="{ selected: modTab === 'approved' }"
+                   @click="selectModTab('approved')">
+                Approved: {{submissions.length}}
+              </div>
             </div>
           </div>
 
@@ -210,6 +216,7 @@
   import NetsBlox           from "@/components/NetsBlox.vue";
   import Segregation        from "@/components/Segregation.vue";
   import SweepingArea       from "@/components/SweepingArea.vue";
+  import ToggleSwitch       from "@/components/ToggleSwitch.vue";
   import VerticalSplit      from "@/components/VerticalSplit.vue";
 
   import SubmissionDetailModal from "@/components/student/SubmissionDetailModal.vue";
@@ -228,7 +235,7 @@
   export default defineComponent({
     name:       "SplitGalleryView"
   , components: { Geogebra, GoogleDocsRenderer, NetLogo, NetLogoWithWorld, NetsBlox, Segregation, SweepingArea
-                , SubmissionDetailModal, UploadModal, VerticalSplit }
+                , SubmissionDetailModal, ToggleSwitch, UploadModal, VerticalSplit }
   , props:      { activity:     { type: Object as PropType<Activity>, required: true }
                 , isModerating: { type:                      Boolean, required: true }
                 }
@@ -237,6 +244,7 @@
       const route = useRoute();
 
       const activeSubmission  = ref<Submission | null>(null);
+      const isAutoApproveOn = ref<boolean>(false);
       const extStartURL       = ref<URL | null>(null);
       const exportedData      = ref<ExportData | null>(null);
       const galleryID         = ref<string>(route.params["nanoid"] as string);
@@ -315,6 +323,8 @@
             console.error(message.error);
           } else if ("deletedID" in message) {
             waitingSubmissions.value = waitingSubmissions.value.filter((s) => s.id !== message.deletedID);
+          } else if (isAutoApproveOn.value) {
+            void Promise.all(message.map(approveSubmission));
           } else {
             waitingSubmissions.value = waitingSubmissions.value.concat(message);
           }
@@ -423,6 +433,14 @@
 
       }
 
+    async function watchAutoApproveIsOn(isOn: boolean): Promise<void> {
+        console.log("It moved", isOn);
+        if (isOn) {
+          await Promise.all(waitingSubmissions.value.map(approveSubmission));
+        }
+        isAutoApproveOn.value = isOn;
+      }
+
       const title = computed(() => `${galleryName.value} Gallery`);
       setTitle(title);
 
@@ -430,7 +448,7 @@
              , exportedData, extStartURL, galleryID, galleryName, hideFiller, isShowingFiller
              , isUploadModalOpen, loadedAuthor, loadedContent, loadInSplit, modTab, onExternalStarter
              , rejectSubmission, selectModTab, setActiveSubmission, storeData, submissions
-             , unsetActiveSubmission, waitingSubmissions
+             , unsetActiveSubmission, waitingSubmissions, watchAutoApproveIsOn
              };
 
     }
@@ -507,6 +525,10 @@
     overflow:      hidden;
     text-overflow: ellipsis;
     white-space:   nowrap;
+  }
+
+  .gallery-title.moderated {
+    text-decoration: underline;
   }
 
   .item {
@@ -685,6 +707,10 @@
   .thumb-action:focus-visible {
     outline:        2px solid #c62828;
     outline-offset: 2px;
+  }
+
+  .toggle-container {
+    padding-bottom: 6px;
   }
 
   .unapproved.tab-button {
