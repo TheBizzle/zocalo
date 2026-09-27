@@ -1,0 +1,14 @@
+general:
+  cryptography-secret: ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ=
+
+database:
+  host: localhost
+  db-port: 5432
+  db-name: zocalo
+  username: postgres
+  password: really_good_password
+
+mail:
+  mailtrap-api-secret: f0000000000000000000000000000000
+  sender-address: zocalo@my-domain.com
+  sender-name: Zócalo

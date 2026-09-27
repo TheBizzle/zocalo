@@ -8,13 +8,14 @@ import Control.Monad(mzero)
 
 import Data.Aeson((.:), (.=), FromJSON(parseJSON), object, ToJSON(toJSON), Value(Object))
 import Data.CaseInsensitive(CI, mk)
-import Data.FileEmbed(embedFile)
 
 import Network.HTTP.Simple(
     getResponseBody, httpJSON, parseRequest_, Request, setRequestBodyJSON, setRequestHeader
   )
 
 import Text.Regex.PCRE.Heavy(gsub, re)
+
+import Zocalo.Common.AppConfig(mailtrapSecret)
 
 import Zocalo.Gallery.Entity.LowerText(LowerText, lowText)
 
@@ -111,4 +112,4 @@ mailHeaders =
     ]
 
 mailtrapBearer :: Text
-mailtrapBearer = Text.strip $ TE.decodeUtf8 $ $(embedFile ".mailtrap_secret.txt")
+mailtrapBearer = Text.strip mailtrapSecret

@@ -44,7 +44,8 @@ import Database.Persist.TH(mkMigrate, mkPersist, share, sqlSettings)
 
 import System.Random.MWC(createSystemRandom)
 
-import Zocalo.Common.DBCredentials(password, username)
+import Zocalo.Common.AppConfig(dbConnStr)
+
 import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
 
 import Zocalo.Gallery.Auth.AuthorizedUser(
@@ -318,9 +319,7 @@ runMigrations :: IO ()
 runMigrations = liftIO $ withDB $ runMigration migrateAll
 
 withDB :: ReaderT SqlBackend (NoLoggingT (ResourceT IO)) a -> IO a
-withDB action = runNoLoggingT $ withPostgresqlPool connStr 50 $ runSqlPersistMPool action &> liftIO
-  where
-    connStr = "host=localhost dbname=zocalo user=" <> username <> " password=" <> password <> " port=5432"
+withDB action = runNoLoggingT $ withPostgresqlPool dbConnStr 50 $ runSqlPersistMPool action &> liftIO
 
 processSubmissionAuth :: (SubmissionDB -> a) -> Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO (ActionResult (a, Bool))
 processSubmissionAuth f teacherM studentM submission =

@@ -31,12 +31,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-stack-
 
-      - name: Set up dummy DB files
+      - name: Set up dummy conf file
         run: |
-          touch .app_secret.txt
-          touch .db_password
-          touch .db_username
-          touch .mailtrap_secret.txt
+          cp conf/template.yaml conf/actual.yaml
 
       - name: Run tests
         run: stack test

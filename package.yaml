@@ -71,6 +71,7 @@ library:
     - validation            >= 1.1    && < 1.2
     - websockets            >= 0.13   && < 0.14
     - websockets-snap       >= 0.10   && < 0.11
+    - yaml                  >= 0.11   && < 0.12
     - zlib                  >= 0.7    && < 0.8
 
 tests:

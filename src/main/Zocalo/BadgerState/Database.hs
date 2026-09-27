@@ -30,7 +30,7 @@ import Database.Persist.TH(mkMigrate, mkPersist, persistLowerCase, share, sqlSet
 
 import System.Random(randomIO)
 
-import Zocalo.Common.DBCredentials(password, username)
+import Zocalo.Common.AppConfig(dbConnStr)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 GroupDB
@@ -106,11 +106,9 @@ isNewerThan :: UTCTime -> UTCTime -> Bool
 isNewerThan x y = (diffUTCTime x y) > 0
 
 withDB :: ReaderT SqlBackend (NoLoggingT (ResourceT IO)) a -> IO a
-withDB action = runNoLoggingT $ withPostgresqlPool connStr 50 $ \pool -> liftIO $
+withDB action = runNoLoggingT $ withPostgresqlPool dbConnStr 50 $ \pool -> liftIO $
   do
     flip runSqlPersistMPool pool $
       do
         --runMigration migrateAll
         action
-  where
-    connStr = "host=localhost dbname=zocalo user=" <> username <> " password=" <> password <> " port=5432"

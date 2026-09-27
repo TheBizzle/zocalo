@@ -18,7 +18,6 @@ import Crypto.JWT(
   , runJOSE, signClaims, SignedJWT, string, verifyClaims
   )
 
-import Data.FileEmbed(embedFile)
 import Data.String(fromString)
 import Data.Text.Encoding(decodeUtf8, encodeUtf8)
 import Data.Time(addUTCTime, NominalDiffTime)
@@ -30,6 +29,7 @@ import Snap.Core(
   , getCookie, getHeader, getsRequest, modifyResponse, Snap
   )
 
+import Zocalo.Common.AppConfig(applicationSecret)
 import Zocalo.Common.SecureToken(genSecureToken, SecureToken(SecureToken, tokenText))
 
 import Zocalo.Gallery.Auth.AuthorizedUser(
@@ -189,7 +189,7 @@ refreshTokenName :: ByteString
 refreshTokenName = "refresh_token"
 
 jwtSecret :: JWK
-jwtSecret = fromOctets $(embedFile ".app_secret.txt")
+jwtSecret = fromOctets $ encodeUtf8 applicationSecret
 
 galleryJWTAudience :: ByteString
 galleryJWTAudience = "gallery"
