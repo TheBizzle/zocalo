@@ -4,11 +4,12 @@
 , "version":     "1.0.0"
 , "description": "Gallery app frontend"
 
-, "scripts": { "dev":     "vite"
-             , "ci-lint": "npx eslint src"
-             , "lint":    "vue-tsc --noEmit && npx eslint src"
-             , "build":   "npm run lint && vite build"
-             , "preview": "npm run build && vite preview"
+, "scripts": { "dev":       "vite"
+             , "ci-lint":   "npx eslint src"
+             , "lint":      "vue-tsc --noEmit && npx eslint src"
+             , "dev-build": "vite build"
+             , "build":     "npm run lint && vite build"
+             , "preview":   "npm run build && vite preview"
              }
 
 , "engines" : { "npm":  "~11.8.0"
