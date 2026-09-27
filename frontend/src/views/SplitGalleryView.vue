@@ -294,7 +294,8 @@
       }
 
       async function loadInSplit(submission: Submission): Promise<void> {
-        const res = await fetch(`/api/galleries/${galleryID.value}/student/${submission.id}`);
+        const url = `/api/galleries/${galleryID.value}/student/${submission.id}`;
+        const res = await (props.isModerating ? fetchAsTeacher(url) : fetchAsStudent(url));
         if (!res.ok) {
           const message = await res.text();
           alert(`Could not load item: ${message}`);
