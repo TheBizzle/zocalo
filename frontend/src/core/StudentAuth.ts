@@ -125,7 +125,7 @@ function decodeJWT(compactToken: string): [number, string, number] {
     const { aud, exp, sub } = JSON.parse(decodeBase64URL(rawPayload!)) as JWTPayload;
     if (aud === "gallery|student") {
       const [idStr, name] = sub.split("|");
-      return [parseInt(idStr!), name ?? "Anonymous", Math.floor(exp * 1e3)];
+      return [parseInt(idStr!, 10), name ?? "Anonymous", Math.floor(exp * 1e3)];
     } else {
       throw new Error(`Invalid JWT audience: ${aud}`);
     }

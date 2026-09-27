@@ -61,7 +61,7 @@ async function refreshAuth(): Promise<boolean> {
     storeToken(await res.text());
     const res2 = await authorizedFetch("/api/auth/teacher/who-am-i");
     if (res2.ok) {
-      const num = parseInt(await res2.text());
+      const num = parseInt(await res2.text(), 10);
       if (!Number.isNaN(num)) {
         teacherIDM = num;
         return true;
