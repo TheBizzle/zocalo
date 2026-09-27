@@ -16,9 +16,10 @@ main =
   do
     Gallery.runMigrations
     moderators <- newTVarIO Map.empty
+    teachers   <- newTVarIO Map.empty
     students   <- newTVarIO Map.empty
     quickHttpServe $
-      route (BadgerState.routes <> (Gallery.routes moderators students)) <|>
+      route (BadgerState.routes <> (Gallery.routes moderators teachers students)) <|>
         dir "gallery" (serveDirectory "gallery") <|>
         dir "html" (serveDirectory "html") <|>
         serveFile "frontend/dist/index.html" -- Needed for Vue to use `createWebHistory` --Jason B. (3/15/26)

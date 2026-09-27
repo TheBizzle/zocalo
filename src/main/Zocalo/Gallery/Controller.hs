@@ -34,9 +34,9 @@ import Zocalo.Gallery.Auth.WebActions(setUpNewUser, sendOTP)
 import Zocalo.Gallery.Database.Database(
     approveSubmission, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent, logoutTeacher
   , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionListings
-  , readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery, readTemplateName
-  , registerNewTeacher, runMigrations, storeOTP, suppressSubmission, validateOTP, writeComment
-  , writeSubmission
+  , readSubmissionListingsAsTeacher, readSubmissionListingsForModeration, readWhoIsTeacher, registerNewGallery
+  , readTemplateName, registerNewTeacher, runMigrations, storeOTP, suppressSubmission, validateOTP
+  , writeComment, writeSubmission
   )
 
 import Zocalo.Gallery.Entity.ActionResult(
@@ -67,9 +67,10 @@ import qualified Text.Read              as TRead
 
 
 routes :: TVar (Map AuthorizedTeacher ModeratorClient) ->
+          TVar (Map AuthorizedTeacher ModeratorClient) ->
           TVar (Map AuthorizedStudent GalleryObserverClient) ->
           [(ByteString, Snap ())]
-routes moderators students =
+routes moderators teachers students =
     [ ("echo/:param"                                     ,      ac POST   handleEchoData)
     , ("api/version"                                     ,      ac GET    handleAPIVersion)
     , ("api/auth/student/fresh-cookies"                  ,      ac POST   handleNewStudent)
@@ -96,6 +97,7 @@ routes moderators students =
     , ("api/galleries/:nano-id/teacher/:item-id/approve" ,      ac POST   (handleApproveItem students moderators))
     , ("api/galleries/:nano-id/teacher/:item-id/reject"  ,      ac POST   (handleForbidItem students moderators))
     , ("api/galleries/:nano-id/teacher/moderable/:jwt"   ,                handleModeratorSocket moderators)
+    , ("api/galleries/:nano-id/teacher/submissions/:jwt" ,                handleTeacherSocket teachers)
     , ("/assets"                                         ,                serveDirectory "frontend/dist/assets")
     ]
   where
@@ -451,6 +453,33 @@ handleStudentSocket students = do
           (flip finally cleanup) $ do
 
             listingsResult <- liftIO $ readSubmissionListings student galleryID
+
+            let responses =
+                  case listingsResult of
+                    (Success (meta, subs)) -> [encodeText meta, encodeText subs]
+                    (Failure          err) -> ["{ \"error\": \"" <> (showText err) <> "\" }"]
+
+            for_ responses $ sendTextData connection
+
+            forever $ do -- Keeps the connection alive --Jason B. (7/19/26)
+              _ <- receiveData connection :: IO Text
+              pure ()
+
+handleTeacherSocket :: TVar (Map AuthorizedTeacher ModeratorClient) -> Snap ()
+handleTeacherSocket teachers = do
+  handle2 (Arg "nano-id" asNanoID, Arg "jwt" notEmpty) $
+    \(galleryID, jwt) ->
+      ifAuthorizedTeacherRaw jwt $ \teacher ->
+        runWebSocketsSnap $ \pending -> do
+
+          connection <- acceptRequest pending
+          let client = ModeratorClient teacher galleryID connection
+          atomically $ modifyTVar' teachers $ teacher `Map.insert` client
+
+          let cleanup = atomically $ modifyTVar' teachers $ Map.delete teacher
+          (flip finally cleanup) $ do
+
+            listingsResult <- liftIO $ readSubmissionListingsAsTeacher teacher galleryID
 
             let responses =
                   case listingsResult of

@@ -16,10 +16,10 @@
 module Zocalo.Gallery.Database.Database(
     approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent
   , logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readGalleryListings
-  , readStarterConfigFor, readSubmissionData, readSubmissionListings, readSubmissionListingsForModeration
-  , readTemplateName, readWhoIsTeacher, registerNewGallery, registerNewStudent, registerNewTeacher
-  , runMigrations, setStudentRefreshToken, setTeacherRefreshToken, storeOTP, suppressSubmission, validateOTP
-  , writeComment, writeSubmission
+  , readStarterConfigFor, readSubmissionData, readSubmissionListings, readSubmissionListingsAsTeacher
+  , readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery
+  , registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken, setTeacherRefreshToken
+  , storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission
   ) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
@@ -203,6 +203,18 @@ readSubmissionListings student nid =
                              , SubmissionDBIsSuppressed         ==. False
                              ] [Asc SubmissionDBDateAdded]
       subs <- liftIO $ mapM (toSubmissionSendable (Just student) Nothing) entities
+      return $ Success $ (GalleryMetadata gname isPrescreened, subs)
+
+readSubmissionListingsAsTeacher :: AuthorizedTeacher -> NanoID -> IO (ActionResult (GalleryMetadata, [SubmissionSendable]))
+readSubmissionListingsAsTeacher teacher nid =
+  withGalleryNano nid $
+    \(gID, (GalleryDB _ gname _ _ _ isPrescreened _ _ _)) -> withDB $ do
+      entities <- selectList [ SubmissionDBGalleryID            ==. gID
+                             , SubmissionDBIsAwaitingModeration ==. False
+                             , SubmissionDBIsForbidden          ==. False
+                             , SubmissionDBIsSuppressed         ==. False
+                             ] [Asc SubmissionDBDateAdded]
+      subs <- liftIO $ mapM (toSubmissionSendable Nothing $ Just teacher) entities
       return $ Success $ (GalleryMetadata gname isPrescreened, subs)
 
 readSubmissionListingsForModeration :: AuthorizedTeacher -> NanoID -> IO (ActionResult [SubmissionSendable])

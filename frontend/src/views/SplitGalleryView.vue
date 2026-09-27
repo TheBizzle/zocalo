@@ -263,9 +263,11 @@
       const waitingSubmissions = ref<Array<Submission>>([]);
       onMounted(
         async () => {
-          await setUpStudentSocket();
           if (props.isModerating) {
             await setUpModeratorSocket();
+            await setUpTeacherSocket();
+          } else {
+            await setUpStudentSocket();
           }
           hasMounted.value = true;
         }
@@ -393,9 +395,18 @@
       }
 
       async function setUpStudentSocket(): Promise<void> {
-
         const jwt = encodeURIComponent(await getStudentToken() ?? "");
         const urlish = `/api/galleries/${galleryID.value}/student/submissions/${jwt}`;
+        await setUpGalleriesSocket(urlish);
+      }
+
+      async function setUpTeacherSocket(): Promise<void> {
+        const jwt = encodeURIComponent(await getTeacherToken() ?? "");
+        const urlish = `/api/galleries/${galleryID.value}/teacher/submissions/${jwt}`;
+        await setUpGalleriesSocket(urlish);
+      }
+
+      async function setUpGalleriesSocket(urlish: string): Promise<void> {
 
         const onMessage = (event: MessageEvent<string>): void => {
 
