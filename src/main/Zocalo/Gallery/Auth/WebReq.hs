@@ -15,7 +15,7 @@ import Network.HTTP.Simple(
 
 import Text.Regex.PCRE.Heavy(gsub, re)
 
-import Zocalo.Common.AppConfig(mailtrapSecret)
+import Zocalo.Common.AppConfig(mailtrapSecret, mailSenderAddress, mailSenderName)
 
 import Zocalo.Gallery.Entity.LowerText(LowerText, lowText)
 
@@ -63,8 +63,8 @@ instance ToJSON MailtrapBody where
   toJSON (MailtrapBody toAddr subject html) =
     object
       [ "from" .= object [
-          "email" .= asText "registration@rendupo.com"
-        , "name"  .= asText "RenDuPo"
+          "email" .= mailSenderAddress
+        , "name"  .= mailSenderName
         ]
       , "to" .= [object [
           "email" .= lowText toAddr
