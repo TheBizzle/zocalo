@@ -1,6 +1,8 @@
 <!-- First version made by Claude Opus 4.6 -->
 <template>
-  <AppNavbar />
+  <Suspense>
+    <AppNavbar />
+  </Suspense>
   <router-view v-slot="{ Component }">
     <transition name="page">
       <component :is="Component" />

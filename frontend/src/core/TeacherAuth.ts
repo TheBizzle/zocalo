@@ -47,7 +47,7 @@ async function logout():  Promise<void> {
   clearAuth();
 }
 
-function onAuthChange(f: () => void): void {
+function onAuthChange(f: () => Promise<void>): void {
   watch(authM, f);
 };
 

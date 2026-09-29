@@ -27,17 +27,19 @@
   import { defineComponent, ref } from "vue";
   import { useRoute, useRouter  } from "vue-router";
 
-  import { amLoggedInSimple, logout, onAuthChange } from "@/core/TeacherAuth.ts";
+  import { amLoggedIn, logout, onAuthChange } from "@/core/TeacherAuth.ts";
 
   export default defineComponent({
     name: "AppNavbar"
-  , setup() {
+  , async setup() {
 
       useRoute();
       const router = useRouter();
 
-      const isLoggedInAsTeacher = ref(amLoggedInSimple());
-      onAuthChange(() => { isLoggedInAsTeacher.value = amLoggedInSimple(); });
+      const isLoggedInAsTeacher = ref(await amLoggedIn());
+      onAuthChange(async () => {
+        isLoggedInAsTeacher.value = await amLoggedIn();
+      });
 
       async function logoutAndRedirect(): Promise<void> {
         await logout();
