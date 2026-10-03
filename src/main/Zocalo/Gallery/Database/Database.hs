@@ -15,11 +15,11 @@
 
 module Zocalo.Gallery.Database.Database(
     approveSubmission, checkIsOkayOTPRate, checkUserExists, confirmNewUser, forbidSubmission, logoutStudent
-  , logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readGalleryListings
-  , readStarterConfigFor, readSubmissionData, readSubmissionListings, readSubmissionListingsAsTeacher
-  , readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher, registerNewGallery
-  , registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken, setTeacherRefreshToken
-  , storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission
+  , logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readGalleryForSave
+  , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionListings
+  , readSubmissionListingsAsTeacher, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher
+  , registerNewGallery, registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken
+  , setTeacherRefreshToken, storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission
   ) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
@@ -69,6 +69,13 @@ import Zocalo.Gallery.Entity.Submission(
   , Submission(Submission)
   , SubmissionID(SubID)
   , SubmissionSendable(SubmissionSendable)
+  )
+
+import Zocalo.Gallery.Entity.Savable(
+    CommentSavable(CommentSavable, time)
+  , GallerySavable(GallerySavable)
+  , SubmissionSavable(SubmissionSavable)
+  , SubmissionStatus(Disallowed, Public, SelfRevoked, Waiting)
   )
 
 import qualified Data.Text          as Text
@@ -193,6 +200,49 @@ readGalleryListings teacher =
   where
     getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
     chooseLater a b = if a < b then b else a
+
+readGalleryForSave :: AuthorizedTeacher -> NanoID -> IO (ActionResult GallerySavable)
+readGalleryForSave (ATeacher emailAddr) nanoID =
+  withGalleryNano nanoID $
+    \(galleryID, (GalleryDB _ galleryDisplay templateName ownerID _ _ config description _)) -> do
+      authMaybe <- withDB $ selectFirst [TeacherDBEmailAddr ==. emailAddr, TeacherDBIsConfirmed ==. True] []
+      case authMaybe of
+        Nothing      -> return $ Failure Unconfirmed
+        Just teacher ->
+          if ownerID == (entityKey teacher) then do
+            let descM  = if description == "" then Nothing else Just description
+            subs      <- readSubmissionsForSave galleryID
+            return $ Success $ GallerySavable galleryDisplay templateName nanoID descM config subs
+          else
+            return $ Failure NotAuthorized
+
+readSubmissionsForSave :: GalleryDBId -> IO [SubmissionSavable]
+readSubmissionsForSave galleryID =
+  do
+    entities <- liftIO $ withDB $ selectList [SubmissionDBGalleryID ==. galleryID] [Asc SubmissionDBDateAdded]
+    liftIO $ mapM (toSubmissionSavable) entities
+  where
+    toSubmissionSavable subEntity =
+      do
+        let (SubmissionDB _ base64Image authorID isSuppressed isForbidden isWaiting metadata extraData dateAdded) = entityVal subEntity
+        let status = case (isSuppressed, isForbidden, isWaiting) of
+                       (False, False, False) -> Public
+                       ( True,     _,     _) -> SelfRevoked
+                       (    _,  True,     _) -> Disallowed
+                       (    _,     _,  True) -> Waiting
+        comments         <- readCommentsForSave $ entityKey subEntity
+        uploaderM        <- withDB $ get authorID
+        let uploaderName  = maybe "STUDENT_NOT_FOUND" (\(StudentRefreshTokenDB name _ _ _) -> name) uploaderM
+        return $ SubmissionSavable uploaderName base64Image dateAdded status metadata extraData comments
+
+readCommentsForSave :: SubmissionDBId -> IO [CommentSavable]
+readCommentsForSave submissionID =
+  do
+    commentRows <- liftIO $ withDB $ selectList [CommentDBUploadID ==. submissionID] [Asc CommentDBTime]
+    return $ commentRows |> (map $ entityVal &> toCommentSavable) &> (sortBy $ comparing time)
+  where
+    toCommentSavable (CommentDB comment author _ _ time) =
+      CommentSavable comment author time
 
 readSubmissionListings :: AuthorizedStudent -> NanoID -> IO (ActionResult (GalleryMetadata, [SubmissionSendable]))
 readSubmissionListings student nid =

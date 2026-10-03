@@ -6,13 +6,19 @@ import Control.Monad(forever)
 
 import Data.CaseInsensitive(CI)
 import Data.NanoID(unNanoID)
+import Data.Time.Clock.POSIX(getPOSIXTime)
 
 import GHC.Conc(atomically, TVar)
 
 import Network.WebSockets(acceptRequest, receiveData, sendTextData)
 import Network.WebSockets.Snap(runWebSocketsSnap)
 
-import Snap.Core(getHeader, getParam, getsRequest, Method(DELETE, GET, POST), Snap, writeBS, writeText)
+import Snap.Core(
+    getHeader, getParam, getsRequest
+  , Method(DELETE, GET, POST)
+  , modifyResponse, setContentType, setHeader, Snap, writeBS, writeLBS, writeText
+  )
+
 import Snap.Util.FileServe(serveDirectory)
 import Snap.Util.GZip(withCompression)
 
@@ -60,6 +66,8 @@ import Zocalo.Gallery.SocketClient(
   , ModeratorClient(ModeratorClient, mcConnection, mcGalleryID, mcTeacher)
   )
 
+import Zocalo.Gallery.ZipMaker(makeArchive)
+
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.Map               as Map
 import qualified Data.Text.Encoding     as TextEncoding
@@ -96,6 +104,7 @@ routes moderators teachers students =
     , ("api/galleries/:nano-id/student/:item-id"         ,      ac DELETE (handleSuppressItem students moderators))
     , ("api/galleries/:nano-id/teacher/:item-id/approve" ,      ac POST   (handleApproveItem students moderators))
     , ("api/galleries/:nano-id/teacher/:item-id/reject"  ,      ac POST   (handleForbidItem students moderators))
+    , ("api/galleries/:nano-id/teacher/export"           , wc $ ac GET    handleBuildArchive)
     , ("api/galleries/:nano-id/teacher/moderable/:jwt"   ,                handleModeratorSocket moderators)
     , ("api/galleries/:nano-id/teacher/submissions/:jwt" ,                handleTeacherSocket teachers)
     , ("/assets"                                         ,                serveDirectory "frontend/dist/assets")
@@ -410,6 +419,18 @@ handleStudentLogout =
     whenSuccess studentResult $ \student -> do
       result <- liftIO $ logoutStudent student
       whenSuccess result $ const ok
+
+handleBuildArchive :: Snap ()
+handleBuildArchive =
+  ifAuthorizedTeacher $ \teacher ->
+    handle1 (Arg "nano-id" asNanoID) $
+      \galleryID -> do
+        epoch  <- liftIO getPOSIXTime
+        result <- liftIO $ makeArchive epoch teacher galleryID
+        whenSuccess result $ \(filename, archive) -> do
+          modifyResponse $ setContentType "application/zip"
+          modifyResponse $ setHeader "Content-Disposition" $ "attachment; filename=\"" <> filename <> ".zip\""
+          writeLBS archive
 
 handleModeratorSocket :: TVar (Map AuthorizedTeacher ModeratorClient) -> Snap ()
 handleModeratorSocket moderators = do

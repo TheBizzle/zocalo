@@ -48,6 +48,7 @@
           class="gallery-row card animate-fade"
         >
           <div class="card-body">
+            <CardActionMenu @export-zip="exportProjectToZip(gallery.id, gallery.name)" />
             <p class="card-title">{{ gallery.name }}</p>
             <p class="card-meta">
               <span>{{ gallery.template }}</span>
@@ -131,6 +132,7 @@
   import { computed, defineComponent, nextTick, onMounted, ref, watch } from "vue";
   import { useRouter                                                  } from "vue-router";
 
+  import CardActionMenu    from "@/components/CardActionMenu.vue";
   import CreateGalleryForm from "@/components/CreateGalleryForm.vue";
 
   import { type Gallery, GalleryArraySchema } from "@/core/Gallery.ts";
@@ -140,7 +142,7 @@
 
   export default defineComponent({
     name:       "MetaGalleryView"
-  , components: { CreateGalleryForm }
+  , components: { CardActionMenu, CreateGalleryForm }
 
   , setup() {
 
@@ -321,10 +323,43 @@
         }
       }
 
+      async function exportProjectToZip(id: string, name: string): Promise<void> {
+
+        const response = await authorizedFetch(`/api/galleries/${id}/teacher/export`);
+
+        if (response.ok) {
+
+          let      filename = `zocalo_${name}.zip`;
+          const disposition = response.headers.get("Content-Disposition");
+          if (disposition !== null) {
+            const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i) ?? [];
+            if (match[1] !== undefined) {
+              filename = decodeURIComponent(match[1]);
+            }
+          }
+
+          const blob = await response.blob();
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement("a");
+          a.href     = url;
+          a.download = filename;
+          document.body.appendChild(a);
+
+          a.click();
+          a.remove();
+
+          URL.revokeObjectURL(url);
+
+        } else {
+          console.error("ZIP download failed");
+        }
+
+      }
+
       return {
-        activeTab, cloneDesc, cloneError, cloneModal, cloneName, cloneSource, confirmClone, formatDate
-      , handleEsc, hasMounted, modalRef, onGalleryCanceled, onGalleryCreated, openCloneModal, openCreateModal
-      , sortedGalleries, sortKey
+        activeTab, cloneDesc, cloneError, cloneModal, cloneName, cloneSource, confirmClone
+      , exportProjectToZip, formatDate, handleEsc, hasMounted, modalRef, onGalleryCanceled, onGalleryCreated
+      , openCloneModal, openCreateModal, sortedGalleries, sortKey
       };
 
     }
