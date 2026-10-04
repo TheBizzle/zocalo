@@ -6,11 +6,11 @@
 
 <script lang="ts">
 
-  import { defineComponent, ref, watch } from "vue";
-  import { useRoute                    } from "vue-router";
+  import { defineComponent, onMounted, ref, watch } from "vue";
+  import { useRoute                               } from "vue-router";
 
-  import type { ExportData             } from "@/core/ExportData.ts";
-  import { sendAMessage, sendForAReply } from "@/core/frameMessaging.ts";
+  import type { ExportData } from "@/core/ExportData.ts";
+  import      { NLWFrame   } from "@/core/NLWFrame.ts";
 
   export default defineComponent({
     name:  "Segregation"
@@ -27,16 +27,14 @@
 
       const nlwFrame = ref<HTMLIFrameElement | null>(null);
 
-      const sendMessage =
-        sendAMessage(
-          ()            =>   nlwFrame.value !== null
-        , (msg: object) => { nlwFrame.value!.contentWindow?.postMessage(msg, "*"); }
-        );
+      let nlw: NLWFrame | null = null;
 
-      const sendForReply = sendForAReply(
-        ()                               =>   nlwFrame.value !== null
-      , (msg: object, port: MessagePort) => { nlwFrame.value!.contentWindow?.postMessage(msg, "*", [port]); }
+      onMounted(
+        () => {
+          nlw = new NLWFrame(nlwFrame.value!);
+        }
       );
+
 
       watch(
         () => props.shouldExport
@@ -49,16 +47,24 @@
 
       watch(
         () => props.loadedContent
-      , async (content) => {
-          await sendMessage({ code: content, type: "import-code" });
+      , (content) => {
+          const msg = { codeTabContents: content, autoRecompile: true, type: "nlw-set-model-code" };
+          nlw!.enqueueUnanswerable(msg);
+          setTimeout(
+            () => {
+              nlw!.enqueueUnanswerable({ code: "setup", type: "nlw-run-code" });
+            }
+          , 900
+          );
         }
       );
 
       async function exportData(): Promise<ExportData | undefined> {
         if (nlwFrame.value !== null) {
-          const d           = await sendForReply({ type: "export-data" }) as { code: string, image: string };
-          const imageBase64 = d.image.slice(d.image.indexOf(",") + 1);
-          return { data: d.code, mimeType: "image/png", imageBase64 };
+          const { export: data } = await nlw!.enqueueExportCode();
+          const { base64: view } = await nlw!.enqueueExportView();
+          const imageBase64      = view.slice(view.indexOf(",") + 1);
+          return { data, mimeType: "image/png", imageBase64 };
         } else {
           return undefined;
         }
