@@ -58,7 +58,7 @@ starterExt _               = "txt"
 subToEntry :: POSIXTime -> Text -> (Int, SubmissionSavable) -> [Entry]
 subToEntry rawEpoch templateName
            (index, SubmissionSavable uploaderName base64Image dateAdded status metadataM extraData comments) =
-    [ addEntry "info.txt" $ encode info
+    [ addEntry "info.json" $ encode info
     , dataEntry
     ] <> (maybeToList imageEntryM)
   where
