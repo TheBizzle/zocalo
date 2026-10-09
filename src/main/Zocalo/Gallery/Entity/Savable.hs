@@ -14,6 +14,8 @@ data GallerySavable =
     { displayName  :: Text
     , templateName :: Text
     , galleryID    :: NanoID
+    , teacherName  :: Text
+    , timeAdded    :: UTCTime
     , description  :: Maybe Text
     , starter      :: Maybe Text
     , submissions  :: [SubmissionSavable]

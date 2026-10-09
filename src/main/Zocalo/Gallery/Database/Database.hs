@@ -204,15 +204,17 @@ readGalleryListings teacher =
 readGalleryForSave :: AuthorizedTeacher -> NanoID -> IO (ActionResult GallerySavable)
 readGalleryForSave (ATeacher emailAddr) nanoID =
   withGalleryNano nanoID $
-    \(galleryID, (GalleryDB _ galleryDisplay templateName ownerID _ _ config description _)) -> do
+    \(galleryID, (GalleryDB _ galleryDisplay templateName ownerID _ _ config description time)) -> do
       authMaybe <- withDB $ selectFirst [TeacherDBEmailAddr ==. emailAddr, TeacherDBIsConfirmed ==. True] []
       case authMaybe of
         Nothing      -> return $ Failure Unconfirmed
         Just teacher ->
           if ownerID == (entityKey teacher) then do
+            let (TeacherDB _ firstName lastName _ _ _) = (entityVal teacher)
+            let tName  = firstName <> " " <> lastName
             let descM  = if description == "" then Nothing else Just description
             subs      <- readSubmissionsForSave galleryID
-            return $ Success $ GallerySavable galleryDisplay templateName nanoID descM config subs
+            return $ Success $ GallerySavable galleryDisplay templateName nanoID tName time descM config subs
           else
             return $ Failure NotAuthorized
 

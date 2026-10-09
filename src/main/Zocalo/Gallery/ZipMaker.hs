@@ -36,15 +36,15 @@ makeArchive epoch teacher galleryID =
     return $ map (galleryToZIP epoch) result
 
 galleryToZIP :: POSIXTime -> GallerySavable -> (ByteString, LBS.ByteString)
-galleryToZIP rawEpoch (GallerySavable name templateName gid descM starterM subs) =
+galleryToZIP rawEpoch (GallerySavable name templateName gid teacherName gTime descM starterM subs) =
     (filename, fromArchive archive)
   where
     epoch         = floor rawEpoch
     filename      = TE.encodeUtf8 $ Text.intercalate "===" ["zocalo", name, templateName, showText gid]
-    descEntryM    = map (textToLBS &> toEntry  "description.txt"                 epoch)    descM
+    infoEntry     = (GalleryJSONable teacherName gTime descM) |> (encode &> toEntry "info.txt" epoch)
     starterEntryM = map (textToLBS &> toEntry ("starter." <> (starterExt templateName)) epoch) starterM
     uploadEntries = (zip [1..] subs) >>= (subToEntry rawEpoch templateName)
-    entries       = (catMaybes [descEntryM, starterEntryM]) <> uploadEntries
+    entries       = (maybeToList starterEntryM) <> (infoEntry : uploadEntries)
     archive       = foldr addEntryToArchive emptyArchive entries
 
 starterExt :: Text -> String
@@ -98,6 +98,13 @@ textToLBS = TE.encodeUtf8 &> LBS.fromStrict
 
 imageToLBS :: Text -> (Maybe LBS.ByteString)
 imageToLBS = TE.encodeUtf8 &> Base64.decode &> (either (const Nothing) $ LBS.fromStrict &> Just)
+
+data GalleryJSONable
+  = GalleryJSONable
+      { teacher      :: Text
+      , gTime        :: UTCTime
+      , gDescription :: Maybe Text
+      } deriving (Generic, ToJSON)
 
 data SubmissionJSONable
   = SubmissionJSONable
