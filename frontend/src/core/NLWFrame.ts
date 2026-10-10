@@ -98,7 +98,6 @@ class NLWFrame {
   }
 
   public async enqueueImportWorld(world: string): Promise<ImportWorldResponse> {
-    console.warn("Importing world...");
     return this.enqueue({ world, type: "nlw-import-world" });
   }
 
