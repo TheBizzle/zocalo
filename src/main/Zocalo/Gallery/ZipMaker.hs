@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module Zocalo.Gallery.ZipMaker(makeArchive) where
 
 import Codec.Archive.Zip(addEntryToArchive, emptyArchive, Entry, fromArchive, toEntry)
@@ -101,9 +102,9 @@ imageToLBS = TE.encodeUtf8 &> Base64.decode &> (either (const Nothing) $ LBS.fro
 
 data GalleryJSONable
   = GalleryJSONable
-      { teacher      :: Text
-      , gTime        :: UTCTime
-      , gDescription :: Maybe Text
+      { teacher     :: Text
+      , time        :: UTCTime
+      , description :: Maybe Text
       } deriving (Generic, ToJSON)
 
 data SubmissionJSONable
