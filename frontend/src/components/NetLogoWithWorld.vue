@@ -11,7 +11,7 @@
   import { useRoute                               } from "vue-router";
 
   import type { ExportData } from "@/core/ExportData.ts";
-  import { sendForAReply   } from "@/core/frameMessaging.ts";
+  import      { NLWFrame   } from "@/core/NLWFrame.ts";
 
   export default defineComponent({
     name:  "NetLogo Web"
@@ -28,13 +28,11 @@
 
       const nlwFrame = ref<HTMLIFrameElement | null>(null);
 
-      const sendForReply = sendForAReply(
-        () => nlwFrame.value?.contentWindow?.hasOwnProperty("nlwIsReady") ?? false
-      , (msg: object, port: MessagePort) => { nlwFrame.value!.contentWindow?.postMessage(msg, "*", [port]); }
-      );
+      let nlw: NLWFrame | null = null;
 
       onMounted(
         async () => {
+          nlw = new NLWFrame(nlwFrame.value!);
           await fetchStarter();
         }
       );
@@ -52,8 +50,11 @@
         () => props.loadedContent
       , async (content) => {
           const { nlogo, world } = JSON.parse(content) as { nlogo: string, world: string };
-          await sendForReply({ nlogo, type: "nlw-load-model", path: "" });
-          await sendForReply({ world, type: "nlw-import-world" });
+          nlw!.enqueueUnanswerable({ nlogo, path: "", type: "nlw-load-model" });
+          setTimeout(
+            () => { void nlw!.enqueueImportWorld(world); }
+          , 900
+          );
         }
       );
 
@@ -65,16 +66,19 @@
         } else {
           type Expected = { ".nlogox": string, ".csv": string };
           const { ".nlogox": nlogo, ".csv": world } = JSON.parse(await res.text()) as Expected;
-          await sendForReply({ nlogo, type: "nlw-load-model", path: "" });
-          await sendForReply({ world, type: "nlw-import-world" });
+          nlw!.enqueueUnanswerable({ nlogo, path: "", type: "nlw-load-model" });
+          setTimeout(
+            () => { void nlw!.enqueueImportWorld(world); }
+          , 900
+          );
         }
       }
 
       async function exportData(): Promise<ExportData | undefined> {
         if (nlwFrame.value !== null) {
-          const model = await sendForReply({ type: "nlw-export-model" }) as { "export": { result: string } };
-          const state = await sendForReply({ type: "nlw-export-world" }) as { "export": string };
-          const view  = await sendForReply({ type: "nlw-request-view" }) as { base64: string };
+          const model = await nlw!.enqueueExportModel();
+          const state = await nlw!.enqueueExportWorld();
+          const view  = await nlw!.enqueueExportView();
           const data  = JSON.stringify({ nlogo: model.export.result, world: state.export });
           const imageBase64 = view.base64.slice(view.base64.indexOf(",") + 1);
           return { data, mimeType: "image/png", imageBase64 };

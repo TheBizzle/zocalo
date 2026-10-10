@@ -10,8 +10,8 @@
   import { defineComponent, onMounted, ref, watch } from "vue";
   import { useRoute                               } from "vue-router";
 
-  import type { ExportData             } from "@/core/ExportData.ts";
-  import { sendAMessage, sendForAReply } from "@/core/frameMessaging.ts";
+  import type { ExportData } from "@/core/ExportData.ts";
+  import      { NLWFrame   } from "@/core/NLWFrame.ts";
 
   export default defineComponent({
     name:  "NetLogo Web"
@@ -28,19 +28,11 @@
 
       const nlwFrame = ref<HTMLIFrameElement | null>(null);
 
-      const sendMessage =
-        sendAMessage(
-          () => nlwFrame.value?.contentWindow?.hasOwnProperty("nlwIsReady") ?? false
-        , (msg: object) => { nlwFrame.value!.contentWindow?.postMessage(msg, "*"); }
-        );
-
-      const sendForReply = sendForAReply(
-        () => nlwFrame.value?.contentWindow?.hasOwnProperty("nlwIsReady") ?? false
-      , (msg: object, port: MessagePort) => { nlwFrame.value!.contentWindow?.postMessage(msg, "*", [port]); }
-      );
+      let nlw: NLWFrame | null = null;
 
       onMounted(
         async () => {
+          nlw = new NLWFrame(nlwFrame.value!);
           await fetchStarter();
         }
       );
@@ -56,8 +48,8 @@
 
       watch(
         () => props.loadedContent
-      , async (content) => {
-          await sendMessage({ nlogo: content, path: "", type: "nlw-load-model" });
+      , async (nlogo) => {
+          nlw!.enqueueUnanswerable({ nlogo, path: "", type: "nlw-load-model" });
         }
       );
 
@@ -67,14 +59,14 @@
           const message = await res.text();
           alert(`Could not fetch starter: ${message}`);
         } else {
-          await sendMessage({ nlogo: await res.text(), path: "", type: "nlw-load-model" });
+          nlw!.enqueueUnanswerable({ nlogo: await res.text(), path: "", type: "nlw-load-model" });
         }
       }
 
       async function exportData(): Promise<ExportData | undefined> {
         if (nlwFrame.value !== null) {
-          const model = await sendForReply({ type: "nlw-export-model" }) as { "export": { result: string } };
-          const view  = await sendForReply({ type: "nlw-request-view" }) as { base64: string };
+          const model = await nlw!.enqueueExportModel();
+          const view  = await nlw!.enqueueExportView();
           const imageBase64 = view.base64.slice(view.base64.indexOf(",") + 1);
           return { data: model.export.result, mimeType: "image/png", imageBase64 };
         } else {

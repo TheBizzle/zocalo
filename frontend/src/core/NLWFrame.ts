@@ -13,6 +13,8 @@ type QueuedMessage = AnswerableMessage | UnanswerableMessage;
 type  ExportCodeResponse = { export:             string, type: "nlw-export-code-results"  };
 type ExportModelResponse = { export: { result: string }, type: "nlw-export-model-results" };
 type  ExportViewResponse = { base64:             string, type: "nlw-view"                 };
+type ExportWorldResponse = { export:             string, type: "nlw-export-world-results" };
+type ImportWorldResponse = { world:              string, type: "nlw-import-world"         };
 
 const payloadTypeToResponseType: Record<string, string> = {
   "nlw-export-code":  "nlw-export-code-results"
@@ -52,13 +54,14 @@ class NLWFrame {
           switch (event.data.type) {
             case "nlw-is-loaded":
             case "nlw-export-code-results":
+            case "nlw-export-model-results":
             case "nlw-export-world-results":
             case "nlw-view":
             case "nlw-world-imported": {
               const resolvers = this.resolvers[event.data.type] ?? [];
               if (resolvers.length > 0) {
                 const resolver = (resolvers.shift() ?? ((): void => {}));
-                resolver(event.data);
+                setTimeout(() => { resolver(event.data); }, 40);
               } else {
                 console.warn("No handler waiting for:", event.data.type);
               }
@@ -79,43 +82,41 @@ class NLWFrame {
   }
 
   public async enqueueExportCode(): Promise<ExportCodeResponse> {
-    return new Promise<ExportCodeResponse>(
-      (resolve) => {
-        const resolver               = resolve as FrameResponse;
-        const type                   = "nlw-export-code";
-        const msg: AnswerableMessage = { payload: { type }, type: "answerable", resolver };
-        this.enqueue(msg);
-      }
-    );
+    return this.enqueue({ type: "nlw-export-code" });
   }
 
   public async enqueueExportModel(): Promise<ExportModelResponse> {
-    return new Promise<ExportModelResponse>(
-      (resolve) => {
-        const resolver               = resolve as FrameResponse;
-        const type                   = "nlw-export-model";
-        const msg: AnswerableMessage = { payload: { type }, type: "answerable", resolver };
-        this.enqueue(msg);
-      }
-    );
+    return this.enqueue({ type: "nlw-export-model" });
+  }
+
+  public async enqueueExportWorld(): Promise<ExportWorldResponse> {
+    return this.enqueue({ type: "nlw-export-world" });
   }
 
   public async enqueueExportView(): Promise<ExportViewResponse> {
-    return new Promise<ExportViewResponse>(
+    return this.enqueue({ type: "nlw-request-view" });
+  }
+
+  public async enqueueImportWorld(world: string): Promise<ImportWorldResponse> {
+    console.warn("Importing world...");
+    return this.enqueue({ world, type: "nlw-import-world" });
+  }
+
+  public enqueueUnanswerable(payload: Payload): void {
+    this.enqueueMsg({ payload, type: "unanswerable" });
+  }
+
+  private async enqueue<ResponseType>(payload: Payload): Promise<ResponseType> {
+    return new Promise<ResponseType>(
       (resolve) => {
         const resolver               = resolve as FrameResponse;
-        const type                   = "nlw-request-view";
-        const msg: AnswerableMessage = { payload: { type }, type: "answerable", resolver };
-        this.enqueue(msg);
+        const msg: AnswerableMessage = { payload, type: "answerable", resolver };
+        this.enqueueMsg(msg);
       }
     );
   }
 
-  public enqueueUnanswerable(payload: Payload): void {
-    this.enqueue({ payload, type: "unanswerable" });
-  }
-
-  private enqueue(msg: QueuedMessage): void {
+  private enqueueMsg(msg: QueuedMessage): void {
     if (!this.isReady) {
       this.msgQueue.push(msg);
     } else {
