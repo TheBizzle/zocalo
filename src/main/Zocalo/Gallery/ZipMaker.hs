@@ -9,7 +9,7 @@ import Data.Aeson((.:), decode, encode, FromJSON, parseJSON, ToJSON, withObject)
 import Data.List(zip)
 import Data.NanoID(NanoID)
 import Data.Time(UTCTime)
-import Data.Time.Clock.POSIX(POSIXTime)
+import Data.Time.Clock.POSIX(POSIXTime, posixSecondsToUTCTime)
 
 import GHC.Generics(Generic)
 
@@ -41,8 +41,9 @@ galleryToZIP rawEpoch (GallerySavable name templateName gid teacherName gTime de
     (filename, fromArchive archive)
   where
     epoch         = floor rawEpoch
+    utcEpoch      = posixSecondsToUTCTime rawEpoch
     filename      = TE.encodeUtf8 $ Text.intercalate "===" ["zocalo", name, templateName, showText gid]
-    infoEntry     = (GalleryJSONable teacherName gTime descM) |> (encode &> toEntry "info.txt" epoch)
+    infoEntry     = (GalleryJSONable teacherName gTime descM utcEpoch) |> (encode &> toEntry "info.txt" epoch)
     starterEntryM = map (textToLBS &> toEntry ("starter." <> (starterExt templateName)) epoch) starterM
     uploadEntries = (zip [1..] subs) >>= (subToEntry rawEpoch templateName)
     entries       = (maybeToList starterEntryM) <> (infoEntry : uploadEntries)
@@ -102,9 +103,10 @@ imageToLBS = TE.encodeUtf8 &> Base64.decode &> (either (const Nothing) $ LBS.fro
 
 data GalleryJSONable
   = GalleryJSONable
-      { teacher     :: Text
-      , time        :: UTCTime
-      , description :: Maybe Text
+      { teacher      :: Text
+      , creationTime :: UTCTime
+      , description  :: Maybe Text
+      , exportTime   :: UTCTime
       } deriving (Generic, ToJSON)
 
 data SubmissionJSONable
