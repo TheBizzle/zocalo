@@ -10,7 +10,7 @@
     </button>
     <h2 style="margin-bottom: var(--space-6)">Create a new gallery</h2>
 
-    <div class="alert alert-danger" v-if="errorMsg">{{ errorMsg }}</div>
+    <div ref="errorDiv" class="alert alert-danger" v-if="errorMsg">{{errorMsg }}</div>
 
     <div class="form-flex">
 
@@ -91,7 +91,7 @@
 
 <script lang="ts">
 
-  import { computed, defineComponent, reactive, ref } from "vue";
+  import { computed, defineComponent, nextTick, reactive, ref } from "vue";
 
   import { activities       } from "@/core/Activity.ts";
   import { uploadNewGallery } from "@/core/uploadNewGallery.ts";
@@ -113,6 +113,7 @@
   , emits:      ["canceled", "created"]
   , setup(_, { emit }) {
 
+      const errorDiv     = ref<HTMLDivElement | null>(null);
       const errorMsg     = ref<string | null>(null);
       const isLoading    = ref(false);
       const starterIndex = ref(0);
@@ -167,17 +168,31 @@
         starterRefs.value[index] = component as InstanceType<typeof StarterUploadForm>;
       }
 
+      function displayError(msg: string): void  {
+        errorMsg.value = msg;
+        void nextTick().then(
+          () => {
+            const div = errorDiv.value!;
+            div.scrollIntoView({ behavior: "smooth" ,block: "center" });
+            div.classList.remove("pulse");
+            // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+            void div.offsetWidth; // Forces reflow
+            div.classList.add("pulse");
+          }
+        );
+      }
+
       async function submit(): Promise<void> {
 
         errorMsg.value = null;
 
         if (form.name.trim() === "") {
-          errorMsg.value = "Please enter a gallery name.";
+          displayError("Please enter a gallery name.");
           return;
         }
 
         if (form.template === "") {
-          errorMsg.value = "Please select a template.";
+          displayError("Please select a template.");
           return;
         }
 
@@ -203,7 +218,7 @@
             await uploadNewGallery(form.name, form.template, form.isModerated, form.description, starterData);
 
           newGalleryR.fold(
-            (error  ) => { errorMsg.value = error.message; }
+            (error  ) => { displayError(error.message); }
           , (gallery) => {
               emit("created", gallery);
             }
@@ -212,11 +227,7 @@
           resetForm();
 
         } catch (err: unknown) {
-          if (err instanceof Error) {
-            errorMsg.value = err.message;
-          } else {
-            errorMsg.value = "Could not create gallery. Please try again.";
-          }
+          displayError((err instanceof Error) ? err.message :  "Could not create gallery. Please try again.");
         } finally {
           isLoading.value = false;
         }
@@ -224,8 +235,8 @@
       }
 
       return {
-        cancelForm, errorMsg, form, isLoading, resetForm, selectedTemplate, setStarterRef, starterIndex
-      , starterKeys, starterRefs, submit, templates
+        cancelForm, errorDiv, errorMsg, form, isLoading, resetForm, selectedTemplate, setStarterRef
+      , starterIndex, starterKeys, starterRefs, submit, templates
       };
 
     }
@@ -234,6 +245,12 @@
 </script>
 
 <style scoped>
+
+  .alert {
+    font-size:     16px;
+    font-weight:   bold;
+    margin-bottom: 30px;
+  }
 
   .create-form {
     max-width: 760px;
@@ -291,6 +308,19 @@
 
   .noticeable {
     color: black;
+  }
+
+  .pulse {
+    animation: highlight 1.3s ease-in-out 1;
+  }
+
+  @keyframes highlight {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.2;
+    }
   }
 
   .starter-tabs-wrapper {
