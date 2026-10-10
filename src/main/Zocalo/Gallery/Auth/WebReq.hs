@@ -13,7 +13,8 @@ import Network.HTTP.Simple(
     getResponseBody, httpJSON, parseRequest_, Request, setRequestBodyJSON, setRequestHeader
   )
 
-import Text.Regex.PCRE.Heavy(gsub, re)
+import Text.Regex.PCRE(makeRegex, match, Regex)
+import Text.Regex.PCRE.Text()
 
 import Zocalo.Common.AppConfig(mailtrapSecret, mailSenderAddress, mailSenderName)
 
@@ -55,9 +56,15 @@ data MailtrapBody
 
 transform :: Text -> Text
 transform =
-  Text.replace "<br>" "\n" &>
-    gsub [re|<[^>]*>|] ("" :: Text) &>
-    traceShowId
+    Text.replace "<br>" "\n" &>
+      replaceAll &>
+      Text.concat &>
+      traceShowId
+  where
+    replaceAll str =
+      case (match (makeRegex ("<[^>]*>" :: Text) :: Regex) str) :: (Text, Text, Text) of
+        (     _, "",     _) -> [str]
+        (before,  _, after) -> before : (replaceAll after)
 
 instance ToJSON MailtrapBody where
   toJSON (MailtrapBody toAddr subject html) =

@@ -6,7 +6,6 @@ zócalo
 #### Basics
 
   * If your machine doesn't already have it, you might need to [install libgmp](http://www.mathemagix.org/www/mmdoc/doc/html/external/gmp.en.html)
-  * Follow the [instructions here](https://hackage.haskell.org/package/pcre-light) to install the PCRE library
   * [Download Stack](https://docs.haskellstack.org/en/stable/README/)
   * Ensure that you have a working version of Postgres, by checking that `psql --version` and `pg_config --version` print version numbers; if not, your installation is probably broken, and fixing that will be addressed in the next section of this document
 

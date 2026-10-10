@@ -63,7 +63,7 @@ issueTotallyNewStudentTokens :: Text -> Snap (ActionResult Text)
 issueTotallyNewStudentTokens studentName =
   do
     identAR <- liftIO $ registerNewStudent studentName
-    identAR `failOrM` (\ident -> issueNewStudentTokens $ AStudent (fromIntegral ident) studentName)
+    identAR `andIfValidV` (\ident -> issueNewStudentTokens $ AStudent (fromIntegral ident) studentName)
 
 issueNewStudentTokens :: AuthorizedStudent -> Snap (ActionResult Text)
 issueNewStudentTokens astud@(AStudent studID studName) =
