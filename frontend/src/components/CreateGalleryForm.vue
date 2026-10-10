@@ -11,7 +11,6 @@
     <h2 style="margin-bottom: var(--space-6)">Create a new gallery</h2>
 
     <div class="alert alert-danger" v-if="errorMsg">{{ errorMsg }}</div>
-    <div class="alert alert-success" v-if="successMsg">{{ successMsg }}</div>
 
     <div class="form-flex">
 
@@ -118,7 +117,6 @@
       const isLoading    = ref(false);
       const starterIndex = ref(0);
       const starterRefs  = ref<Array<InstanceType<typeof StarterUploadForm>>>([]);
-      const successMsg   = ref<string | null>(null);
 
       const templates: Array<Template> =
         [ { id:      "geogebra", name: "GeoGebra",             isDisabled: false, description: "Students upload GeoGebra constructions" }
@@ -154,7 +152,6 @@
         form.isModerated = false;
         form.description = "";
         errorMsg.value   = null;
-        successMsg.value = null;
 
         starterRefs.value.forEach((comp) => { comp.reset(); }); // eslint-disable-line
 
@@ -172,8 +169,7 @@
 
       async function submit(): Promise<void> {
 
-        errorMsg.value   = null;
-        successMsg.value = null;
+        errorMsg.value = null;
 
         if (form.name.trim() === "") {
           errorMsg.value = "Please enter a gallery name.";
@@ -209,7 +205,6 @@
           newGalleryR.fold(
             (error  ) => { errorMsg.value = error.message; }
           , (gallery) => {
-              successMsg.value = `Gallery "${gallery.name}" created!`;
               emit("created", gallery);
             }
           );
@@ -230,7 +225,7 @@
 
       return {
         cancelForm, errorMsg, form, isLoading, resetForm, selectedTemplate, setStarterRef, starterIndex
-      , starterKeys, starterRefs, submit, successMsg, templates
+      , starterKeys, starterRefs, submit, templates
       };
 
     }
