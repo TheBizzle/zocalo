@@ -43,7 +43,8 @@ galleryToZIP rawEpoch (GallerySavable name templateName gid teacherName gTime de
     epoch         = floor rawEpoch
     utcEpoch      = posixSecondsToUTCTime rawEpoch
     filename      = TE.encodeUtf8 $ Text.intercalate "===" ["zocalo", name, templateName, showText gid]
-    infoEntry     = (GalleryJSONable teacherName gTime descM utcEpoch) |> (encode &> toEntry "info.txt" epoch)
+    gallery       = GalleryJSONable teacherName gTime descM utcEpoch "2.0"
+    infoEntry     = gallery |> (encode &> toEntry "info.txt" epoch)
     starterEntryM = map (textToLBS &> toEntry ("starter." <> (starterExt templateName)) epoch) starterM
     uploadEntries = (zip [1..] subs) >>= (subToEntry rawEpoch templateName)
     entries       = (maybeToList starterEntryM) <> (infoEntry : uploadEntries)
@@ -103,10 +104,11 @@ imageToLBS = TE.encodeUtf8 &> Base64.decode &> (either (const Nothing) $ LBS.fro
 
 data GalleryJSONable
   = GalleryJSONable
-      { teacher      :: Text
-      , creationTime :: UTCTime
-      , description  :: Maybe Text
-      , exportTime   :: UTCTime
+      { teacher       :: Text
+      , creationTime  :: UTCTime
+      , description   :: Maybe Text
+      , exportTime    :: UTCTime
+      , exportVersion :: Text
       } deriving (Generic, ToJSON)
 
 data SubmissionJSONable
