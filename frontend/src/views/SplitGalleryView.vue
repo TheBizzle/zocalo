@@ -80,7 +80,7 @@
             <p>No submissions yet...</p>
           </div>
 
-          <div v-else class="item-list">
+          <div v-else id="public-items" class="item-list">
             <div
               v-for="item in submissions" :key="item.id"
               class="split-sidebar-item item"
@@ -244,7 +244,7 @@
       const route = useRoute();
 
       const activeSubmission  = ref<Submission | null>(null);
-      const isAutoApproveOn = ref<boolean>(false);
+      const isAutoApproveOn   = ref<boolean>(false);
       const extStartURL       = ref<URL | null>(null);
       const exportedData      = ref<ExportData | null>(null);
       const galleryID         = ref<string>(route.params["nanoid"] as string);
@@ -282,6 +282,10 @@
       function addNewSubmission(sub: Submission): void {
         if (!isModerated.value) {
           submissions.value.unshift(sub);
+          const publicItems = document.getElementById("public-items");
+          if (publicItems !== null) {
+            publicItems.scrollTop = 0;
+          }
         }
       }
 
