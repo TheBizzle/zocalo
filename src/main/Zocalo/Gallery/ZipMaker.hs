@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Zocalo.Gallery.ZipMaker(makeArchive) where
 
 import Codec.Archive.Zip(addEntryToArchive, emptyArchive, Entry, fromArchive, toEntry)
@@ -24,6 +25,8 @@ import Zocalo.Gallery.Entity.Savable(
   , SubmissionStatus(Disallowed, Public, SelfRevoked, Waiting)
   )
 
+import Zocalo.Gallery.GitSHA(gitSHA)
+
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.Text              as Text
@@ -43,7 +46,7 @@ galleryToZIP rawEpoch (GallerySavable name templateName gid teacherName gTime de
     epoch         = floor rawEpoch
     utcEpoch      = posixSecondsToUTCTime rawEpoch
     filename      = TE.encodeUtf8 $ Text.intercalate "===" ["zocalo", name, templateName, showText gid]
-    gallery       = GalleryJSONable teacherName gTime descM utcEpoch "2.0"
+    gallery       = GalleryJSONable teacherName gTime descM utcEpoch $ asText $(gitSHA)
     infoEntry     = gallery |> (encode &> toEntry "info.txt" epoch)
     starterEntryM = map (textToLBS &> toEntry ("starter." <> (starterExt templateName)) epoch) starterM
     uploadEntries = (zip [1..] subs) >>= (subToEntry rawEpoch templateName)
@@ -108,7 +111,7 @@ data GalleryJSONable
       , creationTime  :: UTCTime
       , description   :: Maybe Text
       , exportTime    :: UTCTime
-      , exportVersion :: Text
+      , zocaloVersion :: Text
       } deriving (Generic, ToJSON)
 
 data SubmissionJSONable
