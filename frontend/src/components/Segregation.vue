@@ -6,8 +6,8 @@
 
 <script lang="ts">
 
-  import { defineComponent, onMounted, ref, watch } from "vue";
-  import { useRoute                               } from "vue-router";
+  import { defineComponent, onMounted, ref, type PropType, watch } from "vue";
+  import { useRoute                                              } from "vue-router";
 
   import type { ExportData } from "@/core/ExportData.ts";
   import      { NLWFrame   } from "@/core/NLWFrame.ts";
@@ -15,8 +15,9 @@
   export default defineComponent({
     name:  "Segregation"
   , props: { galleryID:     { type:  String, required: true }
-           , loadedContent: { type:  String, required: true }
            , shouldExport:  { type: Boolean, required: true }
+           // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+           , loadedContent: { type: String as PropType<String>, required: true }
            }
   , emits: ["export-data", "hide-filler"]
   , setup(props, { emit }) {
@@ -47,7 +48,7 @@
       watch(
         () => props.loadedContent
       , (content) => {
-          const msg = { codeTabContents: content, autoRecompile: true, type: "nlw-set-model-code" };
+          const msg = { codeTabContents: content.valueOf(), autoRecompile: true, type: "nlw-set-model-code" };
           nlw!.enqueueUnanswerable(msg);
           setTimeout(
             () => {

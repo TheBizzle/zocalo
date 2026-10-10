@@ -6,8 +6,8 @@
 
 <script lang="ts">
 
-  import { defineComponent, onMounted, onUnmounted, ref, watch } from "vue";
-  import { useRoute                                            } from "vue-router";
+  import { defineComponent, onMounted, onUnmounted, ref, type PropType, watch } from "vue";
+  import { useRoute                                                           } from "vue-router";
 
   import type { ExportData } from "@/core/ExportData.ts";
   import { initUsername    } from "@/core/StudentAuth.ts";
@@ -17,8 +17,9 @@
   export default defineComponent({
     name:  "NetsBlox"
   , props: { galleryID:     { type:  String, required: true }
-           , loadedContent: { type:  String, required: true }
            , shouldExport:  { type: Boolean, required: true }
+           // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+           , loadedContent: { type: String as PropType<String>, required: true }
            }
   , emits: ["export-data", "hide-filler"]
   , setup(props, { emit }) {
@@ -59,8 +60,8 @@
 
       watch(
         () => props.loadedContent
-      , async (content: string) => {
-          importProject({ content });
+      , async (content) => {
+          importProject({ content: content.valueOf() });
         }
       );
 

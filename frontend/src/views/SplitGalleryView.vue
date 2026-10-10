@@ -164,36 +164,36 @@
         </div>
 
         <Geogebra v-if="activity.name === 'geogebra'" @export-data="storeData" @hide-filler="hideFiller"
-                  :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                  :galleryID="galleryID" :loadedContent="loadedContent ?? new String('')"
                   :shouldExport="isUploadModalOpen" />
 
         <GoogleDocsRenderer v-else-if="activity.name === 'google-docs'"
                             @external-starter-url="onExternalStarter"
-                            :galleryID="galleryID" :loadedContent="loadedContent ?? ''" />
+                            :galleryID="galleryID" :loadedContent="loadedContent ?? new String('')" />
 
         <NetLogo v-else-if="activity.name === 'netlogo'"
                  @export-data="storeData" @hide-filler="hideFiller"
-                 :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                 :galleryID="galleryID" :loadedContent="loadedContent ?? new String('')"
                  :shouldExport="isUploadModalOpen" />
 
         <NetLogoWithWorld v-else-if="activity.name === 'netlogo-world'"
                           @export-data="storeData" @hide-filler="hideFiller"
-                          :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                          :galleryID="galleryID" :loadedContent="loadedContent ?? new String('')"
                           :shouldExport="isUploadModalOpen" />
 
         <NetsBlox v-else-if="activity.name === 'netsblox'"
                   @export-data="storeData" @hide-filler="hideFiller"
-                  :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                  :galleryID="galleryID" :loadedContent="loadedContent ?? new String('')"
                   :shouldExport="isUploadModalOpen" />
 
         <Segregation v-else-if="activity.name === 'segregation'"
                      @export-data="storeData" @hide-filler="hideFiller"
-                     :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                     :galleryID="galleryID" :loadedContent="loadedContent ?? new String('')"
                      :shouldExport="isUploadModalOpen" />
 
         <SweepingArea v-else-if="activity.name === 'sweeping-area'"
                       @export-data="storeData" @hide-filler="hideFiller"
-                      :galleryID="galleryID" :loadedContent="loadedContent ?? ''"
+                      :galleryID="galleryID" :loadedContent="loadedContent ?? new String('')"
                       :shouldExport="isUploadModalOpen" />
 
       </template>
@@ -254,7 +254,16 @@
       const isUploadModalOpen = ref(false);
       const hasMounted        = ref(false);
       const loadedAuthor      = ref<string | null>(null);
-      const loadedContent     = ref<string | null>(null);
+
+      // This is somewhat of a hack.  Imagine that we're viewing an NLW model.  We load an uploaded
+      // world, and run the model a bit.  We then want to get back to the state that we started in,
+      // so we go to load the upload again.  The problem is that, at this point, `loadedContent` is
+      // still the same value as it was before.  So, when we "set" `loadedContent`, there's no change,
+      // and `watch` doesn't pick up that a load needs to occur.  To work around this, we create a new
+      // wrapped `String` every time we set `loadedContent`, so Vue thinks there's something new to do.
+      // --Jason B. (10/10/26)
+      // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+      const loadedContent = ref<String | null>(null);
 
       const modTab = ref<"unapproved" | "approved">("approved");
       selectModTab("approved");
@@ -304,7 +313,8 @@
           const message = await res.text();
           alert(`Could not load item: ${message}`);
         } else {
-          loadedContent.value = await res.text();
+          // eslint-disable-next-line no-new-wrappers
+          loadedContent.value = new String(await res.text());
           loadedAuthor.value  = submission.uploader;
         }
       }

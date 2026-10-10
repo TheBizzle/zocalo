@@ -5,15 +5,16 @@
 
 <script lang="ts">
 
-  import { defineComponent, onMounted, ref, watch } from "vue";
-  import { useRoute                               } from "vue-router";
+  import { defineComponent, onMounted, ref, type PropType, watch } from "vue";
+  import { useRoute                                              } from "vue-router";
 
   import { sanitizeHTML } from "@/core/sanitizeHTML.ts";
 
   export default defineComponent({
     name:  "GoogleDocsRenderer"
-  , props: { galleryID:     { type: String, required: true }
-           , loadedContent: { type: String, required: true }
+  , props: { galleryID:     { type:  String, required: true }
+           // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+           , loadedContent: { type: String as PropType<String>, required: true }
            }
   , computed: {
       dynamicallyHide() {
@@ -30,7 +31,7 @@
       watch(
         () => props.loadedContent
       , async (content) => {
-          sanitizedContent.value = sanitizeHTML(content);
+          sanitizedContent.value = sanitizeHTML(content.valueOf());
         }
       );
 

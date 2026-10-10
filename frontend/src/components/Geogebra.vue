@@ -4,16 +4,17 @@
 
 <script lang="ts">
 
-  import { defineComponent, onMounted, watch } from "vue";
-  import { useRoute                          } from "vue-router";
+  import { defineComponent, onMounted, type PropType, watch } from "vue";
+  import { useRoute                                         } from "vue-router";
 
   import type { ExportData } from "@/core/ExportData.ts";
 
   export default defineComponent({
     name:  "Geogebra"
   , props: { galleryID:     { type:  String, required: true }
-           , loadedContent: { type:  String, required: true }
            , shouldExport:  { type: Boolean, required: true }
+           // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+           , loadedContent: { type: String as PropType<String>, required: true }
            }
   , emits: ["export-data", "hide-filler"]
   , setup(props, { emit }) {
@@ -69,7 +70,8 @@
       watch(
         () => props.loadedContent
       , async (content) => {
-          const base64 = content.slice(content.indexOf(",") + 1);
+          const base   = content.valueOf();
+          const base64 = base.slice(base.indexOf(",") + 1);
           if (ggbApplet?.setBase64 !== undefined) {
             ggbApplet.setBase64(base64);
           } else if (isIntervalPolling) {

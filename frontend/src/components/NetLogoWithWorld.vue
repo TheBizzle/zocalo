@@ -7,8 +7,8 @@
 
 <script lang="ts">
 
-  import { defineComponent, onMounted, ref, watch } from "vue";
-  import { useRoute                               } from "vue-router";
+  import { defineComponent, onMounted, ref, type PropType, watch } from "vue";
+  import { useRoute                                              } from "vue-router";
 
   import type { ExportData } from "@/core/ExportData.ts";
   import      { NLWFrame   } from "@/core/NLWFrame.ts";
@@ -16,8 +16,9 @@
   export default defineComponent({
     name:  "NetLogo Web"
   , props: { galleryID:     { type:  String, required: true }
-           , loadedContent: { type:  String, required: true }
            , shouldExport:  { type: Boolean, required: true }
+           // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+           , loadedContent: { type: String as PropType<String>, required: true }
            }
   , emits: ["export-data", "hide-filler"]
   , setup(props, { emit }) {
@@ -49,12 +50,15 @@
       watch(
         () => props.loadedContent
       , async (content) => {
-          const { nlogo, world } = JSON.parse(content) as { nlogo: string, world: string };
-          nlw!.enqueueUnanswerable({ nlogo, path: "", type: "nlw-load-model" });
-          setTimeout(
-            () => { void nlw!.enqueueImportWorld(world); }
-          , 900
-          );
+          const json = content.valueOf();
+          if (json !== "") {
+            const { nlogo, world } = JSON.parse(json) as { nlogo: string, world: string };
+            nlw!.enqueueUnanswerable({ nlogo, path: "", type: "nlw-load-model" });
+            setTimeout(
+              () => { void nlw!.enqueueImportWorld(world); }
+            , 900
+            );
+          }
         }
       );
 
