@@ -1,7 +1,35 @@
 zócalo
 ===============
 
-### Installation Instructions
+## Running with Docker
+
+Instead of doing all of the stuff in the "Manual Installation" section, you can launch the app through Docker.  To do this, you just need to do a small number of things.
+
+  1. `cd docker`
+  2. `cp zocalo.env.example zocalo.env`
+  3. Fill in `zocalo.env` (explained below)
+  4. Run `./build.sh` (may require `sudo`; will take 25-35 minutes)
+  5. Make sure that `launch.sh` is configured how you want
+    * The thing you're most likely to want to change are the port numbers on the line  `-p 80:80 -p 443:443 \`
+    * Change the first `443` to your preferred port for accessing zócalo
+    * You can't change the first `80` if you want to use this on a non-`localhost` domain, since CertBot needs that port
+  6. Run `sudo ./launch.sh`
+
+To fill in `zocalo.env`, the required keys are as follows:
+
+  * `DOMAIN`: The domain name of your server (e.g. `my-zocalo.com`)
+    * If you don't want it publicly accessible, you can use `localhost`
+  * `CERTBOT_EMAIL`: The address at which CertBot can contact you with important announcements
+    * Honestly, this is pretty unlikely to get used for anything
+  * `MAILTRAP_API_SECRET`: Your API token obtained from [Mailtrap](https://mailtrap.io/settings/api-tokens)
+  * `SENDER_ADDRESS`: The email address that this zócalo will send authentication e-mails from
+    * This is arbitrary
+  * `SENDER_NAME`: The name that will be attached to this zócalo's authentication e-mails
+    * This is arbitrary
+
+## Manual Installation
+
+### Setting Up
 
 #### Basics
 

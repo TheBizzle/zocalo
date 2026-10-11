@@ -1,0 +1,8 @@
+.stack-work
+.git
+conf/actual.yaml
+git-sha.txt
+**/node_modules
+frontend/dist
+**/zocalo.env
+*.pem
