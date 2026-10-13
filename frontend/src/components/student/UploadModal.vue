@@ -312,7 +312,7 @@
           const metadata = JSON.stringify({ description: uploadForm.value.description });
 
           const uploadableFile =
-            (props.activity.sharingStyle !== "file-picker" && uploadForm.value.uploadFile !== null)
+            (props.activity.sharingStyle === "file-picker" && uploadForm.value.uploadFile !== null)
               ? uploadForm.value.uploadFile
               : new File([uploadData.value ?? ""], "custom.html", { type: "text/plain" });
 
