@@ -101,7 +101,7 @@
 
       async function setUpStudentSocket(): Promise<void> {
 
-        const jwt = encodeURIComponent(await getStudentToken() ?? "");
+        const jwt    = encodeURIComponent(await getStudentToken() ?? "");
         const urlish = `/api/galleries/${galleryID.value}/student/submissions/${jwt}`;
 
         const onMessage = (event: MessageEvent<string>): void => {
