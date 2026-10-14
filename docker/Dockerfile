@@ -18,50 +18,49 @@
 ARG NODE_VERSION=24
 
 # ---------------------------------------------------------------------------
-# Stage 0: source of the Node.js toolchain (copied into the builder stage)
+# Stage 1: frontend (npm). Inputs: frontend/ only.
 # ---------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-bookworm-slim AS node
+FROM node:${NODE_VERSION}-bookworm-slim AS frontend
+
+WORKDIR /src/frontend
+
+# Dependencies first: cached until package.json / the lockfile change.
+COPY frontend/package*.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+COPY frontend/ ./
+RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Stage 1: build the frontend (npm) and the Haskell executable (Stack)
+# Stage 2: backend (Stack). Inputs: everything except frontend/ and docker/.
 # ---------------------------------------------------------------------------
-FROM haskell:9.10-bookworm AS builder
+FROM haskell:9.10-bookworm AS backend
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libgmp-dev libpq-dev zlib1g-dev pkg-config \
  && rm -rf /var/lib/apt/lists/*
 
-# Node.js + npm, taken from the official Node image (same Debian release as this stage)
-COPY --from=node /usr/local/bin/node /usr/local/bin/node
-COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
- && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
- && node --version && npm --version
-
 WORKDIR /src
 
-# Build dependencies first so this layer is cached until the dependency
-# definitions change.
-COPY stack.yaml package.yaml ./
+# Haskell dependencies: cached until the dependency definitions change.
+COPY stack.yaml* package.yaml ./
 RUN stack build --only-dependencies
 
-# Frontend dependencies, likewise cached until package.json / the lockfile change.
-COPY frontend/package*.json frontend/
-RUN --mount=type=cache,target=/root/.npm \
-    cd frontend \
- && if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# Application sources. frontend/ and docker/ are excluded so that changes there
+# do not invalidate this layer. (COPY --exclude is applied before the cache key
+# is computed.)
+COPY --exclude=frontend --exclude=docker . .
+COPY docker/generate-config.sh docker/load-env.sh docker/
 
-# Build the application itself. The frontend is built first (as in the normal
-# build script), then conf/actual.yaml is generated from the env file, because
-# Template Haskell reads it during compilation.
-#
-# The commit hash is passed in as a build argument (see the build command at the
-# top) and written to git-sha.txt, which the Haskell gitSHA splice reads before
-# falling back to the git CLI. This keeps .git out of the build context.
+# conf/actual.yaml is generated from the env file because Template Haskell reads
+# it during compilation. The commit hash is written to git-sha.txt, which the
+# gitSHA splice reads. ARG is declared here, right before its first use, so a new
+# GIT_SHA only invalidates this step. The .stack-work cache mount keeps GHC's
+# incremental state between builds, so that rebuild is incremental.
 ARG GIT_SHA
-COPY . .
-RUN cd frontend && npm run build
 RUN --mount=type=secret,id=zocalo_env \
+    --mount=type=cache,target=/src/.stack-work \
     if [ -n "$GIT_SHA" ]; then printf '%s\n' "$GIT_SHA" > git-sha.txt; fi \
  && bash docker/generate-config.sh /run/secrets/zocalo_env conf/template.yaml conf/actual.yaml \
  && stack build \
@@ -69,7 +68,7 @@ RUN --mount=type=secret,id=zocalo_env \
  && stack install zocalo --local-bin-path /out
 
 # ---------------------------------------------------------------------------
-# Stage 2: runtime image (app + Postgres + CertBot + Caddy), Ubuntu 26.04
+# Stage 3: runtime image (app + Postgres + CertBot + Caddy), Ubuntu 26.04
 # ---------------------------------------------------------------------------
 FROM ubuntu:26.04
 
@@ -87,15 +86,14 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && (systemctl disable caddy postgresql 2>/dev/null || true)
 
-COPY --from=builder /out/run-zocalo /usr/local/bin/run-zocalo
+COPY --from=backend /out/run-zocalo /usr/local/bin/run-zocalo
 
 WORKDIR /app
 COPY . /app
 
-# The runtime image is a separate stage, so the frontend built in the builder stage
-# has to be copied in explicitly. (frontend/dist is excluded from the build context,
-# so this is the only copy of it in the image.)
-COPY --from=builder /src/frontend/dist /app/frontend/dist
+# frontend/dist is excluded from the build context, so this is the only copy of
+# it in the image.
+COPY --from=frontend /src/frontend/dist /app/frontend/dist
 
 COPY docker/load-env.sh /usr/local/bin/load-env.sh
 COPY docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
