@@ -33,6 +33,7 @@
       onMounted(
         () => {
           nlw = new NLWFrame(nlwFrame.value!);
+          nlw.enqueueUnanswerable({ code: "setup", type: "nlw-run-code" });
         }
       );
 
@@ -48,15 +49,19 @@
       watch(
         () => props.loadedContent
       , (content) => {
-          const msg = { codeTabContents: content.valueOf(), autoRecompile: true, type: "nlw-set-model-code" };
-          nlw!.enqueueUnanswerable(msg);
-          setTimeout(
-            () => {
-              nlw!.enqueueUnanswerable({ code: "setup", type: "nlw-run-code" });
-            }
-          , 900
-          );
+          const codeTabContents = content.valueOf();
+          if (codeTabContents !== "") {
+            const msg = { codeTabContents, autoRecompile: true, type: "nlw-set-model-code" };
+            nlw!.enqueueUnanswerable(msg);
+            setTimeout(
+              () => {
+                nlw!.enqueueUnanswerable({ code: "setup", type: "nlw-run-code" });
+              }
+            , 900
+            );
+          }
         }
+      , { flush: "post" }
       );
 
       async function exportData(): Promise<ExportData | undefined> {
