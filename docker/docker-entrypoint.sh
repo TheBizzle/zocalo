@@ -34,8 +34,17 @@ CADDYFILE=/etc/caddy/Caddyfile
 
 pids=()
 cleanup() {
+  trap - EXIT TERM INT
   for pid in "${pids[@]:-}"; do kill "$pid" 2>/dev/null || true; done
-  su postgres -c "${PGBIN}/pg_ctl stop -D ${PGDATA} -m fast" 2>/dev/null || true
+  # Give the app up to 20s to finish in-flight requests before Postgres stops.
+  for pid in "${pids[@]:-}"; do
+    for _ in $(seq 1 200); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.1
+    done
+  done
+  # 20s above + 90s here stays under the 120s container stop timeout.
+  su postgres -c "${PGBIN}/pg_ctl stop -D ${PGDATA} -m fast -t 90" || true
 }
 trap cleanup EXIT TERM INT
 
