@@ -13,7 +13,7 @@ Instead of doing all of the stuff in the "Manual Installation" section, you can 
     * The thing you're most likely to want to change are the port numbers on the line  `-p 80:80 -p 443:443 \`
     * Change the first `443` to your preferred port for accessing zócalo
     * You can't change the first `80` if you want to use this on a non-`localhost` domain, since CertBot needs that port
-  6. Run `sudo ./launch.sh`
+  6. Run `./launch.sh`
 
 To fill in `zocalo.env`, the required keys are as follows:
 
