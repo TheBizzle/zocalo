@@ -7,6 +7,7 @@ import Control.Monad(forever)
 import Data.CaseInsensitive(CI)
 import Data.NanoID(unNanoID)
 import Data.Time.Clock.POSIX(getPOSIXTime)
+import Data.UUID(UUID)
 
 import GHC.Conc(atomically, TVar)
 
@@ -21,6 +22,8 @@ import Snap.Core(
 
 import Snap.Util.FileServe(serveDirectory)
 import Snap.Util.GZip(withCompression)
+
+import System.Random(randomIO)
 
 import Zocalo.Common.SnapHelpers(
     allowingCORS, Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV
@@ -74,9 +77,9 @@ import qualified Data.Text.Encoding     as TextEncoding
 import qualified Text.Read              as TRead
 
 
-routes :: TVar (Map AuthorizedTeacher ModeratorClient) ->
-          TVar (Map AuthorizedTeacher ModeratorClient) ->
-          TVar (Map AuthorizedStudent GalleryObserverClient) ->
+type SocketMap t = TVar (Map UUID t)
+
+routes :: SocketMap ModeratorClient -> SocketMap ModeratorClient -> SocketMap GalleryObserverClient ->
           [(ByteString, Snap ())]
 routes moderators teachers students =
     [ ("echo/:param"                                     ,      ac POST   handleEchoData)
@@ -166,9 +169,7 @@ handleDownloadItem =
           dlResult <- liftIO $ readSubmissionData teacherM studM $ SubID uploadID
           whenSuccess dlResult $ succeed "text/plain"
 
-handleSuppressItem :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
-                      TVar (Map AuthorizedTeacher       ModeratorClient) ->
-                      Snap ()
+handleSuppressItem :: SocketMap GalleryObserverClient -> SocketMap ModeratorClient -> Snap ()
 handleSuppressItem students teachers =
   withAuthorizations $ \teacherM studM ->
     handle2 (Arg "nano-id" asNanoID, Arg "item-id" asNonNeg) $
@@ -189,9 +190,7 @@ handleSuppressItem students teachers =
 
             succeed "text/plain" "Submission successfully suppressed"
 
-handleApproveItem :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
-                     TVar (Map AuthorizedTeacher       ModeratorClient) ->
-                     Snap ()
+handleApproveItem :: SocketMap GalleryObserverClient -> SocketMap ModeratorClient -> Snap ()
 handleApproveItem students teachers =
   ifAuthorizedTeacher $ \teacher ->
     handle2 (Arg "nano-id" asNanoID, Arg "item-id" asNonNeg) $
@@ -218,9 +217,7 @@ handleApproveItem students teachers =
 
               succeed "text/plain" "Submission approved"
 
-handleForbidItem :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
-                    TVar (Map AuthorizedTeacher       ModeratorClient) ->
-                    Snap ()
+handleForbidItem :: SocketMap GalleryObserverClient -> SocketMap ModeratorClient -> Snap ()
 handleForbidItem students teachers =
   ifAuthorizedTeacher $ \teacher ->
     handle2 (Arg "nano-id" asNanoID, Arg "item-id" asNonNeg) $
@@ -241,9 +238,7 @@ handleForbidItem students teachers =
 
             succeed "text/plain" "Submission successfully forbidden"
 
-handleUploadFile :: TVar (Map AuthorizedStudent GalleryObserverClient) ->
-                    TVar (Map AuthorizedTeacher       ModeratorClient) ->
-                    Snap ()
+handleUploadFile :: SocketMap GalleryObserverClient -> SocketMap ModeratorClient -> Snap ()
 handleUploadFile students teachers =
   ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
     let datum   = lookupParam "data"  fileMap
@@ -280,7 +275,7 @@ handleUploadFile students teachers =
             Right good -> good
             Left     _ -> TextEncoding.decodeUtf8 $ Base64.encode result
 
-handleSubmitComment :: TVar (Map AuthorizedStudent GalleryObserverClient) -> Snap ()
+handleSubmitComment :: SocketMap GalleryObserverClient -> Snap ()
 handleSubmitComment students =
   ifAuthorizedStudent $ \student -> withFileUploads $ \fileMap -> do
     nanoIDV     <- getParamVM fileMap $ Arg "nano-id" asNanoID
@@ -432,18 +427,19 @@ handleBuildArchive =
           modifyResponse $ setHeader "Content-Disposition" $ "attachment; filename=\"" <> filename <> ".zip\""
           writeLBS archive
 
-handleModeratorSocket :: TVar (Map AuthorizedTeacher ModeratorClient) -> Snap ()
+handleModeratorSocket :: TVar (Map UUID ModeratorClient) -> Snap ()
 handleModeratorSocket moderators = do
   handle2 (Arg "nano-id" asNanoID, Arg "jwt" notEmpty) $
     \(galleryID, jwt) ->
       ifAuthorizedTeacherRaw jwt $ \teacher ->
         runWebSocketsSnap $ \pending -> do
 
-          connection <- acceptRequest pending
-          let client = ModeratorClient teacher galleryID connection
-          atomically $ modifyTVar' moderators $ teacher `Map.insert` client
+          connection   <- acceptRequest pending
+          let client    = ModeratorClient teacher galleryID connection
+          connectionID <- randomIO
+          atomically $ modifyTVar' moderators $ connectionID `Map.insert` client
 
-          let cleanup = atomically $ modifyTVar' moderators $ Map.delete teacher
+          let cleanup = atomically $ modifyTVar' moderators $ Map.delete connectionID
           (flip finally cleanup) $ do
 
             listingsResult <- readSubmissionListingsForModeration teacher galleryID
@@ -459,18 +455,19 @@ handleModeratorSocket moderators = do
               _ <- receiveData connection :: IO Text
               pure ()
 
-handleStudentSocket :: TVar (Map AuthorizedStudent GalleryObserverClient) -> Snap ()
+handleStudentSocket :: SocketMap GalleryObserverClient -> Snap ()
 handleStudentSocket students = do
   handle2 (Arg "nano-id" asNanoID, Arg "jwt" notEmpty) $
     \(galleryID, jwt) ->
       ifAuthorizedStudentRaw jwt $ \student ->
         runWebSocketsSnap $ \pending -> do
 
-          connection <- acceptRequest pending
-          let client = GalleryObserverClient student galleryID connection
-          atomically $ modifyTVar' students $ student `Map.insert` client
+          connection   <- acceptRequest pending
+          let client    = GalleryObserverClient student galleryID connection
+          connectionID <- randomIO
+          atomically $ modifyTVar' students $ connectionID `Map.insert` client
 
-          let cleanup = atomically $ modifyTVar' students $ Map.delete student
+          let cleanup = atomically $ modifyTVar' students $ Map.delete connectionID
           (flip finally cleanup) $ do
 
             listingsResult <- liftIO $ readSubmissionListings student galleryID
@@ -486,18 +483,19 @@ handleStudentSocket students = do
               _ <- receiveData connection :: IO Text
               pure ()
 
-handleTeacherSocket :: TVar (Map AuthorizedTeacher ModeratorClient) -> Snap ()
+handleTeacherSocket :: SocketMap ModeratorClient -> Snap ()
 handleTeacherSocket teachers = do
   handle2 (Arg "nano-id" asNanoID, Arg "jwt" notEmpty) $
     \(galleryID, jwt) ->
       ifAuthorizedTeacherRaw jwt $ \teacher ->
         runWebSocketsSnap $ \pending -> do
 
-          connection <- acceptRequest pending
-          let client = ModeratorClient teacher galleryID connection
-          atomically $ modifyTVar' teachers $ teacher `Map.insert` client
+          connection   <- acceptRequest pending
+          let client    = ModeratorClient teacher galleryID connection
+          connectionID <- randomIO
+          atomically $ modifyTVar' teachers $ connectionID `Map.insert` client
 
-          let cleanup = atomically $ modifyTVar' teachers $ Map.delete teacher
+          let cleanup = atomically $ modifyTVar' teachers $ Map.delete connectionID
           (flip finally cleanup) $ do
 
             listingsResult <- liftIO $ readSubmissionListingsAsTeacher teacher galleryID
