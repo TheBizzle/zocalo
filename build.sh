@@ -1,11 +1,9 @@
 #! /usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-cd frontend/
-npm run build
-cd ..
+(cd frontend/ && npm run build)
 
 stack build
 
-killall run-zocalo
+killall run-zocalo || true
