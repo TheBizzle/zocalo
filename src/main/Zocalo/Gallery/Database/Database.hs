@@ -46,7 +46,7 @@ import System.Random.MWC(createSystemRandom)
 
 import Zocalo.Common.AppConfig(dbConnStr)
 
-import Zocalo.Common.SecureToken(hashToken, SecureToken(tokenText), tokenFromText)
+import Zocalo.Common.SecureToken(genSecureToken, hashToken, SecureToken(tokenText), tokenFromText)
 
 import Zocalo.Gallery.Auth.AuthorizedUser(
     AuthorizedStudent(AStudent, studentID, studentName)
@@ -517,8 +517,9 @@ lookupTeacherRefreshToken refreshToken =
 registerNewStudent :: Text -> IO (ActionResult Int64)
 registerNewStudent studentName =
   do
-    now   <- getCurrentTime
-    ident <- withDB $ insert (StudentRefreshTokenDB studentName "" now False)
+    now         <- getCurrentTime
+    placeholder <- genSecureToken <&> hashToken
+    ident       <- withDB $ insert (StudentRefreshTokenDB studentName placeholder now False)
     return $ Success $ fromSqlKey ident
 
 setStudentRefreshToken :: AuthorizedStudent -> SecureToken -> IO (ActionResult ())
