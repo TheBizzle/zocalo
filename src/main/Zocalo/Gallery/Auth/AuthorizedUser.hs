@@ -15,11 +15,11 @@ class AuthorizedUser a where
 
 instance AuthorizedUser AuthorizedStudent where
   readUser text =
-      case Read.decimal sid of
-        Right (n, "") -> Just $ AStudent n $ Text.tail name
-        _             -> Nothing
+      case (Read.decimal sid, Text.uncons rest) of
+        (Right (n, ""), Just ('|', name)) -> Just $ AStudent n name
+        _                                 -> Nothing
     where
-      (sid, name) = Text.breakOn "|" text
+      (sid, rest) = Text.breakOn "|" text
 
 instance AuthorizedUser AuthorizedTeacher where
   readUser = asLowerText &> ATeacher &> Just
