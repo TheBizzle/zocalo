@@ -35,10 +35,7 @@ describe("StudentAuth.storeToken", () => {
     expect(() => auth.getStudentID()).toThrow();
   });
 
-  // TODO
-  // KNOWN BUG: the server builds the subject as "<id>|<name>" and keeps everything after the first "|", but the client
-  // does `sub.split("|")` and keeps only the second piece.  A student named "A|B" is shown as "A".
-  it.fails("keeps student names that contain a pipe character intact", async () => {
+  it("keeps student names that contain a pipe character intact", async () => {
     const auth = await freshModule();
     auth.storeToken(studentToken("7|A|B"));
     expect(auth.getStudentName()).toBe("A|B");
