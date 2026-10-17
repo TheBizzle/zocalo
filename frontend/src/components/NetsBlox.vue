@@ -9,8 +9,9 @@
   import { defineComponent, onMounted, onUnmounted, ref, type PropType, watch } from "vue";
   import { useRoute                                                           } from "vue-router";
 
-  import type { ExportData } from "@/core/ExportData.ts";
-  import { initUsername    } from "@/core/StudentAuth.ts";
+  import type { ExportData                   } from "@/core/ExportData.ts";
+  import { buildNetsBloxURL, NETSBLOX_ORIGIN } from "@/core/netsbloxURL.ts";
+  import { initUsername                      } from "@/core/StudentAuth.ts";
 
   import { getNetsBProjectXML, getNetsBUsername } from "./NetsBloxMini.ts";
 
@@ -51,7 +52,7 @@
 
       const peskyLoop = // Load the waiting data, once NetsBlox is loaded
         setInterval(
-          () => { iframe.value?.contentWindow?.postMessage({ type: "get-username" }, "*"); }
+          () => { iframe.value?.contentWindow?.postMessage({ type: "get-username" }, NETSBLOX_ORIGIN); }
         , 50
         );
 
@@ -69,7 +70,7 @@
 
         const params = new URLSearchParams(window.location.search);
 
-        const starterProject = params.get("starterProject") ?? "https://editor.netsblox.org/?";
+        const starterProject = params.get("starterProject");
         const projectName    = params.get(   "ProjectName") ?? "";
 
         const nbUsername    = (await getNetsBUsername(iframe.value!.contentWindow!)) ?? null;
@@ -77,23 +78,23 @@
         const username      = initUsername(nbUsername ?? paramUsername);
 
         const synthParams =
-         new URLSearchParams(
-           { Username:    username
-           , ProjectName: projectName
-           , editMode:    true.toString()
-           , hash:        props.galleryID
-           , gallery:     window.location.origin
-           }
-         );
+          { Username:    username
+          , ProjectName: projectName
+          , editMode:    true.toString()
+          , hash:        props.galleryID
+          , gallery:     window.location.origin
+          };
 
-        iframe.value!.src = `${starterProject}&${synthParams}`;
+        // `starterProject` comes straight from this page's query string, so it requires
+        // validation before going into `iframe.src`. --Jason B. (10/17/26)
+        iframe.value!.src = buildNetsBloxURL(starterProject, synthParams);
 
       }
 
       function importProject(data: Record<string, string>): void {
         const msg = { ...data, type: "import" };
         if (hasLoaded) {
-          iframe.value?.contentWindow?.postMessage(msg, "*");
+          iframe.value?.contentWindow?.postMessage(msg, NETSBLOX_ORIGIN);
         } else {
           waitingData = msg;
         }
@@ -127,13 +128,13 @@
                   const  dMsg = { key: "domain"      , value: window.location.origin, type: "set-variable" };
                   const lhMsg = { key: "locationHash", value:        props.galleryID, type: "set-variable" };
 
-                  iframe.value?.contentWindow?.postMessage( dMsg, "*");
-                  iframe.value?.contentWindow?.postMessage(lhMsg, "*");
+                  iframe.value?.contentWindow?.postMessage( dMsg, NETSBLOX_ORIGIN);
+                  iframe.value?.contentWindow?.postMessage(lhMsg, NETSBLOX_ORIGIN);
 
                   setTimeout(
                     () => {
                       if (waitingData !== null) {
-                        iframe.value?.contentWindow?.postMessage(waitingData, "*");
+                        iframe.value?.contentWindow?.postMessage(waitingData, NETSBLOX_ORIGIN);
                         waitingData = null;
                       } else if (hadntLoaded) {
                         void fetchStarter();
@@ -157,7 +158,7 @@
         const res = await fetch(`/api/galleries/${props.galleryID}/student/starter-config`);
         if (res.ok) {
           const content = await res.text();
-          iframe.value?.contentWindow?.postMessage({ type: "import", content }, "*");
+          iframe.value?.contentWindow?.postMessage({ type: "import", content }, NETSBLOX_ORIGIN);
         }
       }
 

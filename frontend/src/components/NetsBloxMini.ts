@@ -2,6 +2,8 @@
 // https://github.com/NetsBlox/Snap--Build-Your-Own-Blocks/blob/bacc96d08eac1348f6d89a87de2989934d96fbfc/embedded-api.js
 // For some reason, the actual API wasn't working for me. --Jason B. (7/6/26)
 
+import { NETSBLOX_ORIGIN } from "@/core/netsbloxURL.ts";
+
 type Deferred =
   { promise: Promise<unknown>
   , resolve: (_: unknown) => void
@@ -13,17 +15,19 @@ const requests: Record<number, Deferred> = {};
 const dispatcher = new EventTarget();
 
 const onMessage = (event: MessageEvent): void => {
-  type Msg = { type: string, id: number | undefined, eventType: string | undefined, detail: unknown };
-  const data = event.data as Msg;
-  if (data.type === "reply") {
-    const request = requests[data.id!];
-    if (request !== undefined) {
-      request.resolve(data);
-      delete requests[data.id!]; // eslint-disable-line @typescript-eslint/no-dynamic-delete
+  if (event.origin === NETSBLOX_ORIGIN && typeof event.data === "object" && event.data !== null) {
+    type Msg = { type: string, id: number | undefined, eventType: string | undefined, detail: unknown };
+    const data = event.data as Msg;
+    if (data.type === "reply") {
+      const request = requests[data.id!];
+      if (request !== undefined) {
+        request.resolve(data);
+        delete requests[data.id!]; // eslint-disable-line @typescript-eslint/no-dynamic-delete
+      }
+    } else if (data.type === "event") {
+      const { eventType, detail } = data;
+      dispatcher.dispatchEvent(new CustomEvent(eventType!, { detail }));
     }
-  } else if (data.type === "event") {
-    const { eventType, detail } = data;
-    dispatcher.dispatchEvent(new CustomEvent(eventType!, { detail }));
   }
 };
 
@@ -49,7 +53,7 @@ async function reqReply( reqData: { id: number | undefined, type: string }
   const deferred = defer();
   requests[id] = deferred;
   reqData.id = id;
-  iframeWindow.postMessage(reqData, "*");
+  iframeWindow.postMessage(reqData, NETSBLOX_ORIGIN);
 
   setTimeout(
     () => {
