@@ -133,7 +133,8 @@ failWith x snap =
     statusName 404 = "Not Found"
     statusName 409 = "Conflict"
     statusName 422 = "Unprocessable Entity"
-    statusName y   = error $ traceShowId $ "Unhandled status: " <> (showText y)
+    statusName 500 = "Internal Server Error"
+    statusName x   = traceShowId $ encodeUtf8 $ "Unknown error code: " <> (showText x)
 
 succeed :: ByteString -> Text -> Snap ()
 succeed contentType output =
