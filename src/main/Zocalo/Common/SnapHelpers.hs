@@ -156,8 +156,8 @@ asNanoID = Constraint $ buildConstraint $
     allowed = asText $ BSChar.unpack $ unAlphabet defaultAlphabet
 
 asNonNeg :: Constraint Word64
-asNonNeg = Constraint $ buildConstraint $ \x -> (readMaybe (asString x) :: Maybe Word64) |>
-  (>>= (\n -> if n < 0 then Nothing else Just n))
+asNonNeg = Constraint $ buildConstraint $ \x -> (readMaybe (asString x) :: Maybe Integer) |>
+  (>>= (\n -> if n >= 0 && n <= fromIntegral (maxBound :: Word64) then Just (fromIntegral n) else Nothing))
 
 asInt :: Constraint Int
 asInt = Constraint $ buildConstraint (asString &> readMaybe :: Text -> Maybe Int)
