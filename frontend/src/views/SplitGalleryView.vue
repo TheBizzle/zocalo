@@ -460,7 +460,6 @@
       }
 
     async function watchAutoApproveIsOn(isOn: boolean): Promise<void> {
-        console.log("It moved", isOn);
         if (isOn) {
           await Promise.all(waitingSubmissions.value.map(approveSubmission));
         }
