@@ -5,7 +5,7 @@ module Zocalo.Common.ConfigReader(ConfigPath(..), readConfigText, readDBConnStr)
 
 import Control.Monad(fail)
 import Language.Haskell.TH(Exp, Q)
-import Language.Haskell.TH.Syntax(lift, runIO)
+import Language.Haskell.TH.Syntax(addDependentFile, lift, runIO)
 
 import Data.Aeson(camelTo2, defaultOptions, FromJSON(parseJSON), genericParseJSON, Options(fieldLabelModifier))
 import Data.Yaml(decodeFileEither)
@@ -66,30 +66,36 @@ data ConfigPath
   | MailSenderName
 
 readConfigText :: ConfigPath -> Q Exp
-readConfigText path = do
-  result <- runIO $ decodeFileEither "conf/actual.yaml"
-  case result of
-    Left err -> fail $ "Failed to parse 'conf/actual.yaml': " <> (show err)
-    Right (config :: AppConfig) ->
-      case path of
-        GeneralSecret      -> lift $ cryptographySecret $  general config
-        DatabaseDBName     -> lift $             dbName $ database config
-        DatabaseDBPort     -> lift $             dbPort $ database config
-        DatabaseHost       -> lift $               host $ database config
-        DatabaseUsername   -> lift $           username $ database config
-        DatabasePassword   -> lift $           password $ database config
-        MailMailtrapSecret -> lift $  mailtrapApiSecret $     mail config
-        MailSenderAddress  -> lift $      senderAddress $     mail config
-        MailSenderName     -> lift $         senderName $     mail config
+readConfigText path =
+  do
+    config <- loadConfig
+    case path of
+      GeneralSecret      -> lift $ cryptographySecret $  general config
+      DatabaseDBName     -> lift $             dbName $ database config
+      DatabaseDBPort     -> lift $             dbPort $ database config
+      DatabaseHost       -> lift $               host $ database config
+      DatabaseUsername   -> lift $           username $ database config
+      DatabasePassword   -> lift $           password $ database config
+      MailMailtrapSecret -> lift $  mailtrapApiSecret $     mail config
+      MailSenderAddress  -> lift $      senderAddress $     mail config
+      MailSenderName     -> lift $         senderName $     mail config
 
 readDBConnStr :: Q Exp
 readDBConnStr = do
-  result <- runIO $ decodeFileEither "conf/actual.yaml"
+  config <- loadConfig
+  let db = database config
+  lift $ TE.encodeUtf8 $
+    "host=" <> (host db) <> " dbname=" <> (dbName db) <>
+    " user=" <> (username db) <> " password=" <> (password db) <>
+    " port=" <> (showText $ dbPort db)
+
+configFile :: FilePath
+configFile = "conf/actual.yaml"
+
+loadConfig :: Q AppConfig
+loadConfig = do
+  addDependentFile configFile
+  result <- runIO $ decodeFileEither configFile
   case result of
-    Left err -> fail $ "Failed to parse 'conf/actual.yaml': " <> show err
-    Right (config :: AppConfig) -> do
-      let db = database config
-      lift $ TE.encodeUtf8 $
-        "host=" <> (host db) <> " dbname=" <> (dbName db) <>
-        " user=" <> (username db) <> " password=" <> (password db) <>
-        " port=" <> (showText $ dbPort db)
+    Left err     -> fail $ "Failed to parse '" <> configFile <> "': " <> show err
+    Right config -> pure config
