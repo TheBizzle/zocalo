@@ -343,8 +343,7 @@ writeSubmission student nid imageBytes metadata extraData =
   withGalleryNano nid $
     \(galleryID, gallery) -> do
       let studID     = student |> studentID &> fromIntegral &> toSqlKey
-      gEntityMaybe  <- withDB $ selectFirst [GalleryDBGalleryName ==. (extractGalleryName gallery)] []
-      let getsPreed  = maybe False (entityVal &> extractGetsPrescreened) gEntityMaybe
+      let getsPreed  = extractGetsPrescreened gallery
       timestamp     <- getCurrentTime
       let subDB      = SubmissionDB galleryID imageBytes studID False False getsPreed metadata extraData timestamp
       subEntity     <- withDB $ insertEntity subDB
