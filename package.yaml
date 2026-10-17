@@ -81,6 +81,15 @@ tests:
     main:        Main.hs
     source-dirs: src/test
     dependencies:
+      - base64-bytestring    >= 1.2   && < 1.3
+      - bytestring           >= 0.12  && < 0.13
+      - containers           >= 0.7   && < 0.8
       - HUnit                >= 1.6.2 && < 1.7.0
+      - NanoID               >= 3.4   && < 3.5
+      - snap-core            >= 1.0   && < 1.1
       - test-framework       >= 0.8
       - test-framework-hunit >= 0.3
+      - text                 >= 2.1   && < 2.2
+      - uuid                 >= 1.3   && < 1.4
+      - validation           >= 1.1   && < 1.2
+      - zocalo

@@ -1,17 +1,10 @@
-module Main (main) where
+module Main(main) where
 
-import Test.Framework (defaultMain, testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit (Assertion, (@?=))
+import Test.Framework(defaultMain)
+
+import qualified Zocalo.Common.SecureTokenSpec as SecureToken
+import qualified Zocalo.Common.SnapHelpersSpec as SnapHelpers
+import qualified Zocalo.Gallery.AuthSpec       as Auth
 
 main :: IO ()
-main =
-  defaultMain
-    [ testGroup
-        "basic tests"
-        [ testCase "sanity check" sanityCheck
-        ]
-    ]
-
-sanityCheck :: Assertion
-sanityCheck = 1 + 1 @?= (2 :: Int)
+main = defaultMain [SecureToken.tests, SnapHelpers.tests, Auth.tests]
