@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
 
     steps:
@@ -37,3 +37,29 @@ jobs:
 
       - name: Run tests
         run: stack test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck and lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run dev-build
+
+      - name: Run tests
+        run: npm test
