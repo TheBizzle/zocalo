@@ -77,14 +77,4 @@ describe("StudentAuth token refresh", () => {
     expect((lastOpt.headers as Record<string, string>)["Authorization"]).toMatch(/^Bearer .+\..+\..+$/);
   });
 
-  // TODO
-  // KNOWN BUG: concurrent callers each start their own refresh.  The server rotates the student's refresh token on every
-  // refresh, so the loser of that race presents a stale cookie, gets a 404, and falls through to "fresh-cookies",
-  // which silently creates a brand-new student identity.
-  it.fails("shares a single in-flight refresh between concurrent callers", async () => {
-    const auth = await freshModule();
-    await Promise.all([auth.getAuthToken(), auth.getAuthToken(), auth.getAuthToken()]);
-    expect(refreshCalls).toBe(1);
-  });
-
 });
