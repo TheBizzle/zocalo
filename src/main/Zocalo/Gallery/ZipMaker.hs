@@ -7,6 +7,7 @@ module Zocalo.Gallery.ZipMaker(makeArchive) where
 import Codec.Archive.Zip(addEntryToArchive, emptyArchive, Entry, fromArchive, toEntry)
 
 import Data.Aeson((.:), decode, encode, FromJSON, parseJSON, ToJSON, withObject)
+import Data.Char(isAlphaNum)
 import Data.List(zip)
 import Data.NanoID(NanoID)
 import Data.Time(UTCTime)
@@ -69,7 +70,7 @@ subToEntry rawEpoch templateName
     ] <> (maybeToList imageEntryM)
   where
     epoch                      = floor rawEpoch
-    baseName                   = "uploads/" <> (show index) <> "_" <> (asString uploaderName) <> "/"
+    baseName                   = "uploads/" <> (show index) <> "_" <> (safeName uploaderName) <> "/"
     addEntry filename contents = toEntry (baseName <> filename) epoch contents
 
     descLBSM             = map (TE.encodeUtf8 &> LBS.fromStrict) metadataM
@@ -80,6 +81,8 @@ subToEntry rawEpoch templateName
     dataEntry            = addEntry ("data." <> dataExt) dataBytes
 
     imageEntryM = map (addEntry "image.png") $ imageToLBS base64Image
+
+    safeName = asString &> (map $ \c -> if isAlphaNum c || elem c [' ', '-'] then c else '_')
 
 extAndData :: Text -> Text -> (String, LBS.ByteString)
 extAndData "geogebra"      extraData = (   "ggb", textToLBS extraData)
