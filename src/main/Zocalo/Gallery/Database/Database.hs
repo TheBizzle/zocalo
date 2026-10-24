@@ -18,8 +18,9 @@ module Zocalo.Gallery.Database.Database(
   , logoutTeacher, lookupStudentRefreshToken, lookupTeacherRefreshToken, readGalleryForSave
   , readGalleryListings, readStarterConfigFor, readSubmissionData, readSubmissionListings
   , readSubmissionListingsAsTeacher, readSubmissionListingsForModeration, readTemplateName, readWhoIsTeacher
-  , registerNewGallery, registerNewStudent, registerNewTeacher, runMigrations, setStudentRefreshToken
-  , setTeacherRefreshToken, storeOTP, suppressSubmission, validateOTP, writeComment, writeSubmission
+  , registerNewGallery, registerNewStudent, registerNewTeacher, rotateTeacherRefreshToken, runMigrations
+  , setStudentRefreshToken, setTeacherRefreshToken, storeOTP, suppressSubmission, validateOTP, writeComment
+  , writeSubmission
   ) where
 
 import Control.Monad.Logger(NoLoggingT, runNoLoggingT)
@@ -33,9 +34,9 @@ import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
 
 import Database.Persist(
-    (=.), (==.), (>=.), count, Entity(Entity, entityKey, entityVal), get, getBy, insert, insertEntity
-  , insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList, SelectOpt(Asc), Unique
-  , update, updateGet, updateWhere, upsert
+    (<.), (=.), (==.), (>=.), count, deleteWhere, Entity(Entity, entityKey, entityVal), get, getBy, insert
+  , insertEntity, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList
+  , SelectOpt(Asc), Unique, update, updateGet, updateWhere, upsert
   )
 
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
@@ -544,9 +545,10 @@ setTeacherRefreshToken (ATeacher emailAddr) refreshToken =
     \(teacherID, _) -> do
       now             <- getCurrentTime
       let refreshHash  = hashToken refreshToken
-      void $ withDB $ upsert (TeacherRefreshTokenDB teacherID refreshHash now False)
-                             [ TeacherRefreshTokenDBHash =. refreshHash, TeacherRefreshTokenDBBirthday =. now
-                             , TeacherRefreshTokenDBWasRevoked =. False]
+      let cutoff       = addUTCTime (-60 * 60 * 24 * 28) now
+      void $ withDB $ do
+        deleteWhere [TeacherRefreshTokenDBTeacherID ==. teacherID, TeacherRefreshTokenDBBirthday <. cutoff]
+        insert $ TeacherRefreshTokenDB teacherID refreshHash now False
       return $ Success ()
 
 logoutStudent :: AuthorizedStudent -> IO (ActionResult ())
@@ -561,6 +563,14 @@ logoutTeacher teacher =
   withTeacher teacher.teacherAddr $
     \(teacherID, _) -> do
       withDB $ updateWhere [TeacherRefreshTokenDBTeacherID ==. teacherID] [TeacherRefreshTokenDBWasRevoked =. True]
+      return $ Success ()
+
+rotateTeacherRefreshToken :: SecureToken -> SecureToken -> IO (ActionResult ())
+rotateTeacherRefreshToken oldToken newToken =
+  withPair (UniqueTeacherRefreshTokenHash $ hashToken oldToken) $
+    \(key, _) -> do
+      now <- getCurrentTime
+      withDB $ update key [TeacherRefreshTokenDBHash =. hashToken newToken, TeacherRefreshTokenDBBirthday =. now]
       return $ Success ()
 
 checkIsOkayOTPRate :: LowerText -> IO (ActionResult Bool)

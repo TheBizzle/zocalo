@@ -1,9 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Zocalo.Gallery.Auth.Validator(
     genSecureToken, issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens
-  , SecureToken(SecureToken, tokenText), validateStudentAccessToken, validateStudentRefreshToken
-  , validateStudentAccessTokenRaw, validateTeacherAccessToken, validateTeacherAccessTokenRaw
-  , validateTeacherRefreshToken
+  , refreshTeacherTokens, SecureToken(SecureToken, tokenText), validateStudentAccessToken
+  , validateStudentRefreshToken, validateStudentAccessTokenRaw, validateTeacherAccessToken
+  , validateTeacherAccessTokenRaw, validateTeacherRefreshToken
   ) where
 
 import Control.Lens((^.), (.~), (&))
@@ -39,8 +39,8 @@ import Zocalo.Gallery.Auth.AuthorizedUser(
   )
 
 import Zocalo.Gallery.Database.Database(
-    registerNewStudent, lookupStudentRefreshToken, lookupTeacherRefreshToken, setStudentRefreshToken
-  , setTeacherRefreshToken
+    registerNewStudent, lookupStudentRefreshToken, lookupTeacherRefreshToken, rotateTeacherRefreshToken
+  , setStudentRefreshToken, setTeacherRefreshToken
   )
 
 import Zocalo.Gallery.Entity.ActionResult(
@@ -116,6 +116,18 @@ issueNewTokens storeToken identifier scope daysToLive =
         return $ case tokenE of
           Left  _   -> Failure InternalError
           Right jwt -> Success $ decodeUtf8 $ LazyBS.toStrict $ encodeCompact jwt
+
+refreshTeacherTokens :: AuthorizedTeacher -> Snap (ActionResult Text)
+refreshTeacherTokens (ATeacher addr) =
+    do
+      oldCookieM <- getCookie $ refreshTokenName <> "|" <> (scopeBS Teacher)
+      case oldCookieM of
+        Nothing        -> return $ Failure NotAuthorized
+        Just oldCookie -> issueNewTokens (rotateTeacherRefreshToken $ asToken oldCookie) lowAddr Teacher days
+  where
+    days    = 28
+    lowAddr = lowText addr
+    asToken = cookieValue &> decodeUtf8 &> SecureToken
 
 validateStudentAccessToken :: Snap (ActionResult AuthorizedStudent)
 validateStudentAccessToken = validateAccessTokenFromHeader Student

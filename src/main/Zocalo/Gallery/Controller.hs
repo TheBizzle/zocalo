@@ -33,9 +33,9 @@ import Zocalo.Common.SnapHelpers(
 import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher)
 
 import Zocalo.Gallery.Auth.Validator(
-    issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, validateStudentAccessToken
-  , validateStudentRefreshToken, validateTeacherAccessToken, validateTeacherRefreshToken
-  , validateStudentAccessTokenRaw, validateTeacherAccessTokenRaw
+    issueNewStudentTokens, issueNewTeacherTokens, issueTotallyNewStudentTokens, refreshTeacherTokens
+  , validateStudentAccessToken, validateStudentRefreshToken, validateTeacherAccessToken
+  , validateTeacherRefreshToken, validateStudentAccessTokenRaw, validateTeacherAccessTokenRaw
   )
 
 import Zocalo.Gallery.Auth.WebActions(setUpNewUser, sendOTP)
@@ -379,7 +379,7 @@ handleTeacherTokenRefresh =
   do
     teacherResult <- validateTeacherRefreshToken
     whenSuccess teacherResult $ \teacher -> do
-      accessTokenResult <- issueNewTeacherTokens teacher
+      accessTokenResult <- refreshTeacherTokens teacher
       whenSuccess accessTokenResult $ succeed "text/plain"
 
 genRegistrationURL :: Snap Text
