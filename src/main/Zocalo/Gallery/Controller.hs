@@ -162,10 +162,10 @@ handleWhoIsTeacher =
 handleDownloadItem :: Snap ()
 handleDownloadItem =
   withAuthorizations $ \teacherM studM ->
-    handle1 (Arg "item-id" asNonNeg) $
-      \uploadID ->
+    handle2 (Arg "nano-id" asNanoID, Arg "item-id" asNonNeg) $
+      \(galleryID, uploadID) ->
         do
-          dlResult <- liftIO $ readSubmissionData teacherM studM $ SubID uploadID
+          dlResult <- liftIO $ readSubmissionData teacherM studM galleryID $ SubID uploadID
           whenSuccess dlResult $ succeed "text/plain"
 
 handleSuppressItem :: SocketMap GalleryObserverClient -> SocketMap ModeratorClient -> Snap ()

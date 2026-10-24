@@ -285,12 +285,17 @@ readSubmissionListingsForModeration teacher nid =
       else
         return $ Failure NotAuthorized
 
-readSubmissionData :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionID -> IO (ActionResult Text)
-readSubmissionData teacherM studentM subID =
-  withSubmission subID $
-    \(_, subDB) -> do
-      pairAR <- processSubmissionAuth extractData teacherM studentM subDB
-      return $ second fst pairAR
+readSubmissionData :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> NanoID -> SubmissionID -> IO (ActionResult Text)
+readSubmissionData teacherM studentM nid subID =
+  withGalleryNano nid $
+    \(galleryID, _) ->
+      withSubmission subID $
+        \(_, subDB) ->
+          if subDB.submissionDBGalleryID /= galleryID then
+            return $ Failure NotFound
+          else do
+            pairAR <- processSubmissionAuth extractData teacherM studentM subDB
+            return $ second fst pairAR
 
 readTemplateName :: NanoID -> IO (ActionResult Text)
 readTemplateName nid =
@@ -390,11 +395,9 @@ withDB action = runNoLoggingT $ withPostgresqlPool dbConnStr 50 $ runSqlPersistM
 processSubmissionAuth :: (SubmissionDB -> a) -> Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO (ActionResult (a, Bool))
 processSubmissionAuth f teacherM studentM submission =
   do
-    let needsModeration  = extractNeedsModeration submission
-    let isSuppressed     = extractIsSuppressed    submission
-    canDelete           <- canDeleteSubmission teacherM studentM submission
+    canDelete <- canDeleteSubmission teacherM studentM submission
     return $
-      if canDelete || ((not needsModeration) && (not isSuppressed)) then
+      if canDelete || (hasPublicVisibility submission && (isJust teacherM || isJust studentM)) then
         Success (f submission, canDelete)
       else
         Failure NotAuthorized
