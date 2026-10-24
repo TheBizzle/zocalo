@@ -55,11 +55,7 @@ data MailtrapBody
   deriving (Show)
 
 transform :: Text -> Text
-transform =
-    Text.replace "<br>" "\n" &>
-      replaceAll &>
-      Text.concat &>
-      traceShowId
+transform = Text.replace "<br>" "\n" &> replaceAll &> Text.concat
   where
     replaceAll str =
       case (match (makeRegex ("<[^>]*>" :: Text) :: Regex) str) :: (Text, Text, Text) of
