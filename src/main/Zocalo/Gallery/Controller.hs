@@ -287,7 +287,7 @@ handleSubmitComment students =
   where
     helper student pidM (nid, uid, comment) =
       do
-        result <- liftIO $ writeComment student uid pidM comment
+        result <- liftIO $ writeComment student nid uid pidM comment
         whenSuccess result $
           \comment -> do
             studentClients <- liftIO $ readTVarIO students

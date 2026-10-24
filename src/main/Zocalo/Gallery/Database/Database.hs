@@ -358,14 +358,28 @@ readStarterConfigFor nid =
     \(_, galleryDB) ->
       return $ Success $ extractStarterConfig galleryDB
 
-writeComment :: AuthorizedStudent -> Word64 -> Maybe Int64 -> Text -> IO (ActionResult Comment)
-writeComment student uploadID parentIDM comment =
-  do
-    let uploadKey    = toSqlKey $ fromIntegral uploadID
-    timestamp       <- getCurrentTime
-    let parentDBIDM  = map toSqlKey parentIDM
-    commentDB <- withDB $ insertEntity $ CommentDB comment student.studentName parentDBIDM uploadKey timestamp
-    return $ Success $ dbToComment commentDB
+writeComment :: AuthorizedStudent -> NanoID -> Word64 -> Maybe Int64 -> Text -> IO (ActionResult Comment)
+writeComment student nid uploadID parentIDM commentText =
+  withGalleryNano nid $
+    \(galleryID, _) ->
+      withSubmission (SubID uploadID) $
+        \(uploadKey, subDB) -> do
+          let isCommentable = subDB.submissionDBGalleryID == galleryID && hasPublicVisibility subDB
+          hasValidParent <- case parentIDM of
+            Nothing       -> return True
+            Just parentID -> do
+              parentM <- withDB $ get (toSqlKey parentID :: CommentDBId)
+              return $ maybe False (\parent -> parent.commentDBUploadID == uploadKey) parentM
+
+          if isCommentable && hasValidParent then do
+            let uploadKey    = toSqlKey $ fromIntegral uploadID
+            timestamp       <- getCurrentTime
+            let parentDBIDM  = map toSqlKey parentIDM
+            let comment      = CommentDB commentText student.studentName parentDBIDM uploadKey timestamp
+            commentDB       <- withDB $ insertEntity comment
+            return $ Success $ dbToComment commentDB
+          else
+            return $ Failure NotFound
 
 runMigrations :: IO ()
 runMigrations = liftIO $ withDB $ runMigration migrateAll
@@ -689,6 +703,10 @@ extractData (SubmissionDB _ _ _ _ _ _ _ extraData _) = extraData
 
 extractSubDateAdded :: SubmissionDB -> Integer
 extractSubDateAdded (SubmissionDB _ _ _ _ _ _ _ _ dateAdded) = asPOSIX dateAdded
+
+hasPublicVisibility :: SubmissionDB -> Bool
+hasPublicVisibility (SubmissionDB _ _ _ isSuppressed isForbidden isAwaitingModeration _ _ _) =
+  not $ isSuppressed || isForbidden || isAwaitingModeration
 
 extractEmailAddr :: TeacherDB -> LowerText
 extractEmailAddr (TeacherDB addr _ _ _ _ _) = addr
