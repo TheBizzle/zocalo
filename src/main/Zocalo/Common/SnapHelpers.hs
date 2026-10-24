@@ -211,12 +211,19 @@ withFileUploads f =
     processThem key = readPossibleGZip &> (lbsToText key,)
 
     readPossibleGZip :: LazyByteString.ByteString -> ByteString
-    readPossibleGZip input = foldDecompressStreamWithInput
-                               (sbsToLBS &> LazyByteString.toStrict &> (<>))
-                               LazyByteString.toStrict
-                               (const $ input |> LazyByteString.toStrict)
-                               (decompressST gzipFormat defaultDecompressParams)
-                               input
+    readPossibleGZip input =
+        if LazyByteString.length (LazyByteString.take (size64MB + 1) decoded) > size64MB then
+          ""
+        else
+          LazyByteString.toStrict decoded
+      where
+        decoded =
+          foldDecompressStreamWithInput (\chunk rest -> (LazyByteString.fromStrict chunk) <> rest)
+            id
+            (const input)
+            (decompressST gzipFormat defaultDecompressParams)
+            input
+        size64MB = 100 * 1024 * 1024
 
     handleRead :: PartInfo -> InputStream ByteString -> IO (Text, ByteString)
     handleRead partInfo = storeAsLazyByteString &>= ((processThem extractedKey) &> return)
