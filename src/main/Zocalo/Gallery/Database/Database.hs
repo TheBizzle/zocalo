@@ -275,7 +275,7 @@ readSubmissionListingsForModeration :: AuthorizedTeacher -> NanoID -> IO (Action
 readSubmissionListingsForModeration teacher nid =
   withGalleryNano nid $
     \(galleryID, galleryDB) -> do
-      canModerate <- (Just teacher) `ownsOneNamed` (extractGalleryName galleryDB)
+      canModerate <- (Just teacher) `owns` galleryDB
       if canModerate then withDB $ do
         rows <- selectList [ SubmissionDBGalleryID            ==. galleryID
                            , SubmissionDBIsAwaitingModeration ==. True
@@ -335,7 +335,7 @@ moderateSubmission isForbidden teacher submissionID =
       case galleryM of
         Nothing      -> return $ Failure NotFound
         Just gallery -> do
-          canModerate <- (Just teacher) `ownsOneNamed` (extractGalleryName gallery)
+          canModerate <- (Just teacher) `owns` gallery
           if canModerate then withDB $ do
             sub      <- updateGet subKey [SubmissionDBIsForbidden =. isForbidden, SubmissionDBIsAwaitingModeration =. False]
             sendable <- liftIO $ toSubmissionSendable Nothing (Just teacher) $ Entity subKey sub
@@ -402,20 +402,18 @@ processSubmissionAuth f teacherM studentM submission =
       else
         Failure NotAuthorized
 
-ownsOneNamed :: Maybe AuthorizedTeacher -> LowerText -> IO Bool
-ownsOneNamed Nothing                _           = return False
-ownsOneNamed (Just (ATeacher addr)) galleryName =
+owns :: Maybe AuthorizedTeacher -> GalleryDB -> IO Bool
+owns Nothing                      _ = return False
+owns (Just (ATeacher addr)) gallery =
   do
-    result <- withGallery2 addr galleryName chillax
-    return $ case result of
-      Success _ -> True
-      _         -> False
+    teacherM <- withDB $ getBy $ UniqueTeacherEmail addr
+    return $ (entityKey <$> teacherM) == (Just gallery.galleryDBOwnerID)
 
 canDeleteSubmission :: Maybe AuthorizedTeacher -> Maybe AuthorizedStudent -> SubmissionDB -> IO Bool
 canDeleteSubmission teacherM studentM submission =
   do
-    (Just (GalleryDB galleryName _ _ _ _ _ _ _ _)) <- withDB $ get submission.submissionDBGalleryID
-    isOwningTeacher <- teacherM `ownsOneNamed` galleryName
+    Just gallery    <- withDB $ get submission.submissionDBGalleryID
+    isOwningTeacher <- teacherM `owns` gallery
     isOwningStudent <- belongsToThisStudent studentM
     return $ isOwningTeacher || isOwningStudent
   where
