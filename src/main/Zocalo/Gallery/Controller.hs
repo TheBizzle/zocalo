@@ -94,7 +94,6 @@ routes moderators teachers students =
     , ("api/auth/teacher/verify-otp"                     ,      ac POST   handleVerifyOTP)
     , ("api/auth/teacher/is-logged-in/"                  ,      ac GET    handleTeacherIsLoggedIn)
     , ("api/auth/teacher/logout"                         ,      ac POST   handleTeacherLogout)
-    , ("api/auth/teacher/verify-cookie"                  ,      ac POST   handleRegister)
     , ("api/auth/teacher/who-am-i"                       , wc $ ac GET    handleWhoIsTeacher)
     , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
     , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
