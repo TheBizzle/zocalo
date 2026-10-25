@@ -53,7 +53,9 @@
   import { setTitle                                                               } from "@/core/setTitle.ts";
   import { setUpWebSocket                                                         } from "@/core/setUpWebSocket.ts";
   import { getAuthToken as getStudentToken                                        } from "@/core/StudentAuth.ts";
-  import { type Comment, GalleryMetadataSchema, type Submission, SubmissionSchema } from "@/core/Submission.ts";
+  import { BroadcastCommentSchema, type Comment, DeletedSubmissionSchema
+         , GalleryMetadataSchema, type Submission, SubmissionSchema } from "@/core/Submission.ts";
+
 
   export default defineComponent({
     name:       "StudentGalleryView"
@@ -106,21 +108,30 @@
 
         const onMessage = (event: MessageEvent<string>): void => {
 
-          const ErrorOrMetaOrSubs =
-            z.union(
-              [ z.object({ error: z.string(), })
-              , GalleryMetadataSchema
-              , z.array(SubmissionSchema)
-              ]
-            );
+          const MessageOptions =
+             z.union(
+               [ z.object({ error: z.string(), })
+               , BroadcastCommentSchema
+               , GalleryMetadataSchema
+               , DeletedSubmissionSchema
+               , z.array(SubmissionSchema)
+               ]
+             );
 
-          const message = ErrorOrMetaOrSubs.parse(JSON.parse(event.data));
+          const message = MessageOptions.parse(JSON.parse(event.data));
 
           if ("error" in message) {
-            alert(message.error);
+            console.error(message.error);
+          } else if ("commentedID" in message) {
+            submissions.value.find((s) => s.id === message.commentedID)?.comments.push(message.comment);
           } else if ("galleryName" in message) {
             isModerated.value = message.isModerated;
             galleryName.value = message.galleryName;
+          } else if ("deletedID" in message) {
+            submissions.value = submissions.value.filter((s) => s.id !== message.deletedID);
+            if (activeSubmission.value?.id === message.deletedID) {
+              unsetActiveSubmission();
+            }
           } else {
             const asNum = (x: { creationTime: Date }): number => x.creationTime.getTime();
             message.forEach((s) => s.comments.sort((x, y) => asNum(x) - asNum(y)));
