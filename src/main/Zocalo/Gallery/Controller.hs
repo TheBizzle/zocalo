@@ -15,7 +15,7 @@ import Network.WebSockets(acceptRequest, receiveData, sendTextData)
 import Network.WebSockets.Snap(runWebSocketsSnap)
 
 import Snap.Core(
-    getHeader, getParam, getsRequest
+    getHeader, getParam, getsRequest, method
   , Method(DELETE, GET, POST)
   , modifyResponse, setContentType, setHeader, Snap, writeBS, writeLBS, writeText
   )
@@ -26,8 +26,8 @@ import Snap.Util.GZip(withCompression)
 import System.Random(randomIO)
 
 import Zocalo.Common.SnapHelpers(
-    allowingCORS, Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV
-  , getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
+    Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV, getParamVM, handle1
+  , handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
   )
 
 import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher)
@@ -82,38 +82,37 @@ type SocketMap t = TVar (Map UUID t)
 routes :: SocketMap ModeratorClient -> SocketMap ModeratorClient -> SocketMap GalleryObserverClient ->
           [(ByteString, Snap ())]
 routes moderators teachers students =
-    [ ("echo/:param"                                     ,      ac POST   handleEchoData)
-    , ("api/version"                                     ,      ac GET    handleAPIVersion)
-    , ("api/auth/student/fresh-cookies"                  ,      ac POST   handleNewStudent)
-    , ("api/auth/student/logout"                         ,      ac POST   handleStudentLogout)
-    , ("api/auth/student/refresh"                        ,      ac POST   handleStudentTokenRefresh)
-    , ("api/auth/teacher/refresh"                        ,      ac POST   handleTeacherTokenRefresh)
-    , ("api/auth/teacher/register"                       ,      ac POST   handleRegister)
-    , ("api/auth/teacher/confirm/:token"                 ,      ac POST   handleTeacherAuthConfirm)
-    , ("api/auth/teacher/request-otp"                    ,      ac POST   handleRequestOTP)
-    , ("api/auth/teacher/verify-otp"                     ,      ac POST   handleVerifyOTP)
-    , ("api/auth/teacher/is-logged-in/"                  ,      ac GET    handleTeacherIsLoggedIn)
-    , ("api/auth/teacher/logout"                         ,      ac POST   handleTeacherLogout)
-    , ("api/auth/teacher/who-am-i"                       , wc $ ac GET    handleWhoIsTeacher)
-    , ("api/galleries/teacher/new-session"               ,      ac POST   handleNewSessionWithParams)
-    , ("api/galleries/teacher/overview"                  , wc $ ac GET    handleListGalleries)
-    , ("api/galleries/:nano-id/student/:item-id/comment" ,      ac POST   (handleSubmitComment students))
-    , ("api/galleries/:nano-id/student/starter-config"   , wc $ ac GET    handleGetStarterConfig)
-    , ("api/galleries/:nano-id/student/submission"       ,      ac POST   (handleUploadFile students moderators))
-    , ("api/galleries/:nano-id/student/submissions/:jwt" ,                handleStudentSocket students)
-    , ("api/galleries/:nano-id/student/template-name"    ,      ac GET    handleGetTemplateName)
-    , ("api/galleries/:nano-id/student/:item-id"         , wc $ ac GET    handleDownloadItem)
-    , ("api/galleries/:nano-id/student/:item-id"         ,      ac DELETE (handleSuppressItem students moderators))
-    , ("api/galleries/:nano-id/teacher/:item-id/approve" ,      ac POST   (handleApproveItem students moderators))
-    , ("api/galleries/:nano-id/teacher/:item-id/reject"  ,      ac POST   (handleForbidItem students moderators))
-    , ("api/galleries/:nano-id/teacher/export"           , wc $ ac GET    handleBuildArchive)
-    , ("api/galleries/:nano-id/teacher/moderable/:jwt"   ,                handleModeratorSocket moderators)
-    , ("api/galleries/:nano-id/teacher/submissions/:jwt" ,                handleTeacherSocket teachers)
-    , ("/assets"                                         ,                serveDirectory "frontend/dist/assets")
+    [ ("echo/:param"                                     ,      method POST   handleEchoData)
+    , ("api/version"                                     ,      method GET    handleAPIVersion)
+    , ("api/auth/student/fresh-cookies"                  ,      method POST   handleNewStudent)
+    , ("api/auth/student/logout"                         ,      method POST   handleStudentLogout)
+    , ("api/auth/student/refresh"                        ,      method POST   handleStudentTokenRefresh)
+    , ("api/auth/teacher/refresh"                        ,      method POST   handleTeacherTokenRefresh)
+    , ("api/auth/teacher/register"                       ,      method POST   handleRegister)
+    , ("api/auth/teacher/confirm/:token"                 ,      method POST   handleTeacherAuthConfirm)
+    , ("api/auth/teacher/request-otp"                    ,      method POST   handleRequestOTP)
+    , ("api/auth/teacher/verify-otp"                     ,      method POST   handleVerifyOTP)
+    , ("api/auth/teacher/is-logged-in/"                  ,      method GET    handleTeacherIsLoggedIn)
+    , ("api/auth/teacher/logout"                         ,      method POST   handleTeacherLogout)
+    , ("api/auth/teacher/who-am-i"                       , wc $ method GET    handleWhoIsTeacher)
+    , ("api/galleries/teacher/new-session"               ,      method POST   handleNewSessionWithParams)
+    , ("api/galleries/teacher/overview"                  , wc $ method GET    handleListGalleries)
+    , ("api/galleries/:nano-id/student/:item-id/comment" ,      method POST   (handleSubmitComment students))
+    , ("api/galleries/:nano-id/student/starter-config"   , wc $ method GET    handleGetStarterConfig)
+    , ("api/galleries/:nano-id/student/submission"       ,      method POST   (handleUploadFile students moderators))
+    , ("api/galleries/:nano-id/student/submissions/:jwt" ,                    handleStudentSocket students)
+    , ("api/galleries/:nano-id/student/template-name"    ,      method GET    handleGetTemplateName)
+    , ("api/galleries/:nano-id/student/:item-id"         , wc $ method GET    handleDownloadItem)
+    , ("api/galleries/:nano-id/student/:item-id"         ,      method DELETE (handleSuppressItem students moderators))
+    , ("api/galleries/:nano-id/teacher/:item-id/approve" ,      method POST   (handleApproveItem students moderators))
+    , ("api/galleries/:nano-id/teacher/:item-id/reject"  ,      method POST   (handleForbidItem students moderators))
+    , ("api/galleries/:nano-id/teacher/export"           , wc $ method GET    handleBuildArchive)
+    , ("api/galleries/:nano-id/teacher/moderable/:jwt"   ,                    handleModeratorSocket moderators)
+    , ("api/galleries/:nano-id/teacher/submissions/:jwt" ,                    handleTeacherSocket teachers)
+    , ("/assets"                                         ,                    serveDirectory "frontend/dist/assets")
     ]
   where
     wc = withCompression
-    ac = allowingCORS
 
 handleEchoData :: Snap ()
 handleEchoData = handle1 (Arg "param" notEmpty) $ \param -> withFileUploads $ \fileMap -> do
