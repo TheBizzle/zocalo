@@ -83,7 +83,6 @@ issueNewTokens storeToken identifier scope daysToLive =
     accessTokenAR <- liftIO $ genAccessTokenAR scope identifier
     return $ updateAR *> accessTokenAR
   where
-    -- Ideally, `cookieSecure` would be `True`.  But the real app does HTTPS via a proxy.  --Jason B. (3/15/26)
     attachRefreshCookie :: Snap SecureToken
     attachRefreshCookie =
       do
@@ -98,7 +97,7 @@ issueNewTokens storeToken identifier scope daysToLive =
                                  , cookieHttpOnly = True
                                  , cookieName     = cookieName
                                  , cookiePath     = pathM
-                                 , cookieSecure   = False
+                                 , cookieSecure   = True
                                  , cookieValue    = encodeUtf8 refreshToken.tokenText
                                  }
         modifyResponse $ addResponseCookie fullCookie
