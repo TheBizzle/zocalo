@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveAnyClass  #-}
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Zocalo.Common.ConfigReader(ConfigPath(..), readConfigText, readDBConnStr) where
+module Zocalo.Common.ConfigReader(ConfigPath(..), readConfigValue, readDBConnStr) where
 
 import Control.Monad(fail)
 import Language.Haskell.TH(Exp, Q)
@@ -23,6 +23,8 @@ data AppConfig = AppConfig
 
 data GeneralConfig = GeneralConfig
   { cryptographySecret :: Text
+  , domain             :: Text
+  , httpsEnabled       :: Bool
   } deriving (Generic, Show)
 
 data DatabaseConfig = DatabaseConfig
@@ -55,7 +57,9 @@ instance FromJSON MailConfig where
   parseJSON = genericParseJSON options
 
 data ConfigPath
-  = GeneralSecret
+  = GeneralDomain
+  | GeneralHTTPSEnabled
+  | GeneralSecret
   | DatabaseDBName
   | DatabaseDBPort
   | DatabaseHost
@@ -65,20 +69,22 @@ data ConfigPath
   | MailSenderAddress
   | MailSenderName
 
-readConfigText :: ConfigPath -> Q Exp
-readConfigText path =
+readConfigValue :: ConfigPath -> Q Exp
+readConfigValue path =
   do
     config <- loadConfig
     case path of
-      GeneralSecret      -> lift $ cryptographySecret $  general config
-      DatabaseDBName     -> lift $             dbName $ database config
-      DatabaseDBPort     -> lift $             dbPort $ database config
-      DatabaseHost       -> lift $               host $ database config
-      DatabaseUsername   -> lift $           username $ database config
-      DatabasePassword   -> lift $           password $ database config
-      MailMailtrapSecret -> lift $  mailtrapApiSecret $     mail config
-      MailSenderAddress  -> lift $      senderAddress $     mail config
-      MailSenderName     -> lift $         senderName $     mail config
+      GeneralDomain       -> lift $             domain $  general config
+      GeneralHTTPSEnabled -> lift $       httpsEnabled $  general config
+      GeneralSecret       -> lift $ cryptographySecret $  general config
+      DatabaseDBName      -> lift $             dbName $ database config
+      DatabaseDBPort      -> lift $             dbPort $ database config
+      DatabaseHost        -> lift $               host $ database config
+      DatabaseUsername    -> lift $           username $ database config
+      DatabasePassword    -> lift $           password $ database config
+      MailMailtrapSecret  -> lift $  mailtrapApiSecret $     mail config
+      MailSenderAddress   -> lift $      senderAddress $     mail config
+      MailSenderName      -> lift $         senderName $     mail config
 
 readDBConnStr :: Q Exp
 readDBConnStr =

@@ -4,7 +4,6 @@ import Control.Concurrent.STM.TVar(modifyTVar', readTVarIO)
 import Control.Exception(finally)
 import Control.Monad(forever)
 
-import Data.CaseInsensitive(CI)
 import Data.NanoID(unNanoID)
 import Data.Time.Clock.POSIX(getPOSIXTime)
 import Data.UUID(UUID)
@@ -15,7 +14,7 @@ import Network.WebSockets(acceptRequest, receiveData, sendTextData)
 import Network.WebSockets.Snap(runWebSocketsSnap)
 
 import Snap.Core(
-    getHeader, getParam, getsRequest, method
+    getParam, method
   , Method(DELETE, GET, POST)
   , modifyResponse, setContentType, setHeader, Snap, writeBS, writeLBS, writeText
   )
@@ -24,6 +23,8 @@ import Snap.Util.FileServe(serveDirectory)
 import Snap.Util.GZip(withCompression)
 
 import System.Random(randomIO)
+
+import Zocalo.Common.AppConfig(domain, isHTTPSEnabled)
 
 import Zocalo.Common.SnapHelpers(
     Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV, getParamVM, handle1
@@ -383,12 +384,8 @@ handleTeacherTokenRefresh =
 genRegistrationURL :: Snap Text
 genRegistrationURL =
   do
-    hostM      <- getHeaderText "Host"
-    originM    <- getHeaderText "Origin"
-    let host    = fromMaybe "" hostM
-    let origin  = fromMaybe "" originM
-    let proto   = if origin == ("http://" <> host) then "http" else "https"
-    return $ proto <> "://" <> host <> "/galleries/teacher/confirm/"
+    let proto = if isHTTPSEnabled then "https" else "http"
+    return $ proto <> "://" <> domain <> "/galleries/teacher/confirm/"
 
 handleNewStudent :: Snap ()
 handleNewStudent =
@@ -508,12 +505,6 @@ handleTeacherSocket teachers = do
             forever $ do -- Keeps the connection alive --Jason B. (7/19/26)
               _ <- receiveData connection :: IO Text
               pure ()
-
-getHeaderText :: CI ByteString -> Snap (Maybe Text)
-getHeaderText headerName =
-  do
-    headerValue <- getsRequest $ getHeader headerName
-    return $ map TextEncoding.decodeUtf8 headerValue
 
 whenSuccess :: ActionResult a -> (a -> Snap ()) -> Snap ()
 whenSuccess (Success             x) f = f x

@@ -1,19 +1,25 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Zocalo.Common.AppConfig(
-    applicationSecret, dbConnStr, mailtrapSecret, mailSenderAddress, mailSenderName
+    applicationSecret, dbConnStr, domain, isHTTPSEnabled, mailtrapSecret, mailSenderAddress, mailSenderName
   ) where
 
 import Zocalo.Common.ConfigReader(
-    ConfigPath( GeneralSecret, MailMailtrapSecret, MailSenderAddress, MailSenderName)
-  , readConfigText, readDBConnStr
+    ConfigPath( GeneralDomain, GeneralHTTPSEnabled, GeneralSecret, MailMailtrapSecret, MailSenderAddress
+              , MailSenderName
+              )
+  , readConfigValue, readDBConnStr
   )
 
 
 dbConnStr :: ByteString
 dbConnStr = $(readDBConnStr)
 
-applicationSecret, mailtrapSecret, mailSenderAddress, mailSenderName :: Text
-applicationSecret = $(readConfigText GeneralSecret)
-mailtrapSecret    = $(readConfigText MailMailtrapSecret)
-mailSenderAddress = $(readConfigText MailSenderAddress)
-mailSenderName    = $(readConfigText MailSenderName)
+isHTTPSEnabled :: Bool
+isHTTPSEnabled = $(readConfigValue GeneralHTTPSEnabled)
+
+applicationSecret, domain, mailtrapSecret, mailSenderAddress, mailSenderName :: Text
+applicationSecret = $(readConfigValue GeneralSecret)
+domain            = $(readConfigValue GeneralDomain)
+mailtrapSecret    = $(readConfigValue MailMailtrapSecret)
+mailSenderAddress = $(readConfigValue MailSenderAddress)
+mailSenderName    = $(readConfigValue MailSenderName)

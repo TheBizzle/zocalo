@@ -1,5 +1,7 @@
 general:
   cryptography-secret: ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ=
+  domain: my-domain.com
+  https-enabled: true
 
 database:
   host: localhost
