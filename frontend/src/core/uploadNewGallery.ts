@@ -2,19 +2,19 @@ import type { Gallery                  } from "@/core/Gallery.ts";
 import { Failure, type Result, Success } from "@/core/Result.ts";
 import { authorizedFetch               } from "@/core/TeacherAuth.ts";
 
-async function uploadNewGallery( name: string, template: string, isPrescreened: boolean
+async function uploadNewGallery( galleryName: string, template: string, isPrescreened: boolean
                                , desc: string, starterData: string): Promise<Result<Gallery>> {
 
   const starterConfig = new Blob([starterData], { type: "text/plain" });
 
-  const galleryName = name.trim();
+  const name = galleryName.trim();
   const description = desc.trim();
 
   const postData = new FormData();
-  postData.append("gallery-name"    , galleryName);
+  postData.append("gallery-name"    , name);
   postData.append("template"        , template);
   postData.append("gets-prescreened", isPrescreened.toString());
-  postData.append("description"     , desc);
+  postData.append("description"     , description);
   postData.append("config"          , starterConfig, "config");
   const options = { method: "POST", body: postData };
 
