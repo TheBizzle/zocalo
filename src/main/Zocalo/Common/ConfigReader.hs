@@ -26,17 +26,17 @@ data GeneralConfig = GeneralConfig
   } deriving (Generic, Show)
 
 data DatabaseConfig = DatabaseConfig
-  { host :: Text
-  , dbPort :: Int
-  , dbName :: Text
+  { host     :: Text
+  , dbPort   :: Int
+  , dbName   :: Text
   , username :: Text
   , password :: Text
   } deriving (Generic, Show)
 
 data MailConfig = MailConfig
   { mailtrapApiSecret :: Text
-  , senderAddress :: Text
-  , senderName :: Text
+  , senderAddress     :: Text
+  , senderName        :: Text
   } deriving (Generic, Show)
 
 options :: Options
