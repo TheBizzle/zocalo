@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveAnyClass  #-}
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Zocalo.Common.ConfigReader(ConfigPath(..), readConfigValue, readDBConnStr) where
+module Zocalo.Common.ConfigReader(AppConfig(..), ConfigPath(..), readConfigValue, readDBConnStr) where
 
 import Control.Monad(fail)
 import Language.Haskell.TH(Exp, Q)

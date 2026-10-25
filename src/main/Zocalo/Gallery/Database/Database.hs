@@ -600,9 +600,6 @@ checkIsOkayOTPRate emailAddr =
       results       <- withDB $ selectList [OTPRequestDBTeacherID ==. teacherID, OTPRequestDBBirthday >=. _30MinAgo] []
       return $ Success $ (length results) < 5
 
-chillax :: a -> IO (ActionResult ())
-chillax = const $ return $ Success ()
-
 withSubmission :: SubmissionID -> ((SubmissionDBId, SubmissionDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withSubmission (SubID subID) f =
   do
@@ -624,16 +621,6 @@ withStudent studentID f =
 withTeacher :: LowerText -> ((TeacherDBId, TeacherDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withTeacher addr f =
   withPair (UniqueTeacherEmail addr) f
-
-withGallery :: TeacherDBId -> LowerText -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
-withGallery teacherID galleryName f =
-  withPair (UniqueGallery teacherID galleryName) f
-
-withGallery2 :: LowerText -> LowerText -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
-withGallery2 teacherAddr galleryName f =
-  withTeacher teacherAddr $
-    \(teacherID, _) ->
-      withGallery teacherID galleryName f
 
 withGalleryNano :: NanoID -> ((GalleryDBId, GalleryDB) -> IO (ActionResult a)) -> IO (ActionResult a)
 withGalleryNano nid f =
@@ -667,9 +654,6 @@ toSubmissionSendable studentM teacherM entity =
         in
           SubmissionSendable xidder uploader b64 isMine canDelete meta comments time
 
-extractGalleryName :: GalleryDB -> LowerText
-extractGalleryName (GalleryDB gn _ _ _ _ _ _ _ _) = gn
-
 extractTemplateName :: GalleryDB -> Text
 extractTemplateName (GalleryDB _ _ tn _ _ _ _ _ _) = tn
 
@@ -695,12 +679,6 @@ extractGalleryID (SubmissionDB gid _ _ _ _ _ _ _ _) = gid
 
 extractStudentID :: SubmissionDB -> Word64
 extractStudentID (SubmissionDB _ _ authorID _ _ _ _ _ _) = fromIntegral $ fromSqlKey authorID
-
-extractIsSuppressed :: SubmissionDB -> Bool
-extractIsSuppressed (SubmissionDB _ _ _ isSuppressed _ _ _ _ _) = isSuppressed
-
-extractNeedsModeration :: SubmissionDB -> Bool
-extractNeedsModeration (SubmissionDB _ _ _ _ _ needsModeration _ _ _) = needsModeration
 
 extractData :: SubmissionDB -> Text
 extractData (SubmissionDB _ _ _ _ _ _ _ extraData _) = extraData

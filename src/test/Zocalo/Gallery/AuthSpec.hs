@@ -4,7 +4,7 @@ module Zocalo.Gallery.AuthSpec(tests) where
 
 import Test.Framework(Test, testGroup)
 import Test.Framework.Providers.HUnit(testCase)
-import Test.HUnit ((@?=))
+import Test.HUnit((@?=))
 
 import Zocalo.Gallery.Auth.AuthorizedUser(
     AuthorizedStudent(AStudent), AuthorizedTeacher(ATeacher), AuthorizedUser(readUser)

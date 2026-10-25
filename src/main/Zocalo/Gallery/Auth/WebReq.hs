@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Zocalo.Gallery.Auth.WebReq(
-    HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody)
+    HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody), transform
   ) where
 
 import Control.Monad(mzero)

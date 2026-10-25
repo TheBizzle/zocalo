@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Zocalo.Gallery.ZipMaker(makeArchive) where
+module Zocalo.Gallery.ZipMaker(galleryToZIP, makeArchive) where
 
 import Codec.Archive.Zip(addEntryToArchive, emptyArchive, Entry, fromArchive, toEntry)
 
