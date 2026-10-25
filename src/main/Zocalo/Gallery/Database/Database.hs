@@ -34,8 +34,8 @@ import Data.Time(addUTCTime, getCurrentTime, UTCTime)
 import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
 
 import Database.Persist(
-    (<.), (=.), (==.), (>=.), count, deleteWhere, Entity(Entity, entityKey, entityVal), get, getBy, insert
-  , insertEntity, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList
+    (+=.), (<.), (=.), (==.), (>=.), count, deleteWhere, Entity(Entity, entityKey, entityVal), get, getBy
+  , insert, insertEntity, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList
   , SelectOpt(Asc), Unique, update, updateGet, updateWhere, upsert
   )
 
@@ -108,6 +108,7 @@ OTPRequestDB
   passcode  Text
   birthday  UTCTime
   wasUsed   Bool
+  attempts  Int         default=0
   deriving Show
 
 TeacherRefreshTokenDB
@@ -473,7 +474,7 @@ storeOTP emailAddr otp =
         now <- getCurrentTime
         void $ withDB $ do
           updateWhere [OTPRequestDBTeacherID ==. teacherID] [OTPRequestDBWasUsed =. True]
-          insert $ OTPRequestDB teacherID otp now False
+          insert $ OTPRequestDB teacherID otp now False 0
         return $ Success ()
       else
         return $ Failure Unconfirmed
@@ -485,14 +486,16 @@ validateOTP emailAddr passcode =
       otpM <- withDB $ selectFirst [OTPRequestDBTeacherID ==. teacherID, OTPRequestDBWasUsed ==. False] []
       case otpM of
         Nothing             -> return $ Failure NotFound
-        Just (Entity _ otp) -> do
+        Just (Entity otpKey _) -> do
+          otp             <- withDB $ updateGet otpKey [OTPRequestDBAttempts +=. 1]
           now             <- getCurrentTime
           let isConfirmed  = extractTeacherIsConfirmed teacherDB
           let isCorrect    = (extractOTPPasscode otp) == passcode
-          let isOnTime     = (extractOTPBirthday otp) <= (addUTCTime (60 * 10) now)
+          let isOnTime     = now <= (addUTCTime (60 * 10) $ extractOTPBirthday otp)
+          let tooManyTries = (extractOTPAttempts otp) > 5
           if not isConfirmed then
             return $ Failure Unconfirmed
-          else if not isOnTime then
+          else if not isOnTime || tooManyTries then
             return $ Failure Expired
           else if not isCorrect then
             return $ Failure Incorrect
@@ -716,10 +719,13 @@ extractTeacherIsConfirmed :: TeacherDB -> Bool
 extractTeacherIsConfirmed (TeacherDB _ _ _ _ isConfirmed _) = isConfirmed
 
 extractOTPPasscode :: OTPRequestDB -> Text
-extractOTPPasscode (OTPRequestDB _ passcode _ _) = passcode
+extractOTPPasscode (OTPRequestDB _ passcode _ _ _) = passcode
 
 extractOTPBirthday :: OTPRequestDB -> UTCTime
-extractOTPBirthday (OTPRequestDB _ _ birthday _) = birthday
+extractOTPBirthday (OTPRequestDB _ _ birthday _ _) = birthday
+
+extractOTPAttempts :: OTPRequestDB -> Int
+extractOTPAttempts (OTPRequestDB _ _ _ _ attempts) = attempts
 
 asPOSIX :: UTCTime -> Integer
 asPOSIX = utcTimeToPOSIXSeconds >>> (* 1000) >>> round
