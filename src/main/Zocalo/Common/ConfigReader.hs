@@ -81,21 +81,23 @@ readConfigText path =
       MailSenderName     -> lift $         senderName $     mail config
 
 readDBConnStr :: Q Exp
-readDBConnStr = do
-  config <- loadConfig
-  let db = database config
-  lift $ TE.encodeUtf8 $
-    "host=" <> (host db) <> " dbname=" <> (dbName db) <>
-    " user=" <> (username db) <> " password=" <> (password db) <>
-    " port=" <> (showText $ dbPort db)
+readDBConnStr =
+  do
+    config <- loadConfig
+    let db = database config
+    lift $ TE.encodeUtf8 $
+      "host=" <> (host db) <> " dbname=" <> (dbName db) <>
+      " user=" <> (username db) <> " password=" <> (password db) <>
+      " port=" <> (showText $ dbPort db)
 
 configFile :: FilePath
 configFile = "conf/actual.yaml"
 
 loadConfig :: Q AppConfig
-loadConfig = do
-  addDependentFile configFile
-  result <- runIO $ decodeFileEither configFile
-  case result of
-    Left err     -> fail $ "Failed to parse '" <> configFile <> "': " <> show err
-    Right config -> pure config
+loadConfig =
+  do
+    addDependentFile configFile
+    result <- runIO $ decodeFileEither configFile
+    case result of
+      Left err     -> fail $ "Failed to parse '" <> configFile <> "': " <> show err
+      Right config -> pure config
