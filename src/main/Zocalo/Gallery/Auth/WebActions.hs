@@ -1,5 +1,7 @@
 module Zocalo.Gallery.Auth.WebActions(sendOTP, setUpNewUser) where
 
+import Crypto.Random(getRandomBytes)
+
 import Data.Text(intercalate)
 
 import qualified Data.Map  as Map
@@ -7,7 +9,6 @@ import qualified Data.Text as Text
 
 import Zocalo.Common.SecureToken(SecureToken(tokenText))
 
-import Zocalo.Gallery.Auth.RandGen(generate6Digit)
 import Zocalo.Gallery.Auth.Validator(genSecureToken)
 import Zocalo.Gallery.Auth.WebReq(
     HTTPMethod(POST)
@@ -20,6 +21,8 @@ import Zocalo.Gallery.Database.Database(checkIsOkayOTPRate)
 
 import Zocalo.Gallery.Entity.ActionResult(ActionResult)
 import Zocalo.Gallery.Entity.LowerText(LowerText)
+
+import Data.ByteString qualified as BS
 
 
 sendOTP :: LowerText -> IO (ActionResult Text)
@@ -59,3 +62,10 @@ sendMail emailAddr subject text = httpRequest req
   where
     req  = HTTPRequest POST "https://send.api.mailtrap.io/api/send" Map.empty body
     body = MailtrapBody emailAddr subject text
+
+generate6Digit :: IO Int32
+generate6Digit =
+  do
+    bytes <- getRandomBytes 4 :: IO ByteString
+    let n  = BS.foldl' (\acc b -> acc * 256 + fromIntegral b) (0 :: Word32) bytes
+    if n < 4294000000 then return $ fromIntegral $ n `mod` 1000000 else generate6Digit
