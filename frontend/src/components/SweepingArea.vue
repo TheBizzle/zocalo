@@ -76,7 +76,8 @@
       async function exportData(): Promise<ExportData | undefined> {
         if (iframe.value !== null) {
           type Response = { type: "state", state: object, thumbnail: string };
-          const response    = await sendForReply({ type: "requestState" }, true) as Response;
+          const isState     = (msg: object): boolean => (msg as { type?: string }).type === "state";
+          const response    = await sendForReply({ type: "requestState" }, true, isState) as Response;
           const data        = JSON.stringify(response.state);
           const imageBase64 = response.thumbnail.slice(response.thumbnail.indexOf(",") + 1);
           return { data, mimeType: "image/jpeg", imageBase64 };

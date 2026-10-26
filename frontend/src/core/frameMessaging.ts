@@ -70,26 +70,47 @@ function sendForAReply( cond: () => boolean
 
 }
 
-function makeCommsChannel(): [MessagePort, (m: object, willWait: boolean) => Promise<object>] {
+// If `willWait` is `false`, just sends async.  Otherwise, treats the oldest request for which `isReply`
+// is `true` as the corresponding message. --Jason B. (10/25/26)
+type CommsSender = (m: object, willWait: boolean, isReply?: (msg: object) => boolean) => Promise<object>;
+
+function makeCommsChannel(): [MessagePort, CommsSender] {
 
   const { port1: myPort, port2: theirPort } = new MessageChannel();
 
-  const sender =
-    async (message: object, willWait: boolean): Promise<object> => {
-      return new Promise(
-        (resolve, reject) => {
-          myPort.onmessage = (response: MessageEvent<object>): void => {
-            resolve(response.data);
-          };
-          myPort.postMessage(message);
-          if (willWait) {
-            setTimeout(
-              () => { reject(new Error("Comms channel timed out")); }
-            , 5000
-            );
+  type Waiter = { readonly isReply: (msg: object) => boolean, readonly resolve: (msg: object) => void };
+  const waiters: Array<Waiter> = [];
+
+  myPort.onmessage = (response: MessageEvent<object>): void => {
+    const index = waiters.findIndex((waiter) => waiter.isReply(response.data));
+    if (index >= 0) {
+      const [waiter] = waiters.splice(index, 1);
+      waiter!.resolve(response.data);
+    }
+  };
+
+  const sender: CommsSender =
+    async (message, willWait, isReply = (_msg: object): boolean => true) => {
+      if (!willWait) {
+        myPort.postMessage(message);
+        return {};
+      } else {
+        return new Promise(
+          (resolve, reject) => {
+            const timer =
+              setTimeout(
+                () => {
+                  waiters.splice(waiters.indexOf(waiter), 1);
+                  reject(new Error("Comms channel timed out"));
+                }
+              , 5000
+              );
+            const waiter = { isReply, resolve: (m: object): void => { clearTimeout(timer); resolve(m); } };
+            waiters.push(waiter);
+            myPort.postMessage(message);
           }
-        }
-      );
+        );
+      }
     };
 
   return [theirPort, sender];

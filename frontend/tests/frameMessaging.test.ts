@@ -80,7 +80,7 @@ describe("makeCommsChannel", () => {
     theirPort.close();
   });
 
-  it.fails("does not hand a reply meant for another request to a caller whose predicate rejects it", async () => {
+  it("does not hand a reply meant for another request to a caller whose predicate rejects it", async () => {
     const [theirPort, sender] = makeCommsChannel();
     theirPort.onmessage = (e: MessageEvent<{ type: string }>): void => {
       theirPort.postMessage(e.data.type === "loadState" ? { type: "ok" } : { type: "state", state: {} });
