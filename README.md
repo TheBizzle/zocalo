@@ -77,7 +77,7 @@ To configure the application for use on your machine, copy `conf/template.yaml` 
 
   * Config YAML
     * **General**
-      * **cryptography-secret**: A 32-bit base64-encoded stream of random digits; most easily obtained from running `head -c 32 /dev/urandom | base64`
+      * **cryptography-secret**: A 32-byte base64-encoded stream of random digits; most easily obtained from running `head -c 32 /dev/urandom | base64`
       * **domain**: The domain that this application will run on (e.g. `localhost:8000`)
       * **https-enabled**: Whether or not traffic to this app will be served over HTTPS (including by using an HTTPS frontend like Caddy).  Usually `true`.  Should mainly only be `false` when running on `localhost`.
     * **Database**
