@@ -10,8 +10,10 @@ type Auth =
 let authM:      Auth | null = null;
 let username: string | null = null;
 
+const CLOCK_SKEW_MARGIN_MS = 30_000;
+
 function amLoggedInSimple(): boolean {
-  return Date.now() < (authM?.expiry ?? -1); // TODO?
+  return Date.now() + CLOCK_SKEW_MARGIN_MS < (authM?.expiry ?? -1); // TODO?
 }
 
 async function amLoggedIn(): Promise<boolean> {
