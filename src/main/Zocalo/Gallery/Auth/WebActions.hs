@@ -34,7 +34,7 @@ sendOTP emailAddr =
         Success _ -> do
           n       <- generate6Digit
           let otp  = Text.justifyRight 6 '0' $ showText n
-          void $ sendMail emailAddr "Your Zócalo gallery sign-in code" $ body otp
+          void $ sendMail emailAddr "Your Zócalo gallery sign-in code" (body otp) $ plainBody otp
           return $ Success otp
     where
       body otp =
@@ -48,20 +48,32 @@ sendOTP emailAddr =
           , "If you did not attempt to sign in, you can safely ignore this message."
           ]
 
+      plainBody otp =
+        intercalate "\n" $
+          [ "You attempted to sign in to the Zócalo gallery website.  Your one-time passcode is:"
+          , ""
+          , otp
+          , ""
+          , "This code expires in 10 minutes."
+          , ""
+          , "If you did not attempt to sign in, you can safely ignore this message."
+          ]
+
 setUpNewUser :: LowerText -> Text -> IO SecureToken
 setUpNewUser emailAddr registrationURL =
     do
       token <- genSecureToken
-      void $ sendMail emailAddr "Zócalo Registration" $ body token.tokenText
+      void $ sendMail emailAddr "Zócalo Registration" (body token.tokenText) $ plainBody token.tokenText
       return token
   where
-    body token = "A Zócalo gallery account has been registered for this e-mail address.  Please click <a href='" <> registrationURL <> token <> "'>this link</a> to confirm your registration."
+    body      token = "A Zócalo gallery account has been registered for this e-mail address.  Please click <a href='" <> registrationURL <> token <> "'>this link</a> to confirm your registration."
+    plainBody token = "A Zócalo gallery account has been registered for this e-mail address.  Please navigate to "    <> registrationURL <> token <>                " to confirm your registration."
 
-sendMail :: LowerText -> Text -> Text -> IO Text
-sendMail emailAddr subject text = httpRequest req
+sendMail :: LowerText -> Text -> Text -> Text -> IO Text
+sendMail emailAddr subject text plainText = httpRequest req
   where
     req  = HTTPRequest POST "https://send.api.mailtrap.io/api/send" Map.empty body
-    body = MailtrapBody emailAddr subject text
+    body = MailtrapBody emailAddr subject text plainText
 
 generate6Digit :: IO Int32
 generate6Digit =

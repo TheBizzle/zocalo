@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Zocalo.Gallery.Auth.WebReq(
-    HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody), transform
+    HTTPMethod(..), httpRequest, HTTPRequest(..), MailtrapBody(MailtrapBody)
   ) where
 
 import Control.Monad(mzero)
@@ -13,7 +13,6 @@ import Network.HTTP.Simple(
     getResponseBody, httpJSON, parseRequest_, Request, setRequestBodyJSON, setRequestHeader
   )
 
-import Text.Regex.PCRE(makeRegex, match, Regex)
 import Text.Regex.PCRE.Text()
 
 import Zocalo.Common.AppConfig(mailtrapSecret, mailSenderAddress, mailSenderName)
@@ -48,22 +47,15 @@ data HTTPMethod
 
 data MailtrapBody
   = MailtrapBody {
-    toAddr  :: LowerText
-  , subject :: Text
-  , html    :: Text
+    toAddr    :: LowerText
+  , subject   :: Text
+  , html      :: Text
+  , plainText :: Text
   }
   deriving (Show)
 
-transform :: Text -> Text
-transform = Text.replace "<br>" "\n" &> replaceAll &> Text.concat
-  where
-    replaceAll str =
-      case (match (makeRegex ("<[^>]*>" :: Text) :: Regex) str) :: (Text, Text, Text) of
-        (     _, "",     _) -> [str]
-        (before,  _, after) -> before : (replaceAll after)
-
 instance ToJSON MailtrapBody where
-  toJSON (MailtrapBody toAddr subject html) =
+  toJSON (MailtrapBody toAddr subject html plainText) =
     object
       [ "from" .= object [
           "email" .= mailSenderAddress
@@ -75,7 +67,7 @@ instance ToJSON MailtrapBody where
       , "subject"  .= subject
       , "headers"  .= mailHeaders
       , "html"     .= html
-      , "text"     .= transform html
+      , "text"     .= plainText
       , "category" .= asText "Authentication"
       ]
 
