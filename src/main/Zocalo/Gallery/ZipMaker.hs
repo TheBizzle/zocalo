@@ -67,7 +67,8 @@ subToEntry rawEpoch templateName
            (index, SubmissionSavable uploaderName base64Image dateAdded status metadataM extraData comments) =
     [ addEntry "info.json" $ encode info
     , dataEntry
-    ] <> (maybeToList imageEntryM)
+    , imageEntry
+    ]
   where
     epoch                      = floor rawEpoch
     baseName                   = "uploads/" <> (show index) <> "_" <> (safeName uploaderName) <> "/"
@@ -80,7 +81,7 @@ subToEntry rawEpoch templateName
     (dataExt, dataBytes) = extAndData templateName extraData
     dataEntry            = addEntry ("data." <> dataExt) dataBytes
 
-    imageEntryM = map (addEntry "image.png") $ imageToLBS base64Image
+    imageEntry = (uncurry addEntry) $ imageToEntry base64Image
 
     safeName = asString &> (map $ \c -> if isAlphaNum c || elem c [' ', '-'] then c else '_')
 
@@ -105,8 +106,14 @@ statusToName Waiting     = "waiting"
 textToLBS :: Text -> LBS.ByteString
 textToLBS = TE.encodeUtf8 &> LBS.fromStrict
 
-imageToLBS :: Text -> (Maybe LBS.ByteString)
-imageToLBS = TE.encodeUtf8 &> Base64.decode &> (either (const Nothing) $ LBS.fromStrict &> Just)
+imageToEntry :: Text -> (String, LBS.ByteString)
+imageToEntry text =
+  case decodedM of
+    Left  _ -> ("image.svg", LBS.fromStrict bs)
+    Right x -> ("image.png", LBS.fromStrict  x)
+  where
+    bs       = TE.encodeUtf8 text
+    decodedM = Base64.decode bs
 
 data GalleryJSONable
   = GalleryJSONable
