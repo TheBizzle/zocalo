@@ -212,7 +212,7 @@ withFileUploads f =
 
     readPossibleGZip :: LazyByteString.ByteString -> ByteString
     readPossibleGZip input =
-        if LazyByteString.length (LazyByteString.take (size64MB + 1) decoded) > size64MB then
+        if LazyByteString.length (LazyByteString.take (_64MB + 1) decoded) > _64MB then
           ""
         else
           LazyByteString.toStrict decoded
@@ -223,7 +223,7 @@ withFileUploads f =
             (const input)
             (decompressST gzipFormat defaultDecompressParams)
             input
-        size64MB = 100 * 1024 * 1024
+        _64MB = 64 * 1024 * 1024
 
     handleRead :: PartInfo -> InputStream ByteString -> IO (Text, ByteString)
     handleRead partInfo = storeAsLazyByteString &>= ((processThem extractedKey) &> return)
