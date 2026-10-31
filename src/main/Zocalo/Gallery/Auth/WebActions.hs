@@ -19,7 +19,7 @@ import Zocalo.Gallery.Auth.WebReq(
 
 import Zocalo.Gallery.Database.Database(checkIsOkayOTPRate)
 
-import Zocalo.Gallery.Entity.ActionResult(ActionResult)
+import Zocalo.Gallery.Entity.ActionResult(ActionError(TooManyRequests), ActionResult)
 import Zocalo.Gallery.Entity.LowerText(LowerText)
 
 import Data.ByteString qualified as BS
@@ -30,8 +30,9 @@ sendOTP emailAddr =
     do
       resultV <- checkIsOkayOTPRate emailAddr
       case resultV of
-        Failure x -> return $ Failure x
-        Success _ -> do
+        Failure x     -> return $ Failure x
+        Success False -> return $ Failure TooManyRequests
+        Success  True -> do
           n       <- generate6Digit
           let otp  = Text.justifyRight 6 '0' $ showText n
           void $ sendMail emailAddr "Your Zócalo gallery sign-in code" (body otp) $ plainBody otp

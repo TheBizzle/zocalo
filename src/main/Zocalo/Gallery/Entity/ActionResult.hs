@@ -1,5 +1,7 @@
 module Zocalo.Gallery.Entity.ActionResult(
-    ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
+    ActionError( Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound
+               , TooManyRequests, Unconfirmed
+               )
   , ActionResult
   ) where
 
@@ -14,6 +16,7 @@ data ActionError
   | Malformed
   | NotAuthorized
   | NotFound
+  | TooManyRequests
   | Unconfirmed
   deriving (Show, Eq)
 

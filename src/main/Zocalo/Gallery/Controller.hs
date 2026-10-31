@@ -52,7 +52,9 @@ import Zocalo.Gallery.Database.Database(
   )
 
 import Zocalo.Gallery.Entity.ActionResult(
-    ActionError(Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound, Unconfirmed)
+    ActionError( Duplicate, Expired, Incorrect, InternalError, Malformed, NotAuthorized, NotFound
+               , TooManyRequests, Unconfirmed
+               )
   , ActionResult
   )
 
@@ -516,15 +518,16 @@ handleTeacherSocket teachers = do
               pure ()
 
 whenSuccess :: ActionResult a -> (a -> Snap ()) -> Snap ()
-whenSuccess (Success             x) f = f x
-whenSuccess (Failure     Malformed) _ = failWith 400 $ writeText $ "The supplied data was malformed."
-whenSuccess (Failure NotAuthorized) _ = failWith 401 $ writeText $ "Your request does not have the proper authentication cookies for that."
-whenSuccess (Failure     Incorrect) _ = failWith 401 $ writeText $ "Incorrect passcode"
-whenSuccess (Failure   Unconfirmed) _ = failWith 403 $ writeText $ "This user account has not been confirmed.  Please click the link in the confirmation e-mail and then try again."
-whenSuccess (Failure       Expired) _ = failWith 403 $ writeText $ "Your access to this resource has expired.  Please start over."
-whenSuccess (Failure      NotFound) _ = failWith 404 $ writeText $ "That user does not exist"
-whenSuccess (Failure     Duplicate) _ = failWith 409 $ writeText $ "Something just like that already exists."
-whenSuccess (Failure InternalError) _ = failWith 500 $ writeText $ "Internal error"
+whenSuccess (Success               x) f = f x
+whenSuccess (Failure       Malformed) _ = failWith 400 $ writeText $ "The supplied data was malformed."
+whenSuccess (Failure   NotAuthorized) _ = failWith 401 $ writeText $ "Your request does not have the proper authentication cookies for that."
+whenSuccess (Failure       Incorrect) _ = failWith 401 $ writeText $ "Incorrect passcode"
+whenSuccess (Failure     Unconfirmed) _ = failWith 403 $ writeText $ "This user account has not been confirmed.  Please click the link in the confirmation e-mail and then try again."
+whenSuccess (Failure         Expired) _ = failWith 403 $ writeText $ "Your access to this resource has expired.  Please start over."
+whenSuccess (Failure        NotFound) _ = failWith 404 $ writeText $ "That user does not exist"
+whenSuccess (Failure       Duplicate) _ = failWith 409 $ writeText $ "Something just like that already exists."
+whenSuccess (Failure TooManyRequests) _ = failWith 429 $ writeText $ "Too many requests."
+whenSuccess (Failure   InternalError) _ = failWith 500 $ writeText $ "Internal error"
 
 handleAPIVersion :: Snap ()
 handleAPIVersion = writeText "2.0.0"
