@@ -1,5 +1,7 @@
 {-# LANGUAGE TupleSections #-}
-module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asBytes, asInt, asNanoID, asNonNeg, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, withFileUploads) where
+module Zocalo.Common.SnapHelpers(allowingCORS, Arg(Arg), asBool, asBytes, asInt, asNanoID, asNonNeg, asStudentName, asToken, asUUID, Constraint(Constraint), decodeText, encodeText, failWith, free, getParamV, getParamVM, handle1, handle2, handle3, handle4, handle5, handle6, notEmpty, notifyBadParams, ok, succeed, withFileUploads) where
+
+import Data.Char(isControl)
 
 import Codec.Compression.Zlib.Internal(decompressST, defaultDecompressParams, foldDecompressStreamWithInput, gzipFormat)
 
@@ -168,6 +170,17 @@ asBool = Constraint $ buildConstraint $ Text.toLower &> decoder
     decoder "true"  = Just True
     decoder "false" = Just False
     decoder _       = Nothing
+
+asStudentName :: Constraint Text
+asStudentName = Constraint $ buildConstraint limiter
+  where
+    limiter x =
+        if Text.length name >= 1 && Text.length name <= 60 && not (Text.any isControl name) then
+          Just name
+        else
+          Nothing
+      where
+        name = Text.strip x
 
 asToken :: Constraint SecureToken
 asToken = Constraint $ buildConstraint tokenFromText

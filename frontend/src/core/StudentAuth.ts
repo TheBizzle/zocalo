@@ -11,6 +11,7 @@ let authM:      Auth | null = null;
 let username: string | null = null;
 
 const CLOCK_SKEW_MARGIN_MS = 30_000;
+const MAX_NAME_LENGTH      = 60;
 
 function amLoggedInSimple(): boolean {
   return Date.now() + CLOCK_SKEW_MARGIN_MS < (authM?.expiry ?? -1); // TODO?
@@ -75,6 +76,9 @@ async function getFreshToken(isNameRequired: boolean): Promise<boolean> {
       storeToken(await res.text());
       return true;
     } else {
+      if (res.status === 422) { // Username rejected by server --Jason B. (10/31/26)
+        username = null;
+      }
       const reason = await res.text();
       clearAuth();
       console.error("Complete auth refresh failed:", reason);
@@ -155,18 +159,21 @@ function getStudentName(): string {
 }
 
 function initUsername(externalName: string | null): string {
-  if (username !== null) {
-    username = username;
-  } else if (externalName !== null) {
-    username = externalName;
-  } else {
-    let name = prompt("Please enter your name.");
-    while ((name?.trim().length ?? 0) < 1) {
-      name = prompt("Please enter your name.");
+  username ??= validateName(externalName);
+  if (username === null) {
+    let entered = validateName(prompt("Please enter your name."));
+    while (entered === null) {
+      entered = validateName(prompt(`Please enter a name with no more than ${MAX_NAME_LENGTH} characters.`));
     }
-    username = name ?? "Anonymous and impossible";
+    username = entered;
   }
   return username;
+}
+
+function validateName(rawName: string | null): string | null {
+  const name = rawName?.trim() ?? "";
+  const isOK = name.length > 0 && [...name].length <= MAX_NAME_LENGTH && !/\p{Cc}/u.test(name);
+  return isOK ? name : null;
 }
 
 export { amLoggedIn, authorizedFetch, getAuthToken, getStudentID, getStudentName, initUsername, logout

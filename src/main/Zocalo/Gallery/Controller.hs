@@ -29,8 +29,8 @@ import Zocalo.Common.AppConfig(domain, isHTTPSEnabled)
 import Zocalo.Common.ContentDisposition(mkDispositionHeader)
 
 import Zocalo.Common.SnapHelpers(
-    Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV, getParamVM, handle1
-  , handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
+    Arg(Arg), asBool, asStudentName, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV
+  , getParamVM, handle1, handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
   )
 
 import Zocalo.Gallery.Auth.AuthorizedUser(AuthorizedStudent(studentID), AuthorizedTeacher)
@@ -397,7 +397,7 @@ genRegistrationURL =
 
 handleNewStudent :: Snap ()
 handleNewStudent =
-  handle1 (Arg "username" notEmpty) $ \username ->
+  handle1 (Arg "username" asStudentName) $ \username ->
     do
       accessTokenResult <- issueTotallyNewStudentTokens username
       whenSuccess accessTokenResult $ succeed "text/plain"
