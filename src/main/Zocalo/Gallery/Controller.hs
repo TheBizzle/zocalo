@@ -76,6 +76,7 @@ import Zocalo.Gallery.ZipMaker(makeArchive)
 
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.Map               as Map
+import qualified Data.Text              as Text
 import qualified Data.Text.Encoding     as TextEncoding
 import qualified Text.Read              as TRead
 
@@ -85,8 +86,7 @@ type SocketMap t = TVar (Map UUID t)
 routes :: SocketMap ModeratorClient -> SocketMap ModeratorClient -> SocketMap GalleryObserverClient ->
           [(ByteString, Snap ())]
 routes moderators teachers students =
-    [ ("echo/:param"                                     ,      method POST   handleEchoData)
-    , ("api/version"                                     ,      method GET    handleAPIVersion)
+    [ ("api/version"                                     ,      method GET    handleAPIVersion)
     , ("api/auth/student/fresh-cookies"                  ,      method POST   handleNewStudent)
     , ("api/auth/student/logout"                         ,      method POST   handleStudentLogout)
     , ("api/auth/student/refresh"                        ,      method POST   handleStudentTokenRefresh)
@@ -113,9 +113,15 @@ routes moderators teachers students =
     , ("api/galleries/:nano-id/teacher/moderable/:jwt"   ,                    handleModeratorSocket moderators)
     , ("api/galleries/:nano-id/teacher/submissions/:jwt" ,                    handleTeacherSocket teachers)
     , ("/assets"                                         ,                    serveDirectory "frontend/dist/assets")
-    ]
+    ] <> localhostOnlyRoutes
   where
     wc = withCompression
+
+    localhostOnlyRoutes =
+      if domain == "localhost" || "localhost:" `Text.isPrefixOf` domain then
+        [("echo/:param", method POST handleEchoData)]
+      else
+        []
 
 handleEchoData :: Snap ()
 handleEchoData = handle1 (Arg "param" notEmpty) $ \param -> withFileUploads $ \fileMap -> do
