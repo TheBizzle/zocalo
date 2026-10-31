@@ -332,7 +332,7 @@
           let      filename = `zocalo_${name}.zip`;
           const disposition = response.headers.get("Content-Disposition");
           if (disposition !== null) {
-            const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i) ?? [];
+            const match = disposition.match(/filename\*=(?:UTF-8'')?"?([^";]+)"?/i) ?? [];
             if (match[1] !== undefined) {
               filename = decodeURIComponent(match[1]);
             }

@@ -26,6 +26,8 @@ import System.Random(randomIO)
 
 import Zocalo.Common.AppConfig(domain, isHTTPSEnabled)
 
+import Zocalo.Common.ContentDisposition(mkDispositionHeader)
+
 import Zocalo.Common.SnapHelpers(
     Arg(Arg), asBool, asNanoID, asNonNeg, asToken, encodeText, failWith, free, getParamV, getParamVM, handle1
   , handle2, handle3, notEmpty, notifyBadParams, ok, succeed, withFileUploads
@@ -418,8 +420,9 @@ handleBuildArchive =
         epoch  <- liftIO getPOSIXTime
         result <- liftIO $ makeArchive epoch teacher galleryID
         whenSuccess result $ \(filename, archive) -> do
+          let disposition = mkDispositionHeader $ (TextEncoding.decodeUtf8 filename) <> ".zip"
           modifyResponse $ setContentType "application/zip"
-          modifyResponse $ setHeader "Content-Disposition" $ "attachment; filename=\"" <> filename <> ".zip\""
+          modifyResponse $ setHeader "Content-Disposition" disposition
           writeLBS archive
 
 handleModeratorSocket :: TVar (Map UUID ModeratorClient) -> Snap ()
