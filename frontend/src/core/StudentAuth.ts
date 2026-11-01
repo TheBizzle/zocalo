@@ -49,15 +49,23 @@ async function logout():  Promise<void> {
 }
 
 async function getAuthorized(): Promise<boolean> {
-  const hadRefreshCookie = await refreshAuth();
-  return hadRefreshCookie ? hadRefreshCookie : getFreshToken(false);
+  async function helper(): Promise<boolean> {
+    if (amLoggedInSimple()) {
+      return true;
+    } else {
+      const hadRefreshCookie = await refreshAuth();
+      return hadRefreshCookie ? hadRefreshCookie : getFreshToken(false);
+    }
+  }
+  return exclusively("zocalo-student-auth", helper);
 }
 
 async function getFreshToken(isNameRequired: boolean): Promise<boolean> {
 
   if (!isNameRequired) {
 
-    const res = await fetch("/api/auth/student/refresh", { method: "POST" , credentials: "include" });
+    const url = "/api/auth/student/refresh";
+    const res = await fetch(url, { method: "POST" , credentials: "include" });
 
     if (res.ok) {
       storeToken(await res.text());
@@ -174,6 +182,11 @@ function validateName(rawName: string | null): string | null {
   const name = rawName?.trim() ?? "";
   const isOK = name.length > 0 && [...name].length <= MAX_NAME_LENGTH && !/\p{Cc}/u.test(name);
   return isOK ? name : null;
+}
+
+async function exclusively<T>(name: string, task: () => Promise<T>): Promise<T> {
+  const locks = (navigator as { locks?: LockManager }).locks;
+  return (locks === undefined) ? task() : locks.request(name, async () => task());
 }
 
 export { amLoggedIn, authorizedFetch, getAuthToken, getStudentID, getStudentName, initUsername, logout

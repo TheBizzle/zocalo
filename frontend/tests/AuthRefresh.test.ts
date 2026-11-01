@@ -14,12 +14,12 @@ describe("StudentAuth: refresh behaviour", () => {
 
   afterEach(() => { vi.unstubAllGlobals(); });
 
-  // KNOWN BUG (StudentAuth.ts): nothing de-duplicates in-flight refreshes. The server stores exactly one refresh-token
-  // hash per student and rotates it on every refresh, so when two components ask for a token at the same time, the
-  // second request is sent with a cookie the server has just invalidated, which falls through to "fresh-cookies" and
-  // silently creates a brand-new student identity. `it.fails` passes while the bug exists; change to `it` once fixed.
-  it.fails("makes only one refresh request when several callers ask for a token at once", async () => {
+  // The server keeps one refresh-token hash per student and rotates it on every refresh, so overlapping refreshes make
+  // the later ones fail and fall through to "fresh-cookies", silently creating a brand-new student identity.
+  it("makes only one refresh request when several callers ask for a token at once", async () => {
+
     let refreshCalls = 0;
+
     vi.stubGlobal("fetch", vi.fn((url: string) => {
       if (url.startsWith("/api/auth/student/refresh")) {
         refreshCalls += 1;
@@ -27,11 +27,25 @@ describe("StudentAuth: refresh behaviour", () => {
       }
       return Promise.resolve(new Response("unexpected", { status: 500 }));
     }));
+
+    const chains = new Map<string, Promise<unknown>>();
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: (name: string, cb: () => Promise<unknown>) => {
+          const prev = chains.get(name) ?? Promise.resolve();
+          const run = prev.then(cb, cb);
+          chains.set(name, run.catch(() => {}));
+          return run;
+        }
+      }
+    });
+
     vi.resetModules();
     const auth = await import("@/core/StudentAuth.ts");
 
     await Promise.all([auth.getAuthToken(), auth.getAuthToken(), auth.getAuthToken()]);
     expect(refreshCalls).toBe(1);
+
   });
 
   it("falls back to creating a fresh student (with the prompted name) when the refresh cookie is rejected", async () => {
