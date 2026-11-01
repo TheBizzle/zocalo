@@ -36,7 +36,7 @@ import Data.Time.Clock.POSIX(utcTimeToPOSIXSeconds)
 import Database.Persist(
     (+=.), (<.), (=.), (==.), (>=.), count, deleteWhere, Entity(Entity, entityKey, entityVal), get, getBy
   , insert, insertEntity, insertUnique, Key, PersistEntity, PersistEntityBackend, selectFirst, selectList
-  , SelectOpt(Asc), Unique, update, updateGet, updateWhere, upsert
+  , SelectOpt(Asc, Desc), Unique, update, updateGet, updateWhere, upsert
   )
 
 import Database.Persist.Postgresql(runMigration, runSqlPersistMPool, SqlBackend, withPostgresqlPool)
@@ -186,22 +186,25 @@ readGalleryListings teacher =
       rows     <- withDB $ selectList [GalleryDBOwnerID ==. teacherID] [Asc GalleryDBDateAdded]
       listings <- flip mapM rows $ \(Entity subID (GalleryDB _ name template _ rawNID isPre _ desc cDate)) -> withDB $ do
         waitingCount <- count [SubmissionDBGalleryID ==. subID, SubmissionDBIsAwaitingModeration ==. True]
-        rows         <- selectList [ SubmissionDBGalleryID            ==. subID
-                                   , SubmissionDBIsAwaitingModeration ==. False
-                                   , SubmissionDBIsForbidden          ==. False
-                                   , SubmissionDBIsSuppressed         ==. False
-                                   ] [Asc SubmissionDBDateAdded]
-        let uploads     = map entityVal rows
-        let numApproved = length uploads
+
+        let approvalCriteria =
+              [ SubmissionDBGalleryID            ==. subID
+              , SubmissionDBIsAwaitingModeration ==. False
+              , SubmissionDBIsForbidden          ==. False
+              , SubmissionDBIsSuppressed         ==. False
+              ]
+
+        approvedCount  <- count approvalCriteria
+        latestApproved <- selectFirst approvalCriteria [Desc SubmissionDBDateAdded]
+
+        let numApproved = fromIntegral approvedCount
         let numWaiting  = fromIntegral waitingCount
         let nid         = NanoID $ TE.encodeUtf8 rawNID
         let cTime       = asPOSIX cDate
-        let lTime       = getMax cTime uploads
+        let lTime       = maybe cTime (entityVal &> submissionDBDateAdded &> asPOSIX) latestApproved
+
         return $ GalleryListing nid name template desc isPre numWaiting numApproved cTime lTime
       return $ Success listings
-  where
-    getMax initTime = (map extractSubDateAdded) >>> (foldr chooseLater initTime)
-    chooseLater a b = if a < b then b else a
 
 readGalleryForSave :: AuthorizedTeacher -> NanoID -> IO (ActionResult GallerySavable)
 readGalleryForSave (ATeacher emailAddr) nanoID =
@@ -682,9 +685,6 @@ extractStudentID (SubmissionDB _ _ authorID _ _ _ _ _ _) = fromIntegral $ fromSq
 
 extractData :: SubmissionDB -> Text
 extractData (SubmissionDB _ _ _ _ _ _ _ extraData _) = extraData
-
-extractSubDateAdded :: SubmissionDB -> Integer
-extractSubDateAdded (SubmissionDB _ _ _ _ _ _ _ _ dateAdded) = asPOSIX dateAdded
 
 hasPublicVisibility :: SubmissionDB -> Bool
 hasPublicVisibility (SubmissionDB _ _ _ isSuppressed isForbidden isAwaitingModeration _ _ _) =
